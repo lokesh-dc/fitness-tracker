@@ -1,75 +1,111 @@
 "use client";
 
+import { useState } from "react";
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Area,
+  AreaChart,
 } from "recharts";
+import { GlassCard } from "./ui/GlassCard";
+import { format, subDays, isAfter, parseISO } from "date-fns";
+import { cn } from "@/lib/utils";
+
+import { WeightTrendData } from "@/types/workout";
 
 interface WeightTrendChartProps {
-  data: Array<{ date: string | Date; bodyWeight: number | null }>;
+  data: WeightTrendData[];
 }
 
 export default function WeightTrendChart({ data }: WeightTrendChartProps) {
-  const formattedData = data.map((d) => ({
-    date: new Date(d.date).toLocaleDateString(),
-    weight: d.bodyWeight,
-  }));
+  const [range, setRange] = useState<"7d" | "30d" | "all">("7d");
 
-  if (formattedData.length === 0) {
-    return (
-      <div className="h-64 flex items-center justify-center border-2 border-dashed rounded-lg text-gray-400">
-        No weight data recorded yet.
-      </div>
-    );
-  }
+  const filteredData = data.filter((item) => {
+    const date = parseISO(item.date);
+    if (range === "7d") return isAfter(date, subDays(new Date(), 7));
+    if (range === "30d") return isAfter(date, subDays(new Date(), 30));
+    return true;
+  });
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="glass p-3 border-white/10 rounded-xl shadow-xl">
+          <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">
+            {format(parseISO(label), "MMM d, yyyy")}
+          </p>
+          <p className="text-sm font-bold text-orange-500">
+            {payload[0].value} <span className="text-[10px] text-white/60">KG</span>
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow-sm border">
-      <h3 className="text-lg font-semibold mb-6">Body Weight Trend</h3>
-      <div className="h-64 w-full">
+    <GlassCard className="h-[400px] flex flex-col">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-lg font-black text-white tracking-tight">Weight Trend</h2>
+          <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Progress tracking</p>
+        </div>
+        <div className="flex bg-white/5 p-1 rounded-xl border border-white/5">
+          {(["7d", "30d", "all"] as const).map((r) => (
+            <button
+              key={r}
+              onClick={() => setRange(r)}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tighter transition-all",
+                range === r 
+                  ? "bg-orange-500 text-black shadow-lg" 
+                  : "text-white/40 hover:text-white"
+              )}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex-1 w-full -ml-4">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={formattedData}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-            <XAxis
-              dataKey="date"
+          <AreaChart data={filteredData}>
+            <defs>
+              <linearGradient id="colorWeight" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#f97316" stopOpacity={0.3}/>
+                <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
+            <XAxis 
+              dataKey="date" 
               axisLine={false}
               tickLine={false}
-              tick={{ fontSize: 12, fill: "#9ca3af" }}
-              dy={10}
+              tick={{ fill: 'rgba(255,255,255,0.2)', fontSize: 10, fontWeight: 700 }}
+              tickFormatter={(str) => format(parseISO(str), "MMM d")}
+              minTickGap={30}
             />
-            <YAxis
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 12, fill: "#9ca3af" }}
-              domain={["auto", "auto"]}
+            <YAxis 
+              hide
+              domain={['dataMin - 2', 'dataMax + 2']}
             />
-            <Tooltip
-              contentStyle={{
-                borderRadius: "8px",
-                border: "none",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-              }}
-            />
-            <Line
-              type="monotone"
-              dataKey="weight"
-              stroke="#2563eb"
+            <Tooltip content={<CustomTooltip />} />
+            <Area 
+              type="monotone" 
+              dataKey="bodyWeight" 
+              stroke="#f97316" 
               strokeWidth={3}
-              dot={{ r: 4, fill: "#2563eb", strokeWidth: 2, stroke: "#fff" }}
-              activeDot={{ r: 6, strokeWidth: 0 }}
+              fillOpacity={1} 
+              fill="url(#colorWeight)" 
+              animationDuration={1500}
             />
-          </LineChart>
+          </AreaChart>
         </ResponsiveContainer>
       </div>
-      <div className="mt-4 flex justify-end space-x-2">
-        <button className="px-3 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-600">Daily</button>
-        <button className="px-3 py-1 text-xs font-medium rounded-full text-gray-500 hover:bg-gray-100">Monthly</button>
-      </div>
-    </div>
+    </GlassCard>
   );
 }
