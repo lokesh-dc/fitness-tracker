@@ -8,15 +8,12 @@ import { format } from "date-fns";
 
 export const dynamic = "force-dynamic";
 
-// Mock user ID for demonstration
-const MOCK_USER_ID = "65e6d6b8b8b8b8b8b8b8b8b8";
-
 export default async function Home() {
   let plan = null;
   let error = null;
 
   try {
-    plan = await getTodayPlan(MOCK_USER_ID);
+    plan = await getTodayPlan();
   } catch (e) {
     console.error("Error loading home page data:", e);
     error = "Failed to load workout data.";

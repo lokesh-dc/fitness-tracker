@@ -10,11 +10,10 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 
 interface WorkoutSessionProps {
-  userId: string;
   template: WorkoutTemplate | null;
 }
 
-export default function WorkoutSession({ userId, template }: WorkoutSessionProps) {
+export default function WorkoutSession({ template }: WorkoutSessionProps) {
   const [exercises, setExercises] = useState<Exercise[]>(
     template?.exercises.map((ex) => ({
       ...ex,
@@ -30,7 +29,7 @@ export default function WorkoutSession({ userId, template }: WorkoutSessionProps
   useEffect(() => {
     if (template) {
       template.exercises.forEach(async (ex, index) => {
-        const pr = await getHighestWeightPR(userId, ex.name);
+        const pr = await getHighestWeightPR(ex.name);
         setExercises((prev) => {
           const newExs = [...prev];
           newExs[index] = { ...newExs[index], pr };
@@ -38,7 +37,7 @@ export default function WorkoutSession({ userId, template }: WorkoutSessionProps
         });
       });
     }
-  }, [template, userId]);
+  }, [template]);
 
   const addSet = (exerciseIndex: number) => {
     setExercises((prev) => {
@@ -70,7 +69,7 @@ export default function WorkoutSession({ userId, template }: WorkoutSessionProps
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      await saveWorkoutSession(userId, { bodyWeight, exercises }, updateTemplate);
+      await saveWorkoutSession({ bodyWeight, exercises }, updateTemplate);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (error) {

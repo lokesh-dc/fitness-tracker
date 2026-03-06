@@ -1,23 +1,26 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-primary: #f97316; /* Orange 500 */
-  --color-brand-secondary: #ea580c; /* Orange 600 */
-  --color-brand-dark: #9a3412; /* Orange 900 */
+  --color-brand-primary: #f97316;
+  /* Orange 500 */
+  --color-brand-secondary: #ea580c;
+  /* Orange 600 */
+  --color-brand-dark: #9a3412;
+  /* Orange 900 */
   --color-brand-bg: #000000;
-  
+
   --radius-xl: 1rem;
   --radius-2xl: 1.5rem;
-  
+
   --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
 }
 
 :root {
-  --background: #000000;
-  --foreground: #ffffff;
+  --background: #222222;
+  --foreground: #EAEFEF;
   --glass-bg: rgba(255, 255, 255, 0.03);
   --glass-border: rgba(255, 255, 255, 0.1);
-  --accent: #f97316;
+  --accent: #FF9B51;
 }
 
 body {
@@ -28,7 +31,7 @@ body {
   background-attachment: fixed;
   /* subtle orange glow instead of teal */
   background-image: radial-gradient(circle at 50% 0%, #f9731610 0%, transparent 50%),
-                    radial-gradient(circle at 100% 100%, #000000 0%, transparent 50%);
+    radial-gradient(circle at 100% 100%, #000000 0%, transparent 50%);
 }
 
 @utility glass {
@@ -85,13 +88,16 @@ body {
 ::-webkit-scrollbar {
   width: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--glass-border);
   border-radius: 3px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent);
 }

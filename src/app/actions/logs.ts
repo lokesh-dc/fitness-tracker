@@ -4,9 +4,10 @@ import { ObjectId } from "mongodb";
 import { revalidatePath } from "next/cache";
 import { getDb, getCurrentDayOfWeek, getCurrentWeekIndex } from "@/lib/db-utils";
 import { WorkoutLog, Exercise } from "@/types/workout";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function saveWorkoutSession(
-  userId: string,
   data: {
     bodyWeight?: number;
     exercises: Array<{
@@ -18,6 +19,10 @@ export async function saveWorkoutSession(
   updateTemplate: boolean
 ): Promise<WorkoutLog> {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) throw new Error("Unauthorized");
+    const userId = (session.user as any).id;
+
     const db = await getDb();
     
     const logData = {

@@ -3,9 +3,15 @@
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/db-utils";
 import { Exercise, WeightTrendData } from "@/types/workout";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
-export async function getHighestWeightPR(userId: string, exerciseName: string): Promise<number> {
+export async function getHighestWeightPR(exerciseName: string): Promise<number> {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return 0;
+    const userId = (session.user as any).id;
+
     const db = await getDb();
     const logs = await db.collection("WorkoutLog").find({
       userId: new ObjectId(userId),
@@ -32,8 +38,12 @@ export async function getHighestWeightPR(userId: string, exerciseName: string): 
   }
 }
 
-export async function getBodyWeightTrend(userId: string): Promise<WeightTrendData[]> {
+export async function getBodyWeightTrend(): Promise<WeightTrendData[]> {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return [];
+    const userId = (session.user as any).id;
+
     const db = await getDb();
     const logs = await db.collection("WorkoutLog").find({
       userId: new ObjectId(userId),

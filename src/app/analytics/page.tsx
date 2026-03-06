@@ -6,10 +6,8 @@ import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-const MOCK_USER_ID = "65e6d6b8b8b8b8b8b8b8b8b8";
-
 export default async function AnalyticsPage() {
-  const weightTrend = await getBodyWeightTrend(MOCK_USER_ID);
+  const weightTrend = await getBodyWeightTrend();
   
   // Mock some PRs for the UI
   const prs = [
