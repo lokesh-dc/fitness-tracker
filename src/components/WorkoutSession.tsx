@@ -84,41 +84,38 @@ export default function WorkoutSession({ template }: WorkoutSessionProps) {
 
   return (
     <div className="max-w-3xl mx-auto space-y-8 pb-32">
-      {/* Header */}
       <div className="flex justify-between items-center">
-        <Link href="/" className="glass-button w-10 h-10 rounded-xl border-white/10">
-          <ChevronLeft className="w-5 h-5 text-white" />
+        <Link href="/" className="glass-button w-10 h-10 rounded-xl border-foreground/10">
+          <ChevronLeft className="w-5 h-5 text-foreground" />
         </Link>
         <div className="text-center">
-          <h1 className="text-xl font-black text-white uppercase tracking-wider">Session</h1>
-          <p className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em]">Week {template.weekNumber} • Day {template.dayOfWeek}</p>
+          <h1 className="text-xl font-black text-foreground uppercase tracking-wider">Session</h1>
+          <p className="text-[10px] font-bold text-foreground/40 uppercase tracking-[0.2em]">Week {template.weekNumber} • Day {template.dayOfWeek}</p>
         </div>
-        <div className="w-10 h-10" /> {/* Spacer */}
+        <div className="w-10 h-10" />
       </div>
 
-      {/* Body Weight Input */}
       <GlassCard className="flex items-center justify-between py-4">
-        <span className="text-sm font-bold text-white uppercase tracking-widest">Body Weight</span>
+        <span className="text-sm font-bold text-foreground uppercase tracking-widest">Body Weight</span>
         <div className="flex items-center space-x-2">
           <input
             type="number"
             value={bodyWeight || ""}
             placeholder="0.0"
             onChange={(e) => setBodyWeight(Number(e.target.value))}
-            className="w-20 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-right font-bold text-orange-500 outline-none focus:border-orange-500/50 transition-colors"
+            className="w-20 bg-foreground/5 border border-foreground/10 rounded-lg px-3 py-2 text-right font-bold text-orange-500 outline-none focus:border-orange-500/50 transition-colors"
           />
-          <span className="text-xs font-bold text-white/40 uppercase">KG</span>
+          <span className="text-xs font-bold text-foreground/40 uppercase">KG</span>
         </div>
       </GlassCard>
 
-      {/* Exercises */}
       <div className="space-y-6">
         {exercises.map((ex, exIndex) => (
           <GlassCard key={ex.exerciseId} className="space-y-6">
             <div className="flex justify-between items-start">
               <div>
-                <h2 className="text-lg font-black text-white tracking-tight">{ex.name}</h2>
-                <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Target: {ex.targetSets} Sets • {ex.targetReps} Reps</p>
+                <h2 className="text-lg font-black text-foreground tracking-tight">{ex.name}</h2>
+                <p className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest">Target: {ex.targetSets} Sets • {ex.targetReps} Reps</p>
               </div>
               {ex.pr && ex.pr > 0 && (
                 <div className="flex items-center bg-orange-500/10 border border-orange-500/20 px-2 py-1 rounded-lg">
@@ -129,7 +126,7 @@ export default function WorkoutSession({ template }: WorkoutSessionProps) {
             </div>
 
             <div className="space-y-3">
-              <div className="grid grid-cols-12 gap-4 text-[10px] font-black text-white/20 uppercase tracking-[0.2em] px-2">
+              <div className="grid grid-cols-12 gap-4 text-[10px] font-black text-foreground/20 uppercase tracking-[0.2em] px-2">
                 <div className="col-span-1">Set</div>
                 <div className="col-span-5 text-center">Weight</div>
                 <div className="col-span-5 text-center">Reps</div>
@@ -138,13 +135,13 @@ export default function WorkoutSession({ template }: WorkoutSessionProps) {
 
               {ex.sets.map((set, setIndex) => (
                 <div key={setIndex} className="grid grid-cols-12 gap-3 items-center group">
-                  <div className="col-span-1 text-xs font-black text-white/40">{setIndex + 1}</div>
+                  <div className="col-span-1 text-xs font-black text-foreground/40">{setIndex + 1}</div>
                   <div className="col-span-5">
                     <input
                       type="number"
                       value={set.weight || ""}
                       onChange={(e) => updateSet(exIndex, setIndex, "weight", Number(e.target.value))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-center font-bold text-white outline-none focus:bg-white/10 focus:border-orange-500/50 transition-all"
+                      className="w-full bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-3 text-center font-bold text-foreground outline-none focus:bg-foreground/10 focus:border-orange-500/50 transition-all"
                     />
                   </div>
                   <div className="col-span-5">
@@ -152,13 +149,13 @@ export default function WorkoutSession({ template }: WorkoutSessionProps) {
                       type="number"
                       value={set.reps || ""}
                       onChange={(e) => updateSet(exIndex, setIndex, "reps", Number(e.target.value))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-center font-bold text-white outline-none focus:bg-white/10 focus:border-orange-500/50 transition-all"
+                      className="w-full bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-3 text-center font-bold text-foreground outline-none focus:bg-foreground/10 focus:border-orange-500/50 transition-all"
                     />
                   </div>
                   <div className="col-span-1 flex justify-center">
                     <button
                       onClick={() => removeSet(exIndex, setIndex)}
-                      className="p-2 text-white/20 hover:text-rose-500 transition-colors"
+                      className="p-2 text-foreground/20 hover:text-rose-500 transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -169,7 +166,7 @@ export default function WorkoutSession({ template }: WorkoutSessionProps) {
 
             <button
               onClick={() => addSet(exIndex)}
-              className="w-full py-3 rounded-xl border border-dashed border-white/10 text-white/40 hover:text-white hover:bg-white/5 hover:border-white/20 transition-all flex items-center justify-center text-[10px] font-black uppercase tracking-widest"
+              className="w-full py-3 rounded-xl border border-dashed border-foreground/10 text-foreground/40 hover:text-foreground hover:bg-foreground/5 hover:border-foreground/20 transition-all flex items-center justify-center text-[10px] font-black uppercase tracking-widest"
             >
               <Plus className="w-3 h-3 mr-2" /> Add Set
             </button>
@@ -177,15 +174,14 @@ export default function WorkoutSession({ template }: WorkoutSessionProps) {
         ))}
       </div>
 
-      {/* Floating Action Bar */}
-      <div className="fixed bottom-0 left-0 right-0 p-6 md:pl-24">
-        <GlassCard className="max-w-3xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 py-4 md:py-3 shadow-[0_-20px_40px_rgba(0,0,0,0.4)] border-white/10">
+      <div className="fixed bottom-0 left-0 right-0 p-6 md:pl-32">
+        <GlassCard className="max-w-3xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 py-4 md:py-3 shadow-[0_-20px_40px_rgba(0,0,0,0.1)] border-foreground/10">
           <div className="flex items-center space-x-3">
             <div 
               onClick={() => setUpdateTemplate(!updateTemplate)}
               className={cn(
                 "w-10 h-6 rounded-full relative cursor-pointer transition-colors duration-300",
-                updateTemplate ? "bg-orange-500" : "bg-white/10 border border-white/10"
+                updateTemplate ? "bg-orange-500" : "bg-foreground/10 border border-foreground/10"
               )}
             >
               <div className={cn(
@@ -193,9 +189,9 @@ export default function WorkoutSession({ template }: WorkoutSessionProps) {
                 updateTemplate ? "right-1" : "left-1"
               )} />
             </div>
-            <div className="flex flex-col">
-              <span className="text-[10px] font-black text-white uppercase tracking-wider">Update Master Plan?</span>
-              <span className="text-[8px] font-bold text-white/40 uppercase">Saves weights for next week</span>
+            <div className="flex flex-col text-left">
+              <span className="text-[10px] font-black text-foreground uppercase tracking-wider">Update Master Plan?</span>
+              <span className="text-[8px] font-bold text-foreground/40 uppercase">Saves weights for next week</span>
             </div>
           </div>
 
