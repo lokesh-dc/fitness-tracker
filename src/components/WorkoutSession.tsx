@@ -9,6 +9,8 @@ import { GlassCard } from "./ui/GlassCard";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
 interface WorkoutSessionProps {
   template: WorkoutTemplate | null;
 }
@@ -89,8 +91,10 @@ export default function WorkoutSession({ template }: WorkoutSessionProps) {
           <ChevronLeft className="w-5 h-5 text-foreground" />
         </Link>
         <div className="text-center">
-          <h1 className="text-xl font-black text-foreground uppercase tracking-wider">Session</h1>
-          <p className="text-[10px] font-bold text-foreground/40 uppercase tracking-[0.2em]">Week {template.weekNumber} • Day {template.dayOfWeek}</p>
+          <h1 className="text-xl font-black text-foreground uppercase tracking-wider">
+            {(template as any).splitName || "Session"}
+          </h1>
+          <p className="text-[10px] font-bold text-foreground/40 uppercase tracking-[0.2em]">Week {template.weekNumber} • {DAYS[template.dayOfWeek]}</p>
         </div>
         <div className="w-10 h-10" />
       </div>

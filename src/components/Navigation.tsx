@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, BarChart2, User, Dumbbell } from "lucide-react";
+import { LayoutDashboard, BarChart2, User, Dumbbell, CalendarRange } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function Navigation() {
@@ -13,6 +13,7 @@ export function Navigation() {
 
   const navItems = [
     { href: "/", icon: LayoutDashboard, label: "Home" },
+    { href: "/plan", icon: CalendarRange, label: "Plan" },
     { href: "/analytics", icon: BarChart2, label: "Stats" },
     { href: "/profile", icon: User, label: "Profile" },
   ];

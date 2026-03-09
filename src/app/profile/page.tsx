@@ -76,10 +76,10 @@ export default function ProfilePage() {
                     </div>
                     <div>
                       <p className="text-sm font-bold text-foreground">{item.label}</p>
-                      {item.value && <p className="text-[10px] text-foreground/40 font-medium">{item.value}</p>}
+                      {'value' in item && item.value && <p className="text-[10px] text-foreground/40 font-medium">{item.value}</p>}
                     </div>
                   </div>
-                  {item.toggle ? (
+                  {'toggle' in item && item.toggle ? (
                     <div className="w-10 h-6 rounded-full bg-orange-500/20 border border-orange-500/30 relative">
                       <div className="absolute right-1 top-1 w-4 h-4 bg-orange-500 rounded-full" />
                     </div>

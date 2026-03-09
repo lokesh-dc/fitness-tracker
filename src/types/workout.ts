@@ -3,21 +3,41 @@ export interface SetLog {
   reps: number;
 }
 
+export interface ExerciseDefinition {
+  id?: string;
+  name: string;
+  muscleGroup: string;
+  unit: 'reps' | 'steps' | 'secs' | 'mins';
+  isCustom?: boolean;
+}
+
 export interface Exercise {
   exerciseId: string;
   name: string;
   targetSets: number;
   targetReps: number;
+  unit?: 'reps' | 'steps' | 'secs' | 'mins'; // To handle legacy data where this is missing, mark as optional
   lastWeight?: number;
   sets: SetLog[];
   pr?: number;
 }
 
+export interface PlanDocument {
+  id: string;
+  userId: string;
+  name?: string;
+  startDate: string;
+  numWeeks: number;
+  createdAt: string | Date;
+}
+
 export interface WorkoutTemplate {
   id: string;
   userId: string;
+  planId: string;
   weekNumber: number;
   dayOfWeek: number;
+  splitName?: string;
   exercises: Exercise[];
 }
 

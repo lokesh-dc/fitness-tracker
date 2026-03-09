@@ -1,60 +1,40 @@
-import { MongoClient, ObjectId } from "mongodb";
+import { loadEnvConfig } from "@next/env";
+loadEnvConfig(process.cwd());
+
+import { MongoClient } from "mongodb";
 
 const uri = process.env.DATABASE_URL || "mongodb://localhost:27017/fitness-tracker";
-const MOCK_USER_ID = "65e6d6b8b8b8b8b8b8b8b8b8";
+
+const EXERCISE_LIST = {
+  "Chest": ["Bench Press (Barbell)", "Incline Bench Press (Barbell)", "Dumbbell Flyes", "Push-ups", "Chest Press (Machine)"],
+  "Back": ["Pull-ups", "Lat Pulldown", "Bent Over Row (Barbell)", "Seated Cable Row", "Deadlift", "Single Arm Dumbbell Row"],
+  "Shoulders": ["Overhead Press (Barbell)", "Dumbbell Lateral Raise", "Front Raise", "Face Pulls", "Shoulder Press (Machine)"],
+  "Legs": ["Squat (Barbell)", "Leg Press", "Leg Extension", "Leg Curl", "Lunges", "Calf Raise"],
+  "Arms": ["Bicep Curl (Dumbbell)", "Hammer Curl", "Tricep Pushdown", "Skullcrushers", "Preacher Curl"],
+  "Core": ["Plank", "Crunches", "Leg Raise", "Russian Twist"],
+  "Cardio": ["Running", "Cycling", "Swimming", "Jump Rope"]
+};
 
 async function seed() {
   const client = new MongoClient(uri);
   try {
     await client.connect();
-    const db = client.db();
-
-    console.log("Seeding WorkoutTemplate...");
-    await db.collection("WorkoutTemplate").deleteMany({ userId: new ObjectId(MOCK_USER_ID) });
-    
-    const templates = [];
-    const days = [1, 2, 3, 4, 5]; // Mon-Fri
-    const exercises = [
-      { exerciseId: "1", name: "Bench Press", targetSets: 4, targetReps: 10, lastWeight: 80 },
-      { exerciseId: "2", name: "Overhead Press", targetSets: 3, targetReps: 12, lastWeight: 50 },
-      { exerciseId: "3", name: "Lateral Raises", targetSets: 4, targetReps: 15, lastWeight: 12 },
-    ];
-
-    for (const day of days) {
-      templates.push({
-        userId: new ObjectId(MOCK_USER_ID),
-        weekNumber: 1,
-        dayOfWeek: day,
-        exercises: exercises.map((ex, i) => ({
-          ...ex,
-          exerciseId: `${day}-${i}`
-        })),
-        createdAt: new Date(),
-      });
+    const db = client.db()
+    console.log("Seeding Exercises...");
+    await db.collection("Exercises").deleteMany({}); // Start fresh
+    const dbExercises = [];
+    for (const [muscleGroup, exerciseNames] of Object.entries(EXERCISE_LIST)) {
+      for (const name of exerciseNames) {
+        dbExercises.push({
+          name,
+          muscleGroup,
+          unit: "reps", // Default unit
+          isCustom: false,
+          createdAt: new Date(),
+        });
+      }
     }
-
-    await db.collection("WorkoutTemplate").insertMany(templates);
-
-    console.log("Seeding WorkoutLog...");
-    await db.collection("WorkoutLog").deleteMany({ userId: new ObjectId(MOCK_USER_ID) });
-    
-    const logs = [];
-    for (let i = 0; i < 30; i++) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      logs.push({
-        userId: new ObjectId(MOCK_USER_ID),
-        date: date,
-        bodyWeight: 85 - (i * 0.1) + (Math.random() * 0.5),
-        exercises: exercises.map(ex => ({
-          ...ex,
-          sets: [{ weight: ex.lastWeight + (Math.random() * 5), reps: 10 }]
-        })),
-        createdAt: new Date(),
-      });
-    }
-
-    await db.collection("WorkoutLog").insertMany(logs);
+    await db.collection("Exercises").insertMany(dbExercises);
 
     console.log("Seed successful!");
   } catch (err) {
