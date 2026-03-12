@@ -25,6 +25,8 @@ export default function SignIn() {
       redirect: false,
     });
 
+    console.log({ res })
+
     if (res?.error) {
       setError("Invalid credentials. Try again.");
       setLoading(false);
