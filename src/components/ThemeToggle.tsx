@@ -15,14 +15,14 @@ export function ThemeToggle() {
 
   if (!mounted) {
     return (
-      <div className="w-10 h-10 glass rounded-xl" />
+      <div className="w-12 h-12 glass rounded-2xl" />
     );
   }
 
   return (
     <button
       onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-      className="glass-button w-10 h-10 rounded-xl border-white/10 hover:border-orange-500 transition-all duration-300 group"
+      className="glass-button w-12 h-12 rounded-2xl border-foreground/10 hover:border-orange-500 transition-all duration-300 group"
       aria-label="Toggle Theme"
     >
       {theme === "dark" ? (
