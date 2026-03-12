@@ -196,20 +196,10 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-32 px-4">
-      {/* Header */}
+    <div className="space-y-8 pb-32">
+      {/* Step Header */}
       <div className="flex justify-between items-center">
-        <button 
-          onClick={() => editPlanId ? router.push(`/plan/${editPlanId}`) : router.push("/plan")}
-          className="glass-button w-10 h-10 rounded-xl border-foreground/10 flex items-center justify-center hover:bg-foreground/5 transition-colors"
-        >
-          <ChevronLeft className="w-5 h-5 text-foreground" />
-        </button>
-        <div className="text-center">
-          <h1 className="text-xl font-black text-foreground uppercase tracking-wider">{editPlanId ? "Edit Plan" : "Plan Wizard"}</h1>
-          <p className="text-[10px] font-bold text-foreground/40 uppercase tracking-[0.2em]">Step {step === "config" ? "1" : step === "days" ? "2" : "3"} of 3</p>
-        </div>
-        <div className="w-10 h-10" />
+        <p className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em]">Step {step === "config" ? "1" : step === "days" ? "2" : "3"} of 3</p>
       </div>
 
       {/* Step 1: Configuration */}

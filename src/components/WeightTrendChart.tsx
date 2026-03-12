@@ -50,7 +50,7 @@ export default function WeightTrendChart({ data }: WeightTrendChartProps) {
     <GlassCard className="h-[400px] flex flex-col">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-lg font-black text-white tracking-tight">Weight Trend</h2>
+          <h2 className="text-lg font-black tracking-tight">Weight Trend</h2>
           <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Progress tracking</p>
         </div>
         <div className="flex bg-white/5 p-1 rounded-xl border border-white/5">
@@ -60,8 +60,8 @@ export default function WeightTrendChart({ data }: WeightTrendChartProps) {
               onClick={() => setRange(r)}
               className={cn(
                 "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tighter transition-all",
-                range === r 
-                  ? "bg-orange-500 text-black shadow-lg" 
+                range === r
+                  ? "bg-orange-500 text-black shadow-lg"
                   : "text-white/40 hover:text-white"
               )}
             >
@@ -76,31 +76,30 @@ export default function WeightTrendChart({ data }: WeightTrendChartProps) {
           <AreaChart data={filteredData}>
             <defs>
               <linearGradient id="colorWeight" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#f97316" stopOpacity={0.3}/>
-                <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
+                <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
-            <XAxis 
-              dataKey="date" 
+            <XAxis
+              dataKey="date"
               axisLine={false}
               tickLine={false}
               tick={{ fill: 'rgba(255,255,255,0.2)', fontSize: 10, fontWeight: 700 }}
               tickFormatter={(str) => format(parseISO(str), "MMM d")}
               minTickGap={30}
             />
-            <YAxis 
-              hide
+            <YAxis
               domain={['dataMin - 2', 'dataMax + 2']}
             />
             <Tooltip content={<CustomTooltip />} />
-            <Area 
-              type="monotone" 
-              dataKey="bodyWeight" 
-              stroke="#f97316" 
+            <Area
+              type="monotone"
+              dataKey="bodyWeight"
+              stroke="#f97316"
               strokeWidth={3}
-              fillOpacity={1} 
-              fill="url(#colorWeight)" 
+              fillOpacity={1}
+              fill="url(#colorWeight)"
               animationDuration={1500}
             />
           </AreaChart>

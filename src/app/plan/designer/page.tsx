@@ -1,6 +1,7 @@
 import { PlanDesigner } from "@/components/PlanDesigner";
 import { getPlanDetails } from "@/app/actions/plan";
 import { getExercises } from "@/app/actions/exercises";
+import { Header } from "@/components/Header";
 
 export default async function DesignerPage({
 	searchParams,
@@ -14,13 +15,20 @@ export default async function DesignerPage({
 		editId ? getPlanDetails(editId) : null,
 		getExercises(),
 	]);
+
 	return (
-		<div className="px-6 py-8">
-			<PlanDesigner
-				initialData={initialData}
-				editPlanId={editId}
-				initialExercises={exercises}
+		<div className="flex flex-col min-h-screen">
+			<Header
+				title={editId ? "Edit Plan" : "Plan Wizard"}
+				subtitle="Design your routine"
 			/>
+			<main className="flex-1 px-6 space-y-8 max-w-4xl mx-auto w-full pb-12">
+				<PlanDesigner
+					initialData={initialData}
+					editPlanId={editId}
+					initialExercises={exercises}
+				/>
+			</main>
 		</div>
 	);
 }
