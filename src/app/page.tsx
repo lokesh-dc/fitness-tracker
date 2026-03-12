@@ -25,7 +25,7 @@ export default async function Home() {
 	const today = new Date();
 
 	return (
-		<div className="flex flex-col min-h-screen">
+		<div className="flex flex-col">
 			<Header title="Hi, Lokesh! 👋" subtitle={format(today, "EEEE, MMMM d")} />
 
 			<main className="flex-1 px-6 space-y-8 max-w-4xl mx-auto w-full pb-12">

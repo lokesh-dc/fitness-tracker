@@ -17,7 +17,7 @@ export default async function DesignerPage({
 	]);
 
 	return (
-		<div className="flex flex-col min-h-screen">
+		<div className="flex flex-col ">
 			<Header
 				title={editId ? "Edit Plan" : "Plan Wizard"}
 				subtitle="Design your routine"
