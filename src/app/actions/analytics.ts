@@ -30,6 +30,35 @@ export async function getHighestWeightPR(exerciseName: string): Promise<number> 
   }
 }
 
+export async function getHighestWeightPRsBulk(exerciseIds: string[]): Promise<Record<string, number>> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return {};
+    const userId = new ObjectId((session.user as any).id);
+
+    const db = await getDb();
+    
+    // Using aggregation for better performance on large log sets
+    const result = await db.collection("WorkoutLog").aggregate([
+      { $match: { userId, "exercises.exerciseId": { $in: exerciseIds } } },
+      { $unwind: "$exercises" },
+      { $match: { "exercises.exerciseId": { $in: exerciseIds } } },
+      { $unwind: "$exercises.sets" },
+      { $group: { _id: "$exercises.exerciseId", maxWeight: { $max: "$exercises.sets.weight" } } }
+    ]).toArray();
+
+    const prMap: Record<string, number> = {};
+    result.forEach(doc => {
+      prMap[doc._id] = doc.maxWeight;
+    });
+
+    return prMap;
+  } catch (error) {
+    console.error("Error fetching bulk PRs:", error);
+    return {};
+  }
+}
+
 export async function getExerciseHistory(exerciseName: string) {
   try {
     const session = await getServerSession(authOptions);

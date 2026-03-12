@@ -4,9 +4,8 @@ import { Calendar, ChevronLeft, Dumbbell, LayoutGrid } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { getPlanDetails } from "@/app/actions/plan";
-import { WorkoutTemplate } from "@/types/workout";
+import { WeeklySchedule } from "./WeeklySchedule";
 import { PlanActionButtons } from "./PlanActionButtons";
-
 import { Header } from "@/components/Header";
 
 export default async function PlanDetailPage({
@@ -27,8 +26,9 @@ export default async function PlanDetailPage({
 	const { plan, templates } = data;
 
 	// We only show the daily structure for the first week, since it repeats.
+	// Filter out the rest days (0 exercises)
 	const baseWeek = templates
-		.filter((t) => t.weekNumber === 1)
+		.filter((t) => t.weekNumber === 1 && t.exercises.length > 0)
 		.sort((a, b) => a.dayOfWeek - b.dayOfWeek);
 
 	const titleNode = (
@@ -45,7 +45,7 @@ export default async function PlanDetailPage({
 	);
 
 	return (
-		<div className="flex flex-col min-h-screen pb-32">
+		<div className="flex flex-col  pb-32">
 			<Header title={titleNode} subtitle={`${plan.numWeeks} Week Cycle`} />
 
 			<main className="flex-1 px-6 space-y-8 max-w-4xl mx-auto w-full">
@@ -81,36 +81,7 @@ export default async function PlanDetailPage({
 							</h3>
 						</div>
 
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-							{baseWeek.map((day) => (
-								<GlassCard
-									key={day.id}
-									className="p-4 flex items-center justify-between group">
-									<div className="flex items-center space-x-4">
-										<div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center text-foreground/40 group-hover:text-orange-500 transition-colors">
-											<Dumbbell className="w-5 h-5" />
-										</div>
-										<div>
-											<p className="text-xs font-black text-foreground uppercase tracking-widest">
-												{
-													["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][
-														day.dayOfWeek
-													]
-												}
-											</p>
-											<p className="text-sm font-bold text-foreground/60">
-												{day.splitName || "Workout"}
-											</p>
-										</div>
-									</div>
-									<div className="text-right">
-										<p className="text-[10px] font-black text-orange-500 uppercase">
-											{day.exercises.length} Exercises
-										</p>
-									</div>
-								</GlassCard>
-							))}
-						</div>
+						<WeeklySchedule templates={baseWeek} />
 					</div>
 				</section>
 			</main>

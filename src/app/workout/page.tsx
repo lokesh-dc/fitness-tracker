@@ -17,9 +17,9 @@ export default async function WorkoutPage() {
 	}
 
 	return (
-		<div className="flex flex-col min-h-screen pb-24 md:pb-0 md:pl-20">
+		<div className="flex flex-col pb-24 md:pb-0 md:pl-20">
 			<Header title="Workout Session" />
-			<div className="px-6 pb-8">
+			<div className="px-6">
 				<WorkoutSession template={plan} initialBodyWeight={initialBodyWeight} />
 			</div>
 		</div>

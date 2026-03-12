@@ -38,7 +38,7 @@ function SignInForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-6">
+    <div className=" flex items-center justify-center px-6">
       <div className="w-full max-w-md space-y-8">
         <div className="flex flex-col items-center">
           <div className="w-16 h-16 rounded-2xl bg-orange-500 flex items-center justify-center shadow-[0_0_30px_rgba(249,115,22,0.4)] mb-6">
@@ -99,7 +99,7 @@ function SignInForm() {
 export default function SignIn() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
+      <div className=" flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
       </div>
     }>
