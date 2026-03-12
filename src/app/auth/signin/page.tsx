@@ -5,14 +5,18 @@ import { useState } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Dumbbell, ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Suspense } from "react";
 
-export default function SignIn() {
+function SignInForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const registered = searchParams.get("registered");
+  const callbackUrl = searchParams.get("callbackUrl") || "/";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,13 +29,11 @@ export default function SignIn() {
       redirect: false,
     });
 
-    console.log({ res })
-
     if (res?.error) {
       setError("Invalid credentials. Try again.");
       setLoading(false);
     } else {
-      router.push("/");
+      router.push(callbackUrl);
     }
   };
 
@@ -47,6 +49,11 @@ export default function SignIn() {
         </div>
 
         <GlassCard className="p-8 space-y-6">
+          {registered && !error && (
+            <p className="text-xs font-bold text-emerald-500 text-center uppercase tracking-widest">
+              Registration successful! Please log in.
+            </p>
+          )}
           {error && <p className="text-xs font-bold text-rose-500 text-center uppercase tracking-widest">{error}</p>}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
@@ -86,5 +93,17 @@ export default function SignIn() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function SignIn() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+      </div>
+    }>
+      <SignInForm />
+    </Suspense>
   );
 }
