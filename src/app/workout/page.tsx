@@ -1,4 +1,5 @@
 import { getTodayPlan } from "@/app/actions/plan";
+import { getTodayBodyWeight } from "@/app/actions/logs";
 import WorkoutSession from "@/components/WorkoutSession";
 import { redirect } from "next/navigation";
 
@@ -8,6 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function WorkoutPage() {
 	const plan = await getTodayPlan();
+	const initialBodyWeight = await getTodayBodyWeight();
 
 	if (!plan) {
 		// If no plan, we could redirect or show a message.
@@ -18,7 +20,7 @@ export default async function WorkoutPage() {
 		<div className="flex flex-col min-h-screen pb-24 md:pb-0 md:pl-20">
 			<Header title="Workout Session" />
 			<div className="px-6 pb-8">
-				<WorkoutSession template={plan} />
+				<WorkoutSession template={plan} initialBodyWeight={initialBodyWeight} />
 			</div>
 		</div>
 	);

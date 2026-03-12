@@ -70,3 +70,31 @@ export async function saveWorkoutSession(
     throw new Error("Failed to save workout session.");
   }
 }
+
+export async function getTodayBodyWeight(): Promise<number | null> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return null;
+    const userId = new ObjectId((session.user as any).id);
+
+    const db = await getDb();
+    
+    // Get beginning of current day
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const log = await db.collection("WorkoutLog").findOne(
+      {
+        userId,
+        date: { $gte: today },
+        bodyWeight: { $exists: true, $ne: null }
+      },
+      { sort: { date: -1 } }
+    );
+
+    return log?.bodyWeight || null;
+  } catch (error) {
+    console.error("Error getting today's body weight:", error);
+    return null;
+  }
+}
