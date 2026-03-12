@@ -1,13 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
 	saveWorkoutSession,
 	saveBodyWeight,
 	saveSingleExerciseLog,
-	getTodayWorkoutLog,
 } from "@/app/actions/logs";
-import { getHighestWeightPRsBulk } from "@/app/actions/analytics";
 import { type Exercise, type WorkoutTemplate, type WorkoutLog } from "@/types/workout";
 import {
 	Loader2,
@@ -39,73 +37,45 @@ const DAYS = [
 interface WorkoutSessionProps {
 	template: WorkoutTemplate | null;
 	initialBodyWeight?: number | null;
+	initialWorkoutLog?: WorkoutLog | null;
+	initialPRs?: Record<string, number>;
 }
 
 export default function WorkoutSession({
 	template,
 	initialBodyWeight,
+	initialWorkoutLog,
+	initialPRs = {},
 }: WorkoutSessionProps) {
+	// Sync logic for initial weight and step
+	const effectiveBodyWeight = initialWorkoutLog?.bodyWeight || initialBodyWeight || 0;
+	
 	const [step, setStep] = useState<number>(
-		initialBodyWeight && initialBodyWeight > 0 ? 2 : 1,
+		effectiveBodyWeight > 0 ? 2 : 1,
 	);
 	const [activeExerciseIndex, setActiveExerciseIndex] = useState<number | null>(
 		null,
 	);
 	const [exercises, setExercises] = useState<Exercise[]>(
-		template?.exercises.map((ex) => ({
-			...ex,
-			sets: Array.from({ length: ex.targetSets || 1 }, () => ({
-				weight: ex.lastWeight || 0,
-				reps: ex.targetReps || 0,
-			})),
-			pr: 0,
-			isDone: false, // New property to track completion status
-		})) || [],
+		template?.exercises.map((ex) => {
+			const loggedEx = initialWorkoutLog?.exercises?.find((le: any) => le.exerciseId === ex.exerciseId);
+			return {
+				...ex,
+				sets: loggedEx ? loggedEx.sets : Array.from({ length: ex.targetSets || 1 }, () => ({
+					weight: ex.lastWeight || 0,
+					reps: ex.targetReps || 0,
+				})),
+				pr: initialPRs[ex.exerciseId] || 0,
+				isDone: !!loggedEx,
+			};
+		}) || [],
 	);
-	const [bodyWeight, setBodyWeight] = useState<number>(initialBodyWeight || 0);
+	const [bodyWeight, setBodyWeight] = useState<number>(effectiveBodyWeight);
 	const [updateTemplate, setUpdateTemplate] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [isSubmittingWeight, setIsSubmittingWeight] = useState(false);
 	const [isSubmittingExercise, setIsSubmittingExercise] = useState(false);
 	const [showSuccess, setShowSuccess] = useState(false);
-
-	useEffect(() => {
-		if (template) {
-			const fetchData = async () => {
-				// Fetch PRs
-				const exerciseIds = template.exercises
-					.map((ex) => ex.exerciseId)
-					.filter(Boolean);
-
-				const prsPromise = exerciseIds.length > 0 
-					? getHighestWeightPRsBulk(exerciseIds)
-					: Promise.resolve({} as Record<string, number>);
-
-				// Fetch today's log for hydration
-				const logPromise = getTodayWorkoutLog();
-
-				const [prs, todayLog] = await Promise.all([prsPromise, logPromise]);
-
-				setExercises((prev) =>
-					prev.map((ex) => {
-						const loggedEx = todayLog?.exercises?.find((le: any) => le.exerciseId === ex.exerciseId);
-						return {
-							...ex,
-							pr: prs[ex.exerciseId] || 0,
-							isDone: !!loggedEx,
-							sets: loggedEx ? loggedEx.sets : ex.sets
-						};
-					}),
-				);
-
-				if (todayLog?.bodyWeight) {
-					setBodyWeight(todayLog.bodyWeight);
-					if (step === 1) setStep(2);
-				}
-			};
-			fetchData();
-		}
-	}, [template]);
 
 	const addSet = (exerciseIndex: number) => {
 		setExercises((prev) => {
@@ -210,85 +180,15 @@ export default function WorkoutSession({
 	const totalCount = exercises.length;
 	const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
-	const SessionLayout = ({
-		title,
-		subtitle,
-		onBack,
-		footer,
-		children,
-		maxWidth = "max-w-3xl",
-	}: {
-		title: string;
-		subtitle?: string;
-		onBack?: () => void;
-		footer?: React.ReactNode;
-		children: React.ReactNode;
-		maxWidth?: string;
-	}) => (
-		<div className={cn(maxWidth, "mx-auto space-y-8 pt-4 pb-12")}>
-			<div className="space-y-6">
-				<div className="flex justify-between items-center">
-					{onBack ? (
-						<button
-							onClick={onBack}
-							className="glass-button w-10 h-10 rounded-xl border-foreground/10 flex items-center justify-center">
-							<ChevronLeft className="w-5 h-5 text-foreground" />
-						</button>
-					) : (
-						<Link
-							href="/"
-							className="glass-button w-10 h-10 rounded-xl border-foreground/10 flex items-center justify-center">
-							<ChevronLeft className="w-5 h-5 text-foreground" />
-						</Link>
-					)}
-					<div className="text-center">
-						{subtitle && (
-							<p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em] mb-1">
-								{subtitle}
-							</p>
-						)}
-						<h1 className="text-xl font-black text-foreground uppercase tracking-wider">
-							{title}
-						</h1>
-					</div>
-					<div className="w-10 h-10" />
-				</div>
-
-				{/* Segmented Progress Bar */}
-				<div className="px-2 space-y-3">
-					<div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-foreground/40">
-						<span>Progress</span>
-						<span className="text-orange-500">{completedCount} / {totalCount} Exercises</span>
-					</div>
-					<div className="flex gap-1.5 h-1.5 w-full">
-						{exercises.map((ex, idx) => (
-							<div 
-								key={idx}
-								className={cn(
-									"h-full flex-1 rounded-full transition-all duration-500 ease-out",
-									(ex as any).isDone 
-										? "bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.4)]" 
-										: "bg-foreground/5 border border-foreground/5"
-								)}
-							/>
-						))}
-					</div>
-				</div>
-			</div>
-
-			{children}
-
-			{footer && (
-				<div className="fixed bottom-0 left-0 right-0 p-6 md:pl-32 bg-gradient-to-t from-background via-background/80 to-transparent z-40">
-					{footer}
-				</div>
-			)}
-		</div>
-	);
-
 	if (step === 1) {
 		return (
-			<SessionLayout title="Step 1: Body Weight" maxWidth="max-w-md">
+			<SessionLayout
+				title="Step 1: Body Weight"
+				maxWidth="max-w-md"
+				exercises={exercises}
+				completedCount={completedCount}
+				totalCount={totalCount}
+				progress={progress}>
 				<GlassCard className="p-8 space-y-8 flex flex-col items-center justify-center min-h-[40vh]">
 					<div className="text-center space-y-2">
 						<h2 className="text-2xl font-black text-foreground uppercase tracking-wider">
@@ -387,7 +287,11 @@ export default function WorkoutSession({
 			<SessionLayout
 				title={(template as any).splitName || "Session"}
 				subtitle={`Week ${template.weekNumber} • ${DAYS[template.dayOfWeek]}`}
-				footer={footer}>
+				footer={footer}
+				exercises={exercises}
+				completedCount={completedCount}
+				totalCount={totalCount}
+				progress={progress}>
 				<GlassCard className="flex items-center justify-between p-4 px-6 border-orange-500/10 bg-orange-500/5">
 					<div className="flex items-center space-x-3">
 						<span className="text-sm font-bold text-foreground uppercase tracking-widest">
@@ -490,7 +394,11 @@ export default function WorkoutSession({
 				title={ex.name}
 				subtitle="Logging Exercise"
 				onBack={() => setStep(2)}
-				footer={footer}>
+				footer={footer}
+				exercises={exercises}
+				completedCount={completedCount}
+				totalCount={totalCount}
+				progress={progress}>
 				<GlassCard className="space-y-6 p-6">
 					<div className="flex justify-between items-start border-b border-foreground/5 pb-4">
 						<div>
@@ -588,3 +496,89 @@ export default function WorkoutSession({
 		</div>
 	);
 }
+
+const SessionLayout = ({
+	title,
+	subtitle,
+	onBack,
+	footer,
+	children,
+	maxWidth = "max-w-3xl",
+	exercises,
+	completedCount,
+	totalCount,
+	progress,
+}: {
+	title: string;
+	subtitle?: string;
+	onBack?: () => void;
+	footer?: React.ReactNode;
+	children: React.ReactNode;
+	maxWidth?: string;
+	exercises: Exercise[];
+	completedCount: number;
+	totalCount: number;
+	progress: number;
+}) => (
+	<div className={cn(maxWidth, "mx-auto space-y-8 pt-4 pb-12")}>
+		<div className="space-y-6">
+			<div className="flex justify-between items-center">
+				{onBack ? (
+					<button
+						onClick={onBack}
+						className="glass-button w-10 h-10 rounded-xl border-foreground/10 flex items-center justify-center">
+						<ChevronLeft className="w-5 h-5 text-foreground" />
+					</button>
+				) : (
+					<Link
+						href="/"
+						className="glass-button w-10 h-10 rounded-xl border-foreground/10 flex items-center justify-center">
+						<ChevronLeft className="w-5 h-5 text-foreground" />
+					</Link>
+				)}
+				<div className="text-center">
+					{subtitle && (
+						<p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em] mb-1">
+							{subtitle}
+						</p>
+					)}
+					<h1 className="text-xl font-black text-foreground uppercase tracking-wider">
+						{title}
+					</h1>
+				</div>
+				<div className="w-10 h-10" />
+			</div>
+
+			{/* Segmented Progress Bar */}
+			<div className="px-2 space-y-3">
+				<div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-foreground/40">
+					<span>Progress</span>
+					<span className="text-orange-500">
+						{completedCount} / {totalCount} Exercises
+					</span>
+				</div>
+				<div className="flex gap-1.5 h-1.5 w-full">
+					{exercises.map((ex, idx) => (
+						<div
+							key={idx}
+							className={cn(
+								"h-full flex-1 rounded-full transition-all duration-500 ease-out",
+								(ex as any).isDone
+									? "bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.4)]"
+									: "bg-foreground/5 border border-foreground/5",
+							)}
+						/>
+					))}
+				</div>
+			</div>
+		</div>
+
+		{children}
+
+		{footer && (
+			<div className="fixed bottom-0 left-0 right-0 p-6 md:pl-32 bg-gradient-to-t from-background via-background/80 to-transparent z-40">
+				{footer}
+			</div>
+		)}
+	</div>
+);
