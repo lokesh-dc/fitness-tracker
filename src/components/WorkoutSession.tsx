@@ -5,9 +5,10 @@ import {
 	saveWorkoutSession,
 	saveBodyWeight,
 	saveSingleExerciseLog,
+	getTodayWorkoutLog,
 } from "@/app/actions/logs";
 import { getHighestWeightPRsBulk } from "@/app/actions/analytics";
-import { type Exercise, type WorkoutTemplate } from "@/types/workout";
+import { type Exercise, type WorkoutTemplate, type WorkoutLog } from "@/types/workout";
 import {
 	Loader2,
 	Plus,
@@ -70,22 +71,39 @@ export default function WorkoutSession({
 
 	useEffect(() => {
 		if (template) {
-			const fetchPRs = async () => {
+			const fetchData = async () => {
+				// Fetch PRs
 				const exerciseIds = template.exercises
 					.map((ex) => ex.exerciseId)
 					.filter(Boolean);
 
-				if (exerciseIds.length > 0) {
-					const prs = await getHighestWeightPRsBulk(exerciseIds);
-					setExercises((prev) =>
-						prev.map((ex) => ({
+				const prsPromise = exerciseIds.length > 0 
+					? getHighestWeightPRsBulk(exerciseIds)
+					: Promise.resolve({} as Record<string, number>);
+
+				// Fetch today's log for hydration
+				const logPromise = getTodayWorkoutLog();
+
+				const [prs, todayLog] = await Promise.all([prsPromise, logPromise]);
+
+				setExercises((prev) =>
+					prev.map((ex) => {
+						const loggedEx = todayLog?.exercises?.find((le: any) => le.exerciseId === ex.exerciseId);
+						return {
 							...ex,
 							pr: prs[ex.exerciseId] || 0,
-						})),
-					);
+							isDone: !!loggedEx,
+							sets: loggedEx ? loggedEx.sets : ex.sets
+						};
+					}),
+				);
+
+				if (todayLog?.bodyWeight) {
+					setBodyWeight(todayLog.bodyWeight);
+					if (step === 1) setStep(2);
 				}
 			};
-			fetchPRs();
+			fetchData();
 		}
 	}, [template]);
 
@@ -188,6 +206,10 @@ export default function WorkoutSession({
 
 	if (!template) return null;
 
+	const completedCount = exercises.filter((ex) => (ex as any).isDone).length;
+	const totalCount = exercises.length;
+	const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+
 	const SessionLayout = ({
 		title,
 		subtitle,
@@ -204,31 +226,54 @@ export default function WorkoutSession({
 		maxWidth?: string;
 	}) => (
 		<div className={cn(maxWidth, "mx-auto space-y-8 pt-4 pb-12")}>
-			<div className="flex justify-between items-center">
-				{onBack ? (
-					<button
-						onClick={onBack}
-						className="glass-button w-10 h-10 rounded-xl border-foreground/10 flex items-center justify-center">
-						<ChevronLeft className="w-5 h-5 text-foreground" />
-					</button>
-				) : (
-					<Link
-						href="/"
-						className="glass-button w-10 h-10 rounded-xl border-foreground/10 flex items-center justify-center">
-						<ChevronLeft className="w-5 h-5 text-foreground" />
-					</Link>
-				)}
-				<div className="text-center">
-					{subtitle && (
-						<p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em] mb-1">
-							{subtitle}
-						</p>
+			<div className="space-y-6">
+				<div className="flex justify-between items-center">
+					{onBack ? (
+						<button
+							onClick={onBack}
+							className="glass-button w-10 h-10 rounded-xl border-foreground/10 flex items-center justify-center">
+							<ChevronLeft className="w-5 h-5 text-foreground" />
+						</button>
+					) : (
+						<Link
+							href="/"
+							className="glass-button w-10 h-10 rounded-xl border-foreground/10 flex items-center justify-center">
+							<ChevronLeft className="w-5 h-5 text-foreground" />
+						</Link>
 					)}
-					<h1 className="text-xl font-black text-foreground uppercase tracking-wider">
-						{title}
-					</h1>
+					<div className="text-center">
+						{subtitle && (
+							<p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em] mb-1">
+								{subtitle}
+							</p>
+						)}
+						<h1 className="text-xl font-black text-foreground uppercase tracking-wider">
+							{title}
+						</h1>
+					</div>
+					<div className="w-10 h-10" />
 				</div>
-				<div className="w-10 h-10" />
+
+				{/* Segmented Progress Bar */}
+				<div className="px-2 space-y-3">
+					<div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-foreground/40">
+						<span>Progress</span>
+						<span className="text-orange-500">{completedCount} / {totalCount} Exercises</span>
+					</div>
+					<div className="flex gap-1.5 h-1.5 w-full">
+						{exercises.map((ex, idx) => (
+							<div 
+								key={idx}
+								className={cn(
+									"h-full flex-1 rounded-full transition-all duration-500 ease-out",
+									(ex as any).isDone 
+										? "bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.4)]" 
+										: "bg-foreground/5 border border-foreground/5"
+								)}
+							/>
+						))}
+					</div>
+				</div>
 			</div>
 
 			{children}

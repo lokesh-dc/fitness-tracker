@@ -251,3 +251,28 @@ export async function saveSingleExerciseLog(
     throw new Error("Failed to save exercise.");
   }
 }
+export async function getTodayWorkoutLog(): Promise<WorkoutLog | null> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return null;
+    const userId = new ObjectId((session.user as any).id);
+
+    const db = await getDb();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const log = await db.collection("WorkoutLog").findOne(
+      {
+        userId,
+        date: { $gte: today }
+      },
+      { sort: { date: -1 } }
+    );
+
+    if (!log) return null;
+    return JSON.parse(JSON.stringify(log)) as WorkoutLog;
+  } catch (error) {
+    console.error("Error getting today's workout log:", error);
+    return null;
+  }
+}
