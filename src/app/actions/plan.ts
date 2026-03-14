@@ -191,3 +191,49 @@ export async function deletePlan(planId: string) {
     return { success: false, error: "Failed to delete plan" };
   }
 }
+
+export async function getReminderData() {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return null;
+    const userId = (session.user as any).id;
+
+    const db = await getDb();
+    const dayOfWeek = getCurrentDayOfWeek();
+    
+    // Get today's plan
+    const todayPlanRaw = await db.collection("WorkoutTemplate").findOne({
+      userId: new ObjectId(userId),
+      dayOfWeek,
+    });
+
+    // Get today's log
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const log = await db.collection("WorkoutLog").findOne({
+      userId: new ObjectId(userId),
+      date: { $gte: today }
+    });
+
+    const isLogged = !!(log && log.exercises && log.exercises.length > 0);
+
+    let plan = null;
+    if (todayPlanRaw) {
+      const { _id, ...rest } = todayPlanRaw;
+      plan = {
+        id: _id.toString(),
+        ...rest,
+        userId: userId.toString()
+      };
+    }
+
+    return {
+      plan,
+      isLogged,
+      currentTime: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error("Error fetching reminder data:", error);
+    return null;
+  }
+}

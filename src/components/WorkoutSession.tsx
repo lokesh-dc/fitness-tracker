@@ -6,7 +6,11 @@ import {
 	saveBodyWeight,
 	saveSingleExerciseLog,
 } from "@/app/actions/logs";
-import { type Exercise, type WorkoutTemplate, type WorkoutLog } from "@/types/workout";
+import {
+	type Exercise,
+	type WorkoutTemplate,
+	type WorkoutLog,
+} from "@/types/workout";
 import {
 	Loader2,
 	Plus,
@@ -48,23 +52,26 @@ export default function WorkoutSession({
 	initialPRs = {},
 }: WorkoutSessionProps) {
 	// Sync logic for initial weight and step
-	const effectiveBodyWeight = initialWorkoutLog?.bodyWeight || initialBodyWeight || 0;
-	
-	const [step, setStep] = useState<number>(
-		effectiveBodyWeight > 0 ? 2 : 1,
-	);
+	const effectiveBodyWeight =
+		initialWorkoutLog?.bodyWeight || initialBodyWeight || 0;
+
+	const [step, setStep] = useState<number>(0);
 	const [activeExerciseIndex, setActiveExerciseIndex] = useState<number | null>(
 		null,
 	);
 	const [exercises, setExercises] = useState<Exercise[]>(
 		template?.exercises.map((ex) => {
-			const loggedEx = initialWorkoutLog?.exercises?.find((le: any) => le.exerciseId === ex.exerciseId);
+			const loggedEx = initialWorkoutLog?.exercises?.find(
+				(le: any) => le.exerciseId === ex.exerciseId,
+			);
 			return {
 				...ex,
-				sets: loggedEx ? loggedEx.sets : Array.from({ length: ex.targetSets || 1 }, () => ({
-					weight: ex.lastWeight || 0,
-					reps: ex.targetReps || 0,
-				})),
+				sets: loggedEx
+					? loggedEx.sets
+					: Array.from({ length: ex.targetSets || 1 }, () => ({
+							weight: ex.lastWeight || 0,
+							reps: ex.targetReps || 0,
+						})),
 				pr: initialPRs[ex.exerciseId] || 0,
 				isDone: !!loggedEx,
 			};
@@ -180,6 +187,110 @@ export default function WorkoutSession({
 	const totalCount = exercises.length;
 	const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
+	if (step === 0) {
+		const footer = (
+			<div className="glass-card p-2 bg-foreground/2 max-w-3xl mx-auto flex items-center justify-between gap-4">
+				<button
+					onClick={() => setStep(effectiveBodyWeight > 0 ? 2 : 1)}
+					className="flex-1 px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center bg-orange-500 text-black hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(249,115,22,0.3)]">
+					Start Now <ArrowRight className="w-4 h-4 ml-2" />
+				</button>
+			</div>
+		);
+
+		return (
+			<SessionLayout
+				title="Ready for your workout?"
+				subtitle={`${DAYS[template.dayOfWeek]} • ${template.splitName}`}
+				footer={footer}
+				exercises={exercises}
+				completedCount={completedCount}
+				totalCount={totalCount}
+				progress={progress}>
+				<div className="space-y-6">
+					<GlassCard className="p-6 border-orange-500/10 bg-orange-500/5">
+						<div className="flex items-center justify-between">
+							<div className="flex items-center space-x-3">
+								<div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center">
+									<Dumbbell className="w-5 h-5 text-orange-500" />
+								</div>
+								<div>
+									<h3 className="text-xs font-black text-foreground uppercase tracking-widest">
+										Daily Target
+									</h3>
+									<p className="text-[10px] font-bold text-foreground/40 uppercase">
+										{totalCount} Exercises to complete
+									</p>
+								</div>
+							</div>
+							<div className="text-right">
+								<p className="text-sm font-black text-foreground">
+									{bodyWeight || "—"}{" "}
+									<span className="text-[10px] text-foreground/40 uppercase">
+										KG
+									</span>
+								</p>
+								<p className="text-[8px] font-bold text-foreground/40 uppercase tracking-tighter">
+									Body Weight
+								</p>
+							</div>
+						</div>
+					</GlassCard>
+
+					<div className="space-y-3">
+						<div className="flex items-center space-x-2 ml-2 mb-2">
+							<Play className="w-3 h-3 text-orange-500" />
+							<h3 className="text-[10px] font-black text-foreground uppercase tracking-widest">
+								Overview
+							</h3>
+						</div>
+						{exercises.map((ex, idx) => (
+							<GlassCard
+								key={idx}
+								className="p-4 flex items-center justify-between group">
+								<div className="flex flex-col gap-3 w-full">
+									{ex.pr && ex.pr > 0 ? (
+										<div className="flex w-fit items-center space-x-1.5 px-2 py-1 rounded-lg bg-orange-500/5 border border-orange-500/10">
+											<Trophy className="w-3 h-3 text-orange-500" />
+											<span className="text-[8px] font-black text-orange-500 uppercase">
+												{ex.pr} KG
+											</span>
+										</div>
+									) : null}
+									<div className="flex items-center space-x-4 justify-between">
+										<div className="flex items-center space-x-4">
+											<div className="w-8 h-8 rounded-lg bg-foreground/5 flex items-center justify-center text-md font-black text-foreground/40">
+												{idx + 1}
+											</div>
+											<div>
+												<h4 className="text-md font-black text-foreground">
+													{ex.name}
+												</h4>
+												<p className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest">
+													{ex.targetSets} Sets • {ex.targetReps} Reps
+												</p>
+											</div>
+										</div>
+										<div className="flex items-center space-x-4">
+											<div className="text-right min-w-[60px]">
+												<p className="text-md font-black text-foreground">
+													{ex.lastWeight || "—"} KG
+												</p>
+												<p className="text-[8px] font-bold text-foreground/40 uppercase tracking-tighter">
+													Last
+												</p>
+											</div>
+										</div>
+									</div>
+								</div>
+							</GlassCard>
+						))}
+					</div>
+				</div>
+			</SessionLayout>
+		);
+	}
+
 	if (step === 1) {
 		return (
 			<SessionLayout
@@ -239,13 +350,13 @@ export default function WorkoutSession({
 						className={cn(
 							"w-10 h-6 rounded-full relative cursor-pointer transition-colors duration-300",
 							updateTemplate
-								? "bg-orange-500"
+								? "bg-orange-500 border border-orange-500"
 								: "bg-foreground/10 border border-foreground/10",
 						)}>
 						<div
 							className={cn(
-								"absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300",
-								updateTemplate ? "right-1" : "left-1",
+								"absolute top-[3px]  w-4 h-4 bg-white rounded-full transition-all duration-300",
+								updateTemplate ? "right-1" : "left-1 bg-orange-500",
 							)}
 						/>
 					</div>
@@ -363,7 +474,9 @@ export default function WorkoutSession({
 										: "bg-orange-500 text-black shadow-[0_0_15px_rgba(249,115,22,0.2)] hover:scale-105 active:scale-95",
 								)}>
 								{(ex as any).isDone ? "Log Again" : "Log"}
-								{(!ex as any).isDone ? null : <ArrowRight className="w-3 h-3 ml-2" />}
+								{(!ex as any).isDone ? null : (
+									<ArrowRight className="w-3 h-3 ml-2" />
+								)}
 							</button>
 						</GlassCard>
 					))}

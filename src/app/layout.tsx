@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { Providers } from "@/components/Providers";
 import { Navigation } from "@/components/Navigation";
+import { DailyReminder } from "@/components/DailyReminder";
 import "@/app/globals.css";
 
 import { AppProgressBar as ProgressBar } from "next-nprogress-bar";
@@ -27,6 +28,7 @@ export default function RootLayout({
 					/>
 					<div className="flex flex-col">
 						<Navigation />
+						<DailyReminder />
 						<div
 							className={cn(
 								"flex-1 md:pb-0 md:pl-20 pt-28 md:pt-32",
