@@ -68,10 +68,12 @@ export default function WorkoutSession({
 				...ex,
 				sets: loggedEx
 					? loggedEx.sets
-					: Array.from({ length: ex.targetSets || 1 }, () => ({
-							weight: ex.lastWeight || 0,
-							reps: ex.targetReps || 0,
-						})),
+					: [
+							{
+								weight: ex.lastWeight || 0,
+								reps: ex.targetReps || 0,
+							},
+						],
 				pr: initialPRs[ex.exerciseId] || 0,
 				isDone: !!loggedEx,
 			};
@@ -88,8 +90,18 @@ export default function WorkoutSession({
 		setExercises((prev) => {
 			const newExs = [...prev];
 			const targetEx = { ...newExs[exerciseIndex] };
-			const lastSet = targetEx.sets[targetEx.sets.length - 1];
-			targetEx.sets = [...targetEx.sets, { ...lastSet }];
+			
+			let newSet = {
+				weight: targetEx.lastWeight || 0,
+				reps: targetEx.targetReps || 0,
+			};
+
+			if (targetEx.sets.length > 0) {
+				const lastSet = targetEx.sets[targetEx.sets.length - 1];
+				newSet = { ...lastSet };
+			}
+			
+			targetEx.sets = [...targetEx.sets, newSet];
 			newExs[exerciseIndex] = targetEx;
 			return newExs;
 		});
