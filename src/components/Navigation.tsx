@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, BarChart2, User, Dumbbell, CalendarRange, Play } from "lucide-react";
+import { LayoutDashboard, BarChart2, User, Dumbbell, CalendarRange, Play, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function Navigation() {
@@ -18,7 +18,7 @@ export function Navigation() {
     { href: "/", icon: LayoutDashboard, label: "Home" },
     { href: "/plan", icon: CalendarRange, label: "Plan" },
     { href: "/workout", icon: Dumbbell, label: "Workout", isAction: true },
-    { href: "/analytics", icon: BarChart2, label: "Stats" },
+    { href: "/workouts", icon: Activity, label: "History" },
     { href: "/profile", icon: User, label: "Profile" },
   ];
 

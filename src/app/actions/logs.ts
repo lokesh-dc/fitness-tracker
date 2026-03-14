@@ -276,3 +276,93 @@ export async function getTodayWorkoutLog(): Promise<WorkoutLog | null> {
     return null;
   }
 }
+
+export async function getWorkoutHistory(): Promise<WorkoutLog[]> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return [];
+    const userId = new ObjectId((session.user as any).id);
+
+    const db = await getDb();
+
+    const logsRaw = await db.collection("WorkoutLog")
+      .find({ userId })
+      .sort({ date: -1 })
+      .toArray();
+
+    // Aggregate by local date strings to ensure 1 unique card per day
+    const aggregatedLogs = logsRaw.reduce((acc, log) => {
+      // Use the local date string portion (e.g., "2024-03-14")
+      const dateStr = new Date(log.date).toDateString();
+      
+      if (!acc[dateStr]) {
+        acc[dateStr] = {
+          id: log._id.toString(), // Use the first found ID as the primary route parameter
+          userId: log.userId.toString(),
+          date: log.date,
+          bodyWeight: log.bodyWeight || null,
+          exercises: [...(log.exercises || [])],
+          createdAt: log.createdAt,
+        };
+      } else {
+        // Merge this log into the existing date
+        const existing = acc[dateStr];
+        existing.exercises = [...existing.exercises, ...(log.exercises || [])];
+        if (!existing.bodyWeight && log.bodyWeight) {
+          existing.bodyWeight = log.bodyWeight;
+        }
+      }
+      return acc;
+    }, {} as Record<string, WorkoutLog>);
+
+    // Convert back to array
+    return Object.values(aggregatedLogs) as WorkoutLog[];
+  } catch (error) {
+    console.error("Error getting workout history:", error);
+    return [];
+  }
+}
+
+export async function getWorkoutByDate(dateStr: string): Promise<WorkoutLog | null> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return null;
+    const userId = new ObjectId((session.user as any).id);
+
+    const db = await getDb();
+
+    // Parse the incoming YYYY-MM-DD string into a local startOfDay and endOfDay
+    // We append T00:00:00 to ensure date-fns/native Date parser treats it as local time, not UTC
+    const targetDate = new Date(`${dateStr}T00:00:00`);
+    if (isNaN(targetDate.getTime())) return null;
+
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Find the most recent log for the target date
+    const targetLog = await db.collection("WorkoutLog").findOne(
+      {
+        userId,
+        date: { $gte: startOfDay, $lte: endOfDay }
+      },
+      { sort: { createdAt: -1 } }
+    );
+
+    if (!targetLog) return null;
+
+    return {
+      id: targetLog._id.toString(),
+      userId: targetLog.userId.toString(),
+      date: targetLog.date,
+      bodyWeight: targetLog.bodyWeight || null,
+      exercises: targetLog.exercises || [],
+      createdAt: targetLog.createdAt
+    } as unknown as WorkoutLog;
+
+  } catch (error) {
+    console.error("Error getting workout by date:", error);
+    return null;
+  }
+}
