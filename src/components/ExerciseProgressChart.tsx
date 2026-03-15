@@ -11,7 +11,7 @@ import {
 	AreaChart,
 } from "recharts";
 import { format, subDays, isAfter, parseISO } from "date-fns";
-import { cn } from "@/lib/utils";
+import { RangeSelector, TimeRange } from "./ui/RangeSelector";
 
 interface ExerciseProgressChartProps {
 	data: { date: string; weight: number }[];
@@ -22,7 +22,7 @@ export default function ExerciseProgressChart({
 	data,
 	exerciseName,
 }: ExerciseProgressChartProps) {
-	const [range, setRange] = useState<"7d" | "30d" | "all">("all");
+	const [range, setRange] = useState<TimeRange>("all");
 
 	const filteredData = data.filter((item) => {
 		const date = parseISO(item.date);
@@ -59,21 +59,7 @@ export default function ExerciseProgressChart({
 						Progress over time
 					</p>
 				</div>
-				<div className="flex bg-foreground/5 p-1 rounded-xl border border-foreground/5">
-					{(["7d", "30d", "all"] as const).map((r) => (
-						<button
-							key={r}
-							onClick={() => setRange(r)}
-							className={cn(
-								"px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all",
-								range === r
-									? "bg-orange-500 text-black shadow-lg"
-									: "text-foreground/40 hover:text-foreground",
-							)}>
-							{r}
-						</button>
-					))}
-				</div>
+				<RangeSelector range={range} setRange={setRange} />
 			</div>
 
 			<div className="flex-1 w-full -ml-4">

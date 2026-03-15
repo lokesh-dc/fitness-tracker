@@ -12,16 +12,16 @@ import {
 } from "recharts";
 import { GlassCard } from "./ui/GlassCard";
 import { format, subDays, isAfter, parseISO } from "date-fns";
-import { cn } from "@/lib/utils";
 
 import { WeightTrendData } from "@/types/workout";
+import { RangeSelector, TimeRange } from "./ui/RangeSelector";
 
 interface WeightTrendChartProps {
   data: WeightTrendData[];
 }
 
 export default function WeightTrendChart({ data }: WeightTrendChartProps) {
-  const [range, setRange] = useState<"7d" | "30d" | "all">("7d");
+  const [range, setRange] = useState<TimeRange>("7d");
 
   const filteredData = data.filter((item) => {
     const date = parseISO(item.date);
@@ -53,22 +53,7 @@ export default function WeightTrendChart({ data }: WeightTrendChartProps) {
           <h2 className="text-lg font-black tracking-tight">Weight Trend</h2>
           <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Progress tracking</p>
         </div>
-        <div className="flex bg-white/5 p-1 rounded-xl border border-white/5">
-          {(["7d", "30d", "all"] as const).map((r) => (
-            <button
-              key={r}
-              onClick={() => setRange(r)}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tighter transition-all",
-                range === r
-                  ? "bg-orange-500 text-black shadow-lg"
-                  : "text-white/40 hover:text-white"
-              )}
-            >
-              {r}
-            </button>
-          ))}
-        </div>
+        <RangeSelector range={range} setRange={setRange} />
       </div>
 
       <div className="flex-1 w-full -ml-4">

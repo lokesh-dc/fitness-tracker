@@ -5,6 +5,7 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { format } from "date-fns";
 import { Trophy, Activity, Calendar, Info, Plus, Edit2 } from "lucide-react";
 import Link from "next/link";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -34,24 +35,20 @@ export default async function WorkoutsPage({
         <WeeklyCalendar selectedDateStr={targetDateStr} />
 
         {!log ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center opacity-60">
-            <div className="w-16 h-16 rounded-full bg-foreground/5 flex items-center justify-center mb-6">
-              <Info className="w-8 h-8 text-foreground/40" />
-            </div>
-            <h3 className="text-xl font-bold text-foreground tracking-tight mb-2">
-              No Workouts
-            </h3>
-            <p className="text-sm font-medium text-foreground/60 max-w-[250px] mb-8">
-              No exercises were logged on this date.
-            </p>
-            <Link 
-              href={`/workout?date=${targetDateStr}`}
-              className="flex items-center space-x-2 px-8 py-4 bg-orange-500 text-black rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-105 active:scale-95 transition-all shadow-[0_10px_20px_rgba(249,115,22,0.3)]"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Log Workout</span>
-            </Link>
-          </div>
+          <EmptyState
+            icon={<Info className="w-8 h-8" />}
+            title="No Workouts"
+            description="No exercises were logged on this date."
+            action={
+              <Link 
+                href={`/workout?date=${targetDateStr}`}
+                className="flex items-center space-x-2 px-8 py-4 bg-orange-500 text-black rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-105 active:scale-95 transition-all shadow-[0_10px_20px_rgba(249,115,22,0.3)]"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Log Workout</span>
+              </Link>
+            }
+          />
         ) : (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Summary Details */}

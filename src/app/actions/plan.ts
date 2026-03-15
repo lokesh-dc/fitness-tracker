@@ -17,24 +17,126 @@ export async function getPlanByDate(date?: string | Date): Promise<WorkoutTempla
     
     // Determine the day of the week for the target date
     const targetDate = date ? new Date(date) : new Date();
+    const targetDateStr = targetDate.toISOString().split("T")[0];
     const dayOfWeek = targetDate.getDay();
 
-    const todayPlan = await db.collection("WorkoutTemplate").findOne({
+    // 1. Find the active plan for this date
+    // Sort by startDate desc to get the most recent one if overlapping
+    const activePlan = await db.collection("PlanDocument").findOne(
+      { 
+        userId: new ObjectId(userId),
+        startDate: { $lte: targetDateStr }
+      },
+      { sort: { startDate: -1 } }
+    ) as (WithId<Document> & PlanDocument) | null;
+
+    if (!activePlan) return null;
+
+    // Check if target date is within the plan's duration
+    const startDate = new Date(activePlan.startDate + "T00:00:00");
+    const diffTime = Math.abs(targetDate.getTime() - startDate.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const weekIndex = Math.floor(diffDays / 7) + 1;
+
+    // If target date is beyond the plan's duration, return null (it's completed)
+    if (weekIndex > activePlan.numWeeks) return null;
+
+    const template = await db.collection("WorkoutTemplate").findOne({
+      planId: activePlan._id.toString(),
       userId: new ObjectId(userId),
       dayOfWeek,
-    }) as (WithId<Document> & Partial<WorkoutTemplate>) | null;
+      // We look for either specific week templating OR weekNumber=1 (master)
+      $or: [{ weekNumber: weekIndex }, { weekNumber: 1 }]
+    }, { sort: { weekNumber: -1 } }) as (WithId<Document> & Partial<WorkoutTemplate>) | null;
 
-    if (!todayPlan) return null;
+    if (!template) return null;
 
-    const { _id, ...rest } = todayPlan;
+    const { _id, ...rest } = template;
 
     return JSON.parse(JSON.stringify({
       ...rest,
       id: _id.toString(),
-      userId: todayPlan.userId ? todayPlan.userId.toString() : "",
+      userId: template.userId ? template.userId.toString() : "",
+      weekNumber: weekIndex, // Use the calculated current week
     })) as WorkoutTemplate;
   } catch (error) {
     console.error("Error fetching today's plan:", error);
+    return null;
+  }
+}
+
+export async function updatePlanWeeks(planId: string, numWeeks: number) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) throw new Error("Unauthorized");
+    const userId = new ObjectId((session.user as any).id);
+
+    const db = await getDb();
+    await db.collection("PlanDocument").updateOne(
+      { _id: new ObjectId(planId), userId },
+      { $set: { numWeeks, updatedAt: new Date() } }
+    );
+
+    revalidatePath("/plan");
+    revalidatePath(`/plan/${planId}`);
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating plan weeks:", error);
+    return { success: false, error: "Failed to update plan duration" };
+  }
+}
+
+export async function getPlanReport(planId: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return null;
+    const userId = new ObjectId((session.user as any).id);
+
+    const db = await getDb();
+    const plan = await db.collection("PlanDocument").findOne({ _id: new ObjectId(planId), userId }) as any;
+    if (!plan) return null;
+
+    const start = new Date(plan.startDate + "T00:00:00");
+    const end = new Date(start);
+    end.setDate(end.getDate() + plan.numWeeks * 7);
+
+    // Fetch all logs within this period
+    const logs = await db.collection("WorkoutLog").find({
+      userId,
+      date: { $gte: start, $lte: end }
+    }).toArray();
+
+    const totalSessions = logs.length;
+    let totalVolume = 0;
+    const exercisePRs: Record<string, { weight: number, name: string }> = {};
+
+    logs.forEach(log => {
+      log.exercises?.forEach((ex: any) => {
+        ex.sets?.forEach((set: any) => {
+          totalVolume += set.weight * set.reps;
+          if (!exercisePRs[ex.exerciseId] || set.weight > exercisePRs[ex.exerciseId].weight) {
+            exercisePRs[ex.exerciseId] = { weight: set.weight, name: ex.name };
+          }
+        });
+      });
+    });
+
+    const bodyWeights = logs.filter(l => l.bodyWeight).map(l => l.bodyWeight);
+    const weightChange = bodyWeights.length > 1 
+      ? (bodyWeights[bodyWeights.length - 1] - bodyWeights[0])
+      : 0;
+
+    return {
+      planName: plan.name,
+      startDate: plan.startDate,
+      numWeeks: plan.numWeeks,
+      totalSessions,
+      totalVolume,
+      topPRs: Object.values(exercisePRs).sort((a, b) => b.weight - a.weight).slice(0, 5),
+      weightChange,
+    };
+  } catch (error) {
+    console.error("Error generating plan report:", error);
     return null;
   }
 }
@@ -137,6 +239,42 @@ export async function getUserPlanSummary() {
   } catch (error) {
     console.error("Error fetching plan summary:", error);
     return { plans: [], templatesMap: {} };
+  }
+}
+
+export async function getActivePlanInfo() {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return null;
+    const userId = new ObjectId((session.user as any).id);
+
+    const db = await getDb();
+    const activePlan = await db.collection("PlanDocument").findOne(
+      { userId },
+      { sort: { startDate: -1 } }
+    ) as any;
+
+    if (!activePlan) return null;
+
+    const start = new Date(activePlan.startDate + "T00:00:00");
+    const end = new Date(start);
+    end.setDate(end.getDate() + activePlan.numWeeks * 7);
+    const now = new Date();
+    
+    const isCompleted = now > end;
+    const hasStarted = now >= start;
+
+    return {
+      id: activePlan._id.toString(),
+      name: activePlan.name,
+      startDate: activePlan.startDate,
+      numWeeks: activePlan.numWeeks,
+      isCompleted,
+      hasStarted
+    };
+  } catch (error) {
+    console.error("Error fetching active plan info:", error);
+    return null;
   }
 }
 

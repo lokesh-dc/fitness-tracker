@@ -3,14 +3,23 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Edit2, Trash2, AlertTriangle, Loader2 } from "lucide-react";
+import { Edit2, Trash2, AlertTriangle, Loader2, TrendingUp } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
-import { deletePlan } from "@/app/actions/plan";
+import { deletePlan, updatePlanWeeks } from "@/app/actions/plan";
+import { cn } from "@/lib/utils";
 
-export function PlanActionButtons({ planId }: { planId: string }) {
+export function PlanActionButtons({ 
+  planId, 
+  currentWeeks 
+}: { 
+  planId: string;
+  currentWeeks: number;
+}) {
   const router = useRouter();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isExtending, setIsExtending] = useState(false);
+  const [showExtendOptions, setShowExtendOptions] = useState(false);
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -29,24 +38,76 @@ export function PlanActionButtons({ planId }: { planId: string }) {
     }
   };
 
+  const handleExtend = async (additionalWeeks: number) => {
+    setIsExtending(true);
+    try {
+      const res = await updatePlanWeeks(planId, currentWeeks + additionalWeeks);
+      if (res.success) {
+        setShowExtendOptions(false);
+        router.refresh();
+      } else {
+        alert("Failed to extend plan");
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsExtending(false);
+    }
+  };
+
   return (
     <>
       <div className="flex space-x-4">
         <Link 
           href={`/plan/designer?edit=${planId}`}
-          className="flex-1 glass-button py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center space-x-2 text-foreground active:scale-95 transition-transform"
+          className="flex-1 glass-button py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center space-x-2 text-foreground active:scale-95 transition-transform"
         >
           <Edit2 className="w-4 h-4" />
           <span>Edit Plan</span>
         </Link>
         <button 
+          onClick={() => setShowExtendOptions(!showExtendOptions)}
+          className={cn(
+            "flex-1 glass-button py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center space-x-2 transition-all active:scale-95",
+            showExtendOptions ? "bg-orange-500 text-black border-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.3)]" : "text-foreground"
+          )}
+        >
+          <TrendingUp className="w-4 h-4" />
+          <span>Extend</span>
+        </button>
+        <button 
           onClick={() => setShowDeleteConfirm(true)}
-          className="flex-1 glass-button py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center space-x-2 text-red-500 hover:bg-red-500/10 active:scale-95 transition-all outline-none"
+          className="flex-1 glass-button py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center space-x-2 text-red-500 hover:bg-red-500/10 active:scale-95 transition-all outline-none"
         >
           <Trash2 className="w-4 h-4" />
           <span>Delete</span>
         </button>
       </div>
+
+      {showExtendOptions && (
+        <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+          <GlassCard className="p-4 border-orange-500/20 bg-orange-500/5">
+            <p className="text-[10px] font-black uppercase tracking-widest text-foreground/40 mb-3 text-center">Add More Weeks to Cycle</p>
+            <div className="flex space-x-2">
+              {[1, 2, 4, 8].map((weeks) => (
+                <button
+                  key={weeks}
+                  disabled={isExtending}
+                  onClick={() => handleExtend(weeks)}
+                  className="flex-1 py-3 bg-foreground/5 hover:bg-orange-500 hover:text-black rounded-xl text-xs font-black transition-all disabled:opacity-50"
+                >
+                  +{weeks} W
+                </button>
+              ))}
+            </div>
+            {isExtending && (
+              <div className="flex justify-center mt-3">
+                <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
+              </div>
+            )}
+          </GlassCard>
+        </div>
+      )}
 
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">

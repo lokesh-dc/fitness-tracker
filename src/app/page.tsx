@@ -1,10 +1,9 @@
-import { getPlanByDate } from "./actions/plan";
-import { getUserStats } from "./actions/logs";
+import { getPlanByDate, getActivePlanInfo } from "./actions/plan";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { WorkoutListItem } from "@/components/ui/WorkoutListItem";
 import { GlassCard } from "@/components/ui/GlassCard";
-import { Plus, ChevronRight, BarChart2, Quote, Coffee } from "lucide-react";
+import { Plus, ChevronRight, BarChart2, Quote, Coffee, Trophy } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 
@@ -41,14 +40,14 @@ async function getDailyQuote() {
 export default async function Home() {
 	let plan = null;
 	let error = null;
-	let stats = null;
+	let activePlanInfo = null;
 
 	const session = await getServerSession(authOptions);
 	const userName = session?.user?.name?.split(" ")[0] || "there";
 
 	try {
 		plan = await getPlanByDate();
-		stats = await getUserStats();
+		activePlanInfo = await getActivePlanInfo();
 	} catch (e) {
 		console.error("Error loading home page data:", e);
 		error = "Failed to load workout data.";
@@ -102,6 +101,24 @@ export default async function Home() {
 								exercisesCount={plan.exercises.length}
 								active
 							/>
+						</Link>
+					) : activePlanInfo?.isCompleted ? (
+						<Link href={`/plan/${activePlanInfo.id}/report`} className="block">
+							<GlassCard className="border-emerald-500/30 bg-emerald-500/5 p-6 flex items-center justify-between group overflow-hidden relative">
+								<div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+									<Trophy className="w-16 h-16 text-emerald-500" />
+								</div>
+								<div className="flex items-center space-x-4 relative z-10">
+									<div className="w-12 h-12 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+										<Trophy className="w-6 h-6 text-black" />
+									</div>
+									<div>
+										<h3 className="text-base font-black text-foreground uppercase tracking-tight">Cycle Completed!</h3>
+										<p className="text-[10px] font-bold text-emerald-500/60 uppercase tracking-widest">Tap to view your report</p>
+									</div>
+								</div>
+								<ChevronRight className="w-5 h-5 text-emerald-500 relative z-10 group-hover:translate-x-1 transition-transform" />
+							</GlassCard>
 						</Link>
 					) : (
 						<div className="glass-card border-dashed border-foreground/10 flex flex-col items-center justify-center py-12 text-center">
