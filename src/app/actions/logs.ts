@@ -16,7 +16,8 @@ export async function saveWorkoutSession(
       sets: Array<{ weight: number; reps: number }>;
     }>;
   },
-  updateTemplate: boolean
+  updateTemplate: boolean,
+  date?: string | Date
 ): Promise<WorkoutLog> {
   try {
     const session = await getServerSession(authOptions);
@@ -25,39 +26,55 @@ export async function saveWorkoutSession(
 
     const db = await getDb();
     
-    // Check if there is an empty log from today
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Target date normalized to start/end of that day
+    const targetDate = date ? new Date(date) : new Date();
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
 
-    const emptyLog = await db.collection("WorkoutLog").findOne(
+    const existingLog = await db.collection("WorkoutLog").findOne(
       {
         userId: new ObjectId(userId),
-        date: { $gte: today },
-        $or: [
-          { exercises: { $size: 0 } },
-          { exercises: { $exists: false } }
-        ]
+        date: { $gte: startOfDay, $lte: endOfDay }
       },
       { sort: { date: -1 } }
     );
 
     let log: any;
     
-    if (emptyLog) {
+    if (existingLog) {
+      const mergedExercises = [...(existingLog.exercises || [])];
+      
+      for (const newEx of data.exercises) {
+        const index = mergedExercises.findIndex((ex: any) => ex.exerciseId === newEx.exerciseId);
+        if (index > -1) {
+          mergedExercises[index] = newEx;
+        } else {
+          mergedExercises.push(newEx);
+        }
+      }
+
       await db.collection("WorkoutLog").updateOne(
-        { _id: emptyLog._id },
+        { _id: existingLog._id },
         { 
           $set: { 
-            bodyWeight: data.bodyWeight, 
-            exercises: data.exercises 
+            bodyWeight: data.bodyWeight !== undefined ? data.bodyWeight : existingLog.bodyWeight, 
+            exercises: mergedExercises,
+            updatedAt: new Date()
           } 
         }
       );
-      log = { ...emptyLog, bodyWeight: data.bodyWeight, exercises: data.exercises, id: emptyLog._id.toString() };
+      log = { 
+        ...existingLog, 
+        bodyWeight: data.bodyWeight !== undefined ? data.bodyWeight : existingLog.bodyWeight, 
+        exercises: mergedExercises, 
+        id: existingLog._id.toString() 
+      };
     } else {
       const logData = {
         userId: new ObjectId(userId),
-        date: new Date(),
+        date: startOfDay,
         bodyWeight: data.bodyWeight,
         exercises: data.exercises,
         createdAt: new Date(),
@@ -101,7 +118,7 @@ export async function saveWorkoutSession(
   }
 }
 
-export async function getTodayBodyWeight(): Promise<number | null> {
+export async function getTodayBodyWeight(date?: string | Date): Promise<number | null> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) return null;
@@ -109,14 +126,17 @@ export async function getTodayBodyWeight(): Promise<number | null> {
 
     const db = await getDb();
     
-    // Get beginning of current day
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Target date normalized
+    const targetDate = date ? new Date(date) : new Date();
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
 
     const log = await db.collection("WorkoutLog").findOne(
       {
         userId,
-        date: { $gte: today },
+        date: { $gte: startOfDay, $lte: endOfDay },
         bodyWeight: { $exists: true, $ne: null }
       },
       { sort: { date: -1 } }
@@ -129,7 +149,7 @@ export async function getTodayBodyWeight(): Promise<number | null> {
   }
 }
 
-export async function saveBodyWeight(bodyWeight: number): Promise<void> {
+export async function saveBodyWeight(bodyWeight: number, date?: string | Date): Promise<void> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) throw new Error("Unauthorized");
@@ -137,15 +157,18 @@ export async function saveBodyWeight(bodyWeight: number): Promise<void> {
 
     const db = await getDb();
     
-    // Get beginning of current day
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Target date normalized
+    const targetDate = date ? new Date(date) : new Date();
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
 
-    // See if there's an existing log for today with bodyWeight
+    // See if there's an existing log for that date
     const existingLog = await db.collection("WorkoutLog").findOne(
       {
         userId,
-        date: { $gte: today }
+        date: { $gte: startOfDay, $lte: endOfDay }
       },
       { sort: { date: -1 } }
     );
@@ -158,7 +181,7 @@ export async function saveBodyWeight(bodyWeight: number): Promise<void> {
     } else {
       await db.collection("WorkoutLog").insertOne({
         userId,
-        date: new Date(),
+        date: startOfDay,
         bodyWeight,
         exercises: [],
         createdAt: new Date(),
@@ -174,7 +197,8 @@ export async function saveBodyWeight(bodyWeight: number): Promise<void> {
 
 export async function saveSingleExerciseLog(
   exercise: Exercise,
-  updateTemplate: boolean
+  updateTemplate: boolean,
+  date?: string | Date
 ): Promise<void> {
   try {
     const session = await getServerSession(authOptions);
@@ -182,14 +206,17 @@ export async function saveSingleExerciseLog(
     const userId = new ObjectId((session.user as any).id);
 
     const db = await getDb();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const targetDate = date ? new Date(date) : new Date();
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
 
-    // Find today's log
+    // Find log for that date
     const existingLog = await db.collection("WorkoutLog").findOne(
       {
         userId,
-        date: { $gte: today }
+        date: { $gte: startOfDay, $lte: endOfDay }
       },
       { sort: { date: -1 } }
     );
@@ -198,7 +225,7 @@ export async function saveSingleExerciseLog(
       // Should ideally not happen if they come from Step 1, but let's be safe
       await db.collection("WorkoutLog").insertOne({
         userId,
-        date: new Date(),
+        date: startOfDay,
         exercises: [exercise],
         createdAt: new Date(),
       });
@@ -251,20 +278,23 @@ export async function saveSingleExerciseLog(
     throw new Error("Failed to save exercise.");
   }
 }
-export async function getTodayWorkoutLog(): Promise<WorkoutLog | null> {
+export async function getTodayWorkoutLog(date?: string | Date): Promise<WorkoutLog | null> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) return null;
     const userId = new ObjectId((session.user as any).id);
 
     const db = await getDb();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const targetDate = date ? new Date(date) : new Date();
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
 
     const log = await db.collection("WorkoutLog").findOne(
       {
         userId,
-        date: { $gte: today }
+        date: { $gte: startOfDay, $lte: endOfDay }
       },
       { sort: { date: -1 } }
     );

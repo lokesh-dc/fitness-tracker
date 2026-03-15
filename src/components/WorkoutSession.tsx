@@ -11,6 +11,7 @@ import {
 	type WorkoutTemplate,
 	type WorkoutLog,
 } from "@/types/workout";
+import { format } from "date-fns";
 import {
 	Loader2,
 	Plus,
@@ -43,6 +44,7 @@ interface WorkoutSessionProps {
 	initialBodyWeight?: number | null;
 	initialWorkoutLog?: WorkoutLog | null;
 	initialPRs?: Record<string, number>;
+	date?: string;
 }
 
 export default function WorkoutSession({
@@ -50,6 +52,7 @@ export default function WorkoutSession({
 	initialBodyWeight,
 	initialWorkoutLog,
 	initialPRs = {},
+	date,
 }: WorkoutSessionProps) {
 	// Sync logic for initial weight and step
 	const effectiveBodyWeight =
@@ -141,7 +144,7 @@ export default function WorkoutSession({
 	const handleSubmit = async () => {
 		setIsSubmitting(true);
 		try {
-			await saveWorkoutSession({ bodyWeight, exercises }, updateTemplate);
+			await saveWorkoutSession({ bodyWeight, exercises }, updateTemplate, date);
 			setShowSuccess(true);
 			setTimeout(() => setShowSuccess(false), 3000);
 		} catch (error) {
@@ -156,7 +159,7 @@ export default function WorkoutSession({
 		if (!bodyWeight || bodyWeight <= 0) return;
 		setIsSubmittingWeight(true);
 		try {
-			await saveBodyWeight(bodyWeight);
+			await saveBodyWeight(bodyWeight, date);
 			setStep(2);
 		} catch (error) {
 			console.error(error);
@@ -171,7 +174,7 @@ export default function WorkoutSession({
 		setIsSubmittingExercise(true);
 		try {
 			const exercise = exercises[activeExerciseIndex];
-			await saveSingleExerciseLog(exercise, updateTemplate);
+			await saveSingleExerciseLog(exercise, updateTemplate, date);
 
 			// Mark as done locally
 			setExercises((prev) => {
@@ -218,7 +221,8 @@ export default function WorkoutSession({
 				exercises={exercises}
 				completedCount={completedCount}
 				totalCount={totalCount}
-				progress={progress}>
+				progress={progress}
+				date={date}>
 				<div className="space-y-6">
 					<GlassCard className="p-6 border-orange-500/10 bg-orange-500/5">
 						<div className="flex items-center justify-between">
@@ -311,7 +315,8 @@ export default function WorkoutSession({
 				exercises={exercises}
 				completedCount={completedCount}
 				totalCount={totalCount}
-				progress={progress}>
+				progress={progress}
+				date={date}>
 				<GlassCard className="p-8 space-y-8 flex flex-col items-center justify-center min-h-[40vh]">
 					<div className="text-center space-y-2">
 						<h2 className="text-2xl font-black text-foreground uppercase tracking-wider">
@@ -414,7 +419,8 @@ export default function WorkoutSession({
 				exercises={exercises}
 				completedCount={completedCount}
 				totalCount={totalCount}
-				progress={progress}>
+				progress={progress}
+				date={date}>
 				<GlassCard className="flex items-center justify-between p-4 px-6 border-orange-500/10 bg-orange-500/5">
 					<div className="flex items-center space-x-3">
 						<span className="text-sm font-bold text-foreground uppercase tracking-widest">
@@ -523,7 +529,8 @@ export default function WorkoutSession({
 				exercises={exercises}
 				completedCount={completedCount}
 				totalCount={totalCount}
-				progress={progress}>
+				progress={progress}
+				date={date}>
 				<GlassCard className="space-y-6 p-6">
 					<div className="flex justify-between items-start border-b border-foreground/5 pb-4">
 						<div>
@@ -633,6 +640,7 @@ const SessionLayout = ({
 	completedCount,
 	totalCount,
 	progress,
+	date,
 }: {
 	title: string;
 	subtitle?: string;
@@ -644,9 +652,27 @@ const SessionLayout = ({
 	completedCount: number;
 	totalCount: number;
 	progress: number;
+	date?: string;
 }) => (
 	<div className={cn(maxWidth, "mx-auto space-y-8 pt-4 pb-12")}>
 		<div className="space-y-6">
+			{date && date !== format(new Date(), "yyyy-MM-dd") && (
+				<div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-4 flex items-center justify-between mb-2">
+					<div className="flex items-center space-x-3">
+						<div className="w-8 h-8 rounded-xl bg-orange-500/20 flex items-center justify-center">
+							<Save className="w-4 h-4 text-orange-500" />
+						</div>
+						<div>
+							<p className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
+								Historical Logging
+							</p>
+							<p className="text-xs font-bold text-foreground/60 uppercase">
+								Recording Session for {format(new Date(`${date}T00:00:00`), "MMMM d, yyyy")}
+							</p>
+						</div>
+					</div>
+				</div>
+			)}
 			<div className="flex justify-between items-center">
 				{onBack ? (
 					<button

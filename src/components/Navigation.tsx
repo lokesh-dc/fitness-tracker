@@ -15,11 +15,12 @@ export function Navigation() {
   const isWorkoutPage = pathname === "/workout";
 
   const navItems = [
-    { href: "/", icon: LayoutDashboard, label: "Home" },
-    { href: "/plan", icon: CalendarRange, label: "Plan" },
-    { href: "/workout", icon: Dumbbell, label: "Workout", isAction: true },
-    { href: "/workouts", icon: Activity, label: "History" },
-    { href: "/profile", icon: User, label: "Profile" },
+    { href: "/", icon: LayoutDashboard, label: "Home", mobile: true, desktop: true },
+    { href: "/plan", icon: CalendarRange, label: "Plan", mobile: true, desktop: true },
+    { href: "/workout", icon: Dumbbell, label: "Workout", isAction: true, mobile: true, desktop: true },
+    { href: "/workouts", icon: Activity, label: "History", mobile: true, desktop: true },
+    { href: "/analytics", icon: BarChart2, label: "Analytics", mobile: false, desktop: true },
+    { href: "/profile", icon: User, label: "Profile", mobile: true, desktop: true },
   ];
 
   return (
@@ -27,7 +28,7 @@ export function Navigation() {
       {/* Bottom Navigation (Mobile Only) */}
       {!isWorkoutPage && (
         <nav className="fixed bottom-0 left-0 right-0 h-20 glass border-t border-foreground/10 flex justify-around items-center px-6 md:hidden z-50 rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
-          {navItems.map((item) => {
+          {navItems.filter(item => item.mobile).map((item) => {
             if (item.isAction) {
               return (
                 <Link
@@ -74,7 +75,7 @@ export function Navigation() {
           <Dumbbell className="w-6 h-6 text-black" />
         </Link>
         
-        {navItems.map((item) => (
+        {navItems.filter(item => item.desktop).map((item) => (
           <Link 
             key={item.href}
             href={item.href} 

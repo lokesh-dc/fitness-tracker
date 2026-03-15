@@ -7,14 +7,17 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
-export async function getTodayPlan(): Promise<WorkoutTemplate | null> {
+export async function getPlanByDate(date?: string | Date): Promise<WorkoutTemplate | null> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) return null;
     const userId = (session.user as any).id;
 
     const db = await getDb();
-    const dayOfWeek = getCurrentDayOfWeek();
+    
+    // Determine the day of the week for the target date
+    const targetDate = date ? new Date(date) : new Date();
+    const dayOfWeek = targetDate.getDay();
 
     const todayPlan = await db.collection("WorkoutTemplate").findOne({
       userId: new ObjectId(userId),

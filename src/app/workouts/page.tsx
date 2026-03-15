@@ -3,7 +3,8 @@ import { Header } from "@/components/Header";
 import { WeeklyCalendar } from "@/components/WeeklyCalendar";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { format } from "date-fns";
-import { Trophy, Activity, Calendar, Info } from "lucide-react";
+import { Trophy, Activity, Calendar, Info, Plus, Edit2 } from "lucide-react";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -40,9 +41,16 @@ export default async function WorkoutsPage({
             <h3 className="text-xl font-bold text-foreground tracking-tight mb-2">
               No Workouts
             </h3>
-            <p className="text-sm font-medium text-foreground/60 max-w-[250px]">
+            <p className="text-sm font-medium text-foreground/60 max-w-[250px] mb-8">
               No exercises were logged on this date.
             </p>
+            <Link 
+              href={`/workout?date=${targetDateStr}`}
+              className="flex items-center space-x-2 px-8 py-4 bg-orange-500 text-black rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-105 active:scale-95 transition-all shadow-[0_10px_20px_rgba(249,115,22,0.3)]"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Log Workout</span>
+            </Link>
           </div>
         ) : (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -91,9 +99,18 @@ export default async function WorkoutsPage({
 
             {/* Exercises List */}
             <div className="space-y-4 pt-4 border-t border-foreground/10">
-              <h3 className="text-xs font-black text-foreground uppercase tracking-widest mb-4 flex items-center">
-                <Calendar className="w-4 h-4 text-orange-500 mr-2" /> Session Breakdown
-              </h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xs font-black text-foreground uppercase tracking-widest flex items-center">
+                  <Calendar className="w-4 h-4 text-orange-500 mr-2" /> Session Breakdown
+                </h3>
+                <Link 
+                  href={`/workout?date=${targetDateStr}`}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-foreground/5 hover:bg-orange-500/10 hover:text-orange-500 transition-all text-[10px] font-black uppercase tracking-widest text-foreground/40"
+                >
+                  <Edit2 className="w-3 h-3" />
+                  <span>Edit Session</span>
+                </Link>
+              </div>
 
               {log.exercises?.length === 0 ? (
                 <div className="text-center py-10 opacity-50">

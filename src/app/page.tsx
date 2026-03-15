@@ -1,9 +1,7 @@
-import { getTodayPlan } from "./actions/plan";
-import { StatCard } from "@/components/ui/StatCard";
+import { getPlanByDate } from "./actions/plan";
 import { WorkoutListItem } from "@/components/ui/WorkoutListItem";
 import { GlassCard } from "@/components/ui/GlassCard";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { Footprints, Flame, Plus, ChevronRight, BarChart2 } from "lucide-react";
+import { Plus, ChevronRight, BarChart2, Quote, Coffee } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 
@@ -11,18 +9,45 @@ import { Header } from "@/components/Header";
 
 export const dynamic = "force-dynamic";
 
+const QUOTES = [
+	"The only bad workout is the one that didn't happen.",
+	"Rest and recovery are just as important as the work you put in.",
+	"Your body can stand almost anything. It's your mind you have to convince.",
+	"Growth happens outside your comfort zone.",
+	"Strength comes from overcoming the things you once thought you couldn't.",
+	"Train hard, recover harder. Growth is in the balance.",
+	"It never gets easier, you just get stronger.",
+	"Strive for progress, not perfection.",
+];
+
+async function getDailyQuote() {
+	try {
+		// Cache the quote for 1 hour to avoid hitting API rate limits
+		const res = await fetch("https://zenquotes.io/api/random", {
+			next: { revalidate: 3600 },
+		});
+		if (!res.ok) throw new Error("Failed to fetch quote");
+		const data = await res.json();
+		return data[0]?.q || QUOTES[Math.floor(Math.random() * QUOTES.length)];
+	} catch (error) {
+		// Fallback to our hardcoded fitness quotes if offline or rate limited
+		return QUOTES[Math.floor(Math.random() * QUOTES.length)];
+	}
+}
+
 export default async function Home() {
 	let plan = null;
 	let error = null;
 
 	try {
-		plan = await getTodayPlan();
+		plan = await getPlanByDate();
 	} catch (e) {
 		console.error("Error loading home page data:", e);
 		error = "Failed to load workout data.";
 	}
 
 	const today = new Date();
+	const randomQuote = await getDailyQuote();
 
 	return (
 		<div className="flex flex-col">
@@ -30,33 +55,22 @@ export default async function Home() {
 
 			<main className="flex-1 px-6 space-y-8 max-w-4xl mx-auto w-full pb-12">
 				<section>
-					<div className="flex justify-between items-end mb-4">
-						<h2 className="text-lg font-bold text-foreground tracking-tight">
-							Today&apos;s Stats
-						</h2>
-						<Link
-							href="#"
-							className="text-xs font-bold text-orange-500 hover:underline flex items-center">
-							Details <ChevronRight className="w-3 h-3 ml-0.5" />
-						</Link>
-					</div>
-
-					<div className="grid grid-cols-2 gap-4">
-						<StatCard
-							label="Steps"
-							value="8,432"
-							unit="steps"
-							status="Good"
-							icon={<Footprints className="w-5 h-5 text-orange-500" />}
-						/>
-						<StatCard
-							label="Calories"
-							value="1,240"
-							unit="kcal"
-							status="Average"
-							icon={<Flame className="w-5 h-5 text-foreground/40" />}
-						/>
-					</div>
+					<GlassCard className="relative overflow-hidden p-6 border-foreground/5 bg-gradient-to-br from-orange-500/10 to-transparent">
+						<Quote className="absolute -bottom-4 -right-4 w-24 h-24 text-orange-500/10 -rotate-12" />
+						<div className="relative z-10">
+							<div className="flex items-center space-x-2 mb-3">
+								<div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
+									<Quote className="w-4 h-4 text-orange-500" />
+								</div>
+								<h3 className="text-xs font-black uppercase tracking-widest text-orange-500">
+									Daily Motivation
+								</h3>
+							</div>
+							<p className="text-2xl font-black text-foreground leading-tight tracking-tight">
+								&quot; {randomQuote} &quot;
+							</p>
+						</div>
+					</GlassCard>
 				</section>
 
 				<section className="space-y-4">
@@ -71,14 +85,10 @@ export default async function Home() {
 						</Link>
 					</div>
 
-					{plan ? (
+					{plan && plan.dayOfWeek !== 0 ? (
 						<Link href="/workout" className="block">
 							<WorkoutListItem
-								title={
-									plan.dayOfWeek === 0
-										? "Rest Day"
-										: `Day ${plan.dayOfWeek}: Strength Training`
-								}
+								title={`Day ${plan.dayOfWeek}: Strength Training`}
 								subtitle={`Week ${plan.weekNumber} • Master Plan`}
 								duration="60 min"
 								exercisesCount={plan.exercises.length}
@@ -88,13 +98,17 @@ export default async function Home() {
 					) : (
 						<div className="glass-card border-dashed border-foreground/10 flex flex-col items-center justify-center py-12 text-center">
 							<div className="w-12 h-12 rounded-2xl bg-foreground/5 flex items-center justify-center mb-4">
-								<Plus className="w-6 h-6 text-foreground/40" />
+								{plan?.dayOfWeek === 0 ? (
+									<Coffee className="w-6 h-6 text-foreground/40" />
+								) : (
+									<Plus className="w-6 h-6 text-foreground/40" />
+								)}
 							</div>
 							<p className="text-foreground/60 text-sm font-medium mb-1">
-								No workout scheduled for today
+								{plan?.dayOfWeek === 0 ? "It's a Rest Day! 🧘‍♂️" : "No workout scheduled for today"}
 							</p>
 							<p className="text-foreground/40 text-xs">
-								Tap to create a new session or set up a plan.
+								{plan?.dayOfWeek === 0 ? "Take some time to recover and prep for tomorrow." : "Tap to create a new session or set up a plan."}
 							</p>
 						</div>
 					)}
