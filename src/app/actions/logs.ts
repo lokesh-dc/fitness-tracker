@@ -10,6 +10,8 @@ import { authOptions } from "@/lib/auth";
 export async function saveWorkoutSession(
   data: {
     bodyWeight?: number;
+    name?: string;
+    splitName?: string;
     exercises: Array<{
       exerciseId: string;
       name: string;
@@ -68,6 +70,8 @@ export async function saveWorkoutSession(
       log = { 
         ...existingLog, 
         bodyWeight: data.bodyWeight !== undefined ? data.bodyWeight : existingLog.bodyWeight, 
+        name: data.name !== undefined ? data.name : existingLog.name,
+        splitName: data.splitName !== undefined ? data.splitName : existingLog.splitName,
         exercises: mergedExercises, 
         id: existingLog._id.toString() 
       };
@@ -76,6 +80,8 @@ export async function saveWorkoutSession(
         userId: new ObjectId(userId),
         date: startOfDay,
         bodyWeight: data.bodyWeight,
+        name: data.name,
+        splitName: data.splitName,
         exercises: data.exercises,
         createdAt: new Date(),
       };
@@ -379,7 +385,6 @@ export async function getWorkoutByDate(dateStr: string): Promise<WorkoutLog | nu
       },
       { sort: { createdAt: -1 } }
     );
-
     if (!targetLog) return null;
 
     return {
@@ -393,6 +398,31 @@ export async function getWorkoutByDate(dateStr: string): Promise<WorkoutLog | nu
 
   } catch (error) {
     console.error("Error getting workout by date:", error);
+    return null;
+  }
+}
+
+export async function getUserStats() {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return null;
+    const userId = new ObjectId((session.user as any).id);
+
+    const db = await getDb();
+    
+    // Get total workouts (unique days)
+    const logs = await db.collection("WorkoutLog").find({ userId }).toArray();
+    const uniqueDays = new Set(logs.map(log => new Date(log.date).toDateString())).size;
+
+    // Get joined date (from user doc)
+    const user = await db.collection("users").findOne({ _id: userId });
+    
+    return {
+      totalWorkouts: uniqueDays,
+      joinedAt: user?.createdAt || user?._id.getTimestamp() || new Date(),
+    };
+  } catch (error) {
+    console.error("Error getting user stats:", error);
     return null;
   }
 }

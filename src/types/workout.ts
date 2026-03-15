@@ -45,6 +45,8 @@ export interface WorkoutLog {
   id: string;
   userId: string;
   date: string | Date;
+  name?: string;
+  splitName?: string;
   bodyWeight?: number;
   exercises: {
     exerciseId: string;

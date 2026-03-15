@@ -144,7 +144,16 @@ export default function WorkoutSession({
 	const handleSubmit = async () => {
 		setIsSubmitting(true);
 		try {
-			await saveWorkoutSession({ bodyWeight, exercises }, updateTemplate, date);
+			await saveWorkoutSession(
+				{ 
+					bodyWeight, 
+					exercises,
+					splitName: template?.splitName,
+					name: template?.splitName || "Workout Session"
+				}, 
+				updateTemplate, 
+				date
+			);
 			setShowSuccess(true);
 			setTimeout(() => setShowSuccess(false), 3000);
 		} catch (error) {

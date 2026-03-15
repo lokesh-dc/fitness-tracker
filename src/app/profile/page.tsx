@@ -12,8 +12,21 @@ import {
 } from "lucide-react";
 
 import { Header } from "@/components/Header";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { getUserStats } from "@/app/actions/logs";
+import { format } from "date-fns";
 
-export default function ProfilePage() {
+export default async function ProfilePage() {
+	const session = await getServerSession(authOptions);
+	if (!session?.user) return null;
+	const stats = await getUserStats();
+
+	const userName = session.user.name || "User";
+	const userEmail = session.user.email || "";
+	const joinedDate = stats ? new Date(stats.joinedAt) : new Date();
+	const level = stats ? Math.floor(stats.totalWorkouts / 5) + 1 : 1;
+
 	const sections = [
 		{
 			title: "Account",
@@ -21,7 +34,7 @@ export default function ProfilePage() {
 				{
 					icon: <User className="w-5 h-5" />,
 					label: "Personal Information",
-					value: "Lokesh Choudhary",
+					value: userName,
 				},
 				{
 					icon: <CreditCard className="w-5 h-5" />,
@@ -59,7 +72,7 @@ export default function ProfilePage() {
 					<div className="relative">
 						<div className="w-20 h-20 rounded-3xl border-2 border-orange-500/50 p-1">
 							<img
-								src="https://api.dicebear.com/7.x/avataaars/svg?seed=Lokesh"
+								src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${userName}`}
 								alt="Profile"
 								className="w-full h-full rounded-2xl object-cover"
 							/>
@@ -70,14 +83,17 @@ export default function ProfilePage() {
 					</div>
 					<div>
 						<h2 className="text-xl font-bold text-foreground">
-							Lokesh Choudhary
+							{userName}
 						</h2>
-						<p className="text-foreground/40 text-sm font-medium">
-							Joined March 2024
+						<p className="text-foreground/40 text-[10px] font-bold uppercase tracking-widest mb-1">
+							{userEmail}
 						</p>
-						<div className="mt-2 flex items-center space-x-2">
+						<p className="text-foreground/40 text-xs font-medium">
+							Joined {format(joinedDate, "MMMM yyyy")}
+						</p>
+						<div className="mt-3 flex items-center space-x-2">
 							<span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-600 dark:text-orange-500 uppercase tracking-widest border border-orange-500/30">
-								Level 12
+								Level {level}
 							</span>
 							<span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-foreground/5 text-foreground/60 uppercase tracking-widest border border-foreground/10">
 								Pro

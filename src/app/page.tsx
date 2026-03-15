@@ -1,4 +1,7 @@
 import { getPlanByDate } from "./actions/plan";
+import { getUserStats } from "./actions/logs";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { WorkoutListItem } from "@/components/ui/WorkoutListItem";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Plus, ChevronRight, BarChart2, Quote, Coffee } from "lucide-react";
@@ -38,9 +41,14 @@ async function getDailyQuote() {
 export default async function Home() {
 	let plan = null;
 	let error = null;
+	let stats = null;
+
+	const session = await getServerSession(authOptions);
+	const userName = session?.user?.name?.split(" ")[0] || "there";
 
 	try {
 		plan = await getPlanByDate();
+		stats = await getUserStats();
 	} catch (e) {
 		console.error("Error loading home page data:", e);
 		error = "Failed to load workout data.";
@@ -51,7 +59,7 @@ export default async function Home() {
 
 	return (
 		<div className="flex flex-col">
-			<Header title="Hi, Lokesh! 👋" subtitle={format(today, "EEEE, MMMM d")} />
+			<Header title={`Hi, ${userName}! 👋`} subtitle={format(today, "EEEE, MMMM d")} />
 
 			<main className="flex-1 px-6 space-y-8 max-w-4xl mx-auto w-full pb-12">
 				<section>
@@ -88,9 +96,9 @@ export default async function Home() {
 					{plan && plan.dayOfWeek !== 0 ? (
 						<Link href="/workout" className="block">
 							<WorkoutListItem
-								title={`Day ${plan.dayOfWeek}: Strength Training`}
+								title={`${(plan as any).splitName || `Day ${plan.dayOfWeek}`} Training`}
 								subtitle={`Week ${plan.weekNumber} • Master Plan`}
-								duration="60 min"
+								duration={`${plan.exercises.length * 10} min`}
 								exercisesCount={plan.exercises.length}
 								active
 							/>

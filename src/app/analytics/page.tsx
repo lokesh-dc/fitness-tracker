@@ -25,6 +25,7 @@ export default async function AnalyticsPage() {
 			id: log.id,
 			date: typeof log.date === "string" ? log.date : (log.date as Date).toISOString(),
 			exercisesCount: log.exercises.length,
+			name: log.name || log.splitName || "Workout Session",
 		}));
 
 	return (
@@ -103,7 +104,7 @@ export default async function AnalyticsPage() {
 										</div>
 										<div>
 											<h3 className="text-lg font-bold text-foreground">
-												Strength Session
+												{history.name}
 											</h3>
 											<p className="text-[10px] text-foreground/40 font-medium uppercase tracking-wider">
 												{format(new Date(history.date), "MMMM d, yyyy")} • {history.exercisesCount} Exercises
