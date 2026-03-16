@@ -70,7 +70,7 @@ export default async function DashboardPage() {
 
 	return (
 		<div className="flex flex-col">
-			<Header title={`Hi, ${userName}! 👋`} subtitle={format(today, "EEEE, MMMM d")} />
+			<Header title={`Hi, ${userName}! 👋`} subtitle={format(today, "d MMMM ''yy")} />
 
 			<main className="flex-1 px-6 space-y-8 max-w-4xl mx-auto w-full pb-12 transition-all duration-500 animate-in fade-in slide-in-from-bottom-4">
 				<section>

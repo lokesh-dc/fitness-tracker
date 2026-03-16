@@ -95,7 +95,7 @@ export default async function ProfilePage() {
 								{userEmail}
 							</p>
 							<p className="text-foreground/40 text-xs font-medium">
-								Joined {format(joinedDate, "MMMM yyyy")}
+								Joined {format(joinedDate, "d MMMM ''yy")}
 							</p>
 							<div className="mt-3 flex items-center space-x-2">
 								<span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-600 dark:text-orange-500 uppercase tracking-widest border border-orange-500/30">

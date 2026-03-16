@@ -31,7 +31,7 @@ export function PRCard({ name, weight, date, increment = 0, className }: PRCardP
       <div className="flex items-center justify-between">
         <div className="flex items-center text-[10px] font-medium text-foreground/40">
           <Calendar className="w-3 h-3 mr-1" />
-          {format(new Date(date), "d MMM")}
+          {format(new Date(date), "d MMMM ''yy")}
         </div>
         {increment > 0 && (
           <div className="flex items-center text-[10px] font-bold text-emerald-500 dark:text-emerald-400">

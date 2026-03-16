@@ -36,7 +36,7 @@ export default function ExerciseProgressChart({
 			return (
 				<div className="glass p-3 border-white/10 rounded-xl shadow-xl">
 					<p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">
-						{format(parseISO(label), "MMM d, yyyy")}
+						{format(parseISO(label), "d MMMM ''yy")}
 					</p>
 					<p className="text-sm font-bold text-orange-500">
 						{payload[0].value}{" "}
@@ -86,7 +86,7 @@ export default function ExerciseProgressChart({
 								fontWeight: 700,
 								className: "text-foreground/20",
 							}}
-							tickFormatter={(str) => format(parseISO(str), "MMM d")}
+							tickFormatter={(str) => format(parseISO(str), "d MMMM ''yy")}
 							minTickGap={30}
 						/>
 						<YAxis

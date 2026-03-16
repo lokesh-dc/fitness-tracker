@@ -1,6 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Calendar, ChevronLeft, Dumbbell, LayoutGrid, Trophy, Info } from "lucide-react";
+import { format } from "date-fns";
+import {
+	Calendar,
+	ChevronLeft,
+	Dumbbell,
+	LayoutGrid,
+	Trophy,
+	Info,
+} from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { getPlanDetails } from "@/app/actions/plan";
 import { WeeklySchedule } from "./WeeklySchedule";
@@ -44,7 +52,9 @@ export default async function PlanDetailPage({
 				<ChevronLeft className="w-5 h-5 text-foreground" />
 			</Link>
 			<h1 className="text-xl font-black text-foreground tracking-tight line-clamp-1">
-				{plan.name}
+				{plan.name?.startsWith("Plan starting ")
+					? `Plan starting (${format(new Date(plan.startDate + "T00:00:00"), "d MMMM ''yy")})`
+					: plan.name}
 			</h1>
 		</div>
 	);
@@ -64,14 +74,17 @@ export default async function PlanDetailPage({
 								<Trophy className="w-8 h-8 text-black" />
 							</div>
 							<div>
-								<h2 className="text-xl font-black text-foreground uppercase tracking-tight">Cycle Completed!</h2>
-								<p className="text-[10px] font-bold text-emerald-500/60 uppercase tracking-[0.2em]">Congratulations on finishing this plan</p>
+								<h2 className="text-xl font-black text-foreground uppercase tracking-tight">
+									Cycle Completed!
+								</h2>
+								<p className="text-[10px] font-bold text-emerald-500/60 uppercase tracking-[0.2em]">
+									Congratulations on finishing this plan
+								</p>
 							</div>
 						</div>
-						<Link 
+						<Link
 							href={`/plan/${plan.id}/report`}
-							className="relative z-10 w-full md:w-auto px-8 py-4 bg-emerald-500 text-black rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-105 active:scale-95 transition-all shadow-[0_10px_20px_rgba(16,185,129,0.3)] text-center"
-						>
+							className="relative z-10 w-full md:w-auto px-8 py-4 bg-emerald-500 text-black rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-105 active:scale-95 transition-all shadow-[0_10px_20px_rgba(16,185,129,0.3)] text-center">
 							View Performance Report
 						</Link>
 					</GlassCard>
@@ -82,7 +95,10 @@ export default async function PlanDetailPage({
 						<div className="w-8 h-8 rounded-xl bg-orange-500/20 flex items-center justify-center">
 							<Calendar className="w-4 h-4 text-orange-500" />
 						</div>
-						<p className="text-xs font-bold text-foreground/60">This plan is scheduled to start on {new Date(plan.startDate).toLocaleDateString()}.</p>
+						<p className="text-xs font-bold text-foreground/60">
+							This plan is scheduled to start on{" "}
+							{format(new Date(plan.startDate + "T00:00:00"), "d MMMM ''yy")}.
+						</p>
 					</GlassCard>
 				)}
 
@@ -101,12 +117,7 @@ export default async function PlanDetailPage({
 									Started On
 								</p>
 								<p className="text-sm font-bold text-foreground">
-									{start.toLocaleDateString(undefined, {
-										weekday: "long",
-										year: "numeric",
-										month: "long",
-										day: "numeric",
-									})}
+									{format(start, "d MMMM ''yy")}
 								</p>
 							</div>
 						</div>
@@ -122,12 +133,7 @@ export default async function PlanDetailPage({
 									Ends On
 								</p>
 								<p className="text-sm font-bold text-foreground">
-									{end.toLocaleDateString(undefined, {
-										weekday: "long",
-										year: "numeric",
-										month: "long",
-										day: "numeric",
-									})}
+									{format(end, "d MMMM ''yy")}
 								</p>
 							</div>
 						</div>

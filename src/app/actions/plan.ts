@@ -14,7 +14,7 @@ export async function getPlanByDate(date?: string | Date): Promise<WorkoutTempla
     const userId = (session.user as any).id;
 
     const db = await getDb();
-    
+
     // Determine the day of the week for the target date
     const targetDate = date ? new Date(date) : new Date();
     const targetDateStr = targetDate.toISOString().split("T")[0];
@@ -23,7 +23,7 @@ export async function getPlanByDate(date?: string | Date): Promise<WorkoutTempla
     // 1. Find the active plan for this date
     // Sort by startDate desc to get the most recent one if overlapping
     const activePlan = await db.collection("PlanDocument").findOne(
-      { 
+      {
         userId: new ObjectId(userId),
         startDate: { $lte: targetDateStr }
       },
@@ -100,12 +100,11 @@ export async function getPlanReport(planId: string) {
     const end = new Date(start);
     end.setDate(end.getDate() + plan.numWeeks * 7);
 
-    // Fetch all logs within this period
+    // Fetch all logs within this period, sorted by date ascending
     const logs = await db.collection("WorkoutLog").find({
       userId,
       date: { $gte: start, $lte: end }
-    }).toArray();
-
+    }).sort({ date: 1 }).toArray();
     const totalSessions = logs.length;
     let totalVolume = 0;
     const exercisePRs: Record<string, { weight: number, name: string }> = {};
@@ -122,9 +121,11 @@ export async function getPlanReport(planId: string) {
     });
 
     const bodyWeights = logs.filter(l => l.bodyWeight).map(l => l.bodyWeight);
-    const weightChange = bodyWeights.length > 1 
+    const weightChange = bodyWeights.length > 1
       ? (bodyWeights[bodyWeights.length - 1] - bodyWeights[0])
       : 0;
+
+    const loggedDates = logs.map(l => new Date(l.date).toISOString().split('T')[0]);
 
     return {
       planName: plan.name,
@@ -134,6 +135,7 @@ export async function getPlanReport(planId: string) {
       totalVolume,
       topPRs: Object.values(exercisePRs).sort((a, b) => b.weight - a.weight).slice(0, 5),
       weightChange,
+      loggedDates,
     };
   } catch (error) {
     console.error("Error generating plan report:", error);
@@ -172,7 +174,7 @@ export async function savePlanTemplates(
     } else {
       const planResult = await db.collection("PlanDocument").insertOne({
         userId,
-        name: planData.name || `Plan starting ${planData.startDate}`,
+        name: planData.name || `Plan starting ( ${planData.startDate}) `,
         startDate: planData.startDate,
         numWeeks: planData.numWeeks,
         createdAt: new Date(),
@@ -260,7 +262,7 @@ export async function getActivePlanInfo() {
     const end = new Date(start);
     end.setDate(end.getDate() + activePlan.numWeeks * 7);
     const now = new Date();
-    
+
     const isCompleted = now > end;
     const hasStarted = now >= start;
 
@@ -343,7 +345,7 @@ export async function getReminderData() {
     const dayOfWeek = getCurrentDayOfWeek();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     // Get today's plan and log concurrently
     const [todayPlanRaw, log] = await Promise.all([
       db.collection("WorkoutTemplate").findOne({
