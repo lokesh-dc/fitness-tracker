@@ -12,6 +12,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
 
 import { Header } from "@/components/Header";
+import { format } from "date-fns";
 
 export const dynamic = "force-dynamic";
 
@@ -105,12 +106,17 @@ export default async function PlanPage() {
 												</div>
 												<div>
 													<h3 className="text-base font-black text-foreground uppercase tracking-tight group-hover:text-orange-500 transition-colors">
-														{plan.name ||
-															`Plan starting ${new Date(plan.startDate).toLocaleDateString()}`}
+														{plan.name?.startsWith("Plan starting ")
+															? `Plan starting (${format(new Date(plan.startDate + "T00:00:00"), "d MMMM ''yy")})`
+															: plan.name ||
+																`Plan starting (${format(new Date(plan.startDate + "T00:00:00"), "d MMMM ''yy")})`}
 													</h3>
 													<div className="flex flex-wrap gap-2 mt-2">
 														<span className="text-[10px] font-black text-foreground/60 uppercase tracking-widest bg-foreground/5 px-2 py-1 rounded-md">
-															{plan.startDate}
+															{format(
+																new Date(plan.startDate + "T00:00:00"),
+																"d MMMM ''yy",
+															)}
 														</span>
 														<span className="text-[10px] font-black text-foreground/60 uppercase tracking-widest bg-foreground/5 px-2 py-1 rounded-md">
 															{plan.numWeeks} Weeks

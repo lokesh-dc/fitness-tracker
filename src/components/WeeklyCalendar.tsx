@@ -67,7 +67,7 @@ export function WeeklyCalendar({ selectedDateStr }: WeeklyCalendarProps) {
 							{format(selectedDate, "MMM")}
 						</span>
 						<span className="text-sm font-black text-foreground">
-							{format(selectedDate, "yy")}
+							'{format(selectedDate, "yy")}
 						</span>
 						<ChevronDown className={cn("w-3 h-3 text-foreground/40 mt-1 transition-transform", isDropdownOpen && "rotate-180")} />
 					</div>
@@ -148,7 +148,7 @@ export function WeeklyCalendar({ selectedDateStr }: WeeklyCalendarProps) {
 												: "text-foreground hover:bg-foreground/5"
 										)}
 									>
-										<span>{format(month, "MMMM yyyy")}</span>
+										<span>{format(month, "MMMM ''yy")}</span>
 										{isSelectedMonth && <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
 									</button>
 								);

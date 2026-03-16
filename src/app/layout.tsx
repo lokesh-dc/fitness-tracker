@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { Providers } from "@/components/Providers";
 import { Navigation } from "@/components/Navigation";
 import { DailyReminder } from "@/components/DailyReminder";
+import ScrollToTop from "@/components/ScrollToTop";
 import "@/app/globals.css";
 
 import { AppProgressBar as ProgressBar } from "next-nprogress-bar";
@@ -21,6 +22,7 @@ export default function RootLayout({
 		<html lang="en" suppressHydrationWarning>
 			<body>
 				<Providers>
+					<ScrollToTop />
 					<ProgressBar
 						height="4px"
 						color="#f97316"

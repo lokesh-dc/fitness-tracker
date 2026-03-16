@@ -676,7 +676,7 @@ const SessionLayout = ({
 								Historical Logging
 							</p>
 							<p className="text-xs font-bold text-foreground/60 uppercase">
-								Recording Session for {format(new Date(`${date}T00:00:00`), "MMMM d, yyyy")}
+								Recording Session for {format(new Date(`${date}T00:00:00`), "d MMMM ''yy")}
 							</p>
 						</div>
 					</div>

@@ -35,7 +35,7 @@ export function WorkoutHistoryItem({
               {name}
             </h3>
             <p className="text-[10px] text-foreground/40 font-medium uppercase tracking-wider">
-              {format(new Date(date), "MMMM d, yyyy")} • {exercisesCount} Exercises
+              {format(new Date(date), "d MMMM ''yy")} • {exercisesCount} Exercises
             </p>
           </div>
         </div>
