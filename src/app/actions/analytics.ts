@@ -67,47 +67,36 @@ export async function getRecentPRs(): Promise<{ name: string; weight: number; da
 
     const db = await getDb();
     
-    // Get all logs sorted by date backwards to easily track chronological PR breaks
-    const logs = await db.collection("WorkoutLog")
-      .find({ userId })
-      .sort({ date: 1 })
-      .toArray();
+    // Use aggregation to find the maximum weight per exercise and day
+    const logs = await db.collection("WorkoutLog").aggregate([
+      { $match: { userId } },
+      { $unwind: "$exercises" },
+      { $unwind: "$exercises.sets" },
+      {
+        $group: {
+          _id: {
+            name: "$exercises.name",
+            date: { $dateToString: { format: "%Y-%m-%d", date: "$date" } }
+          },
+          maxWeight: { $max: "$exercises.sets.weight" }
+        }
+      },
+      { $sort: { "_id.date": 1 } }
+    ]).toArray();
 
     const prTracker: Record<string, { weight: number; date: string; previousWeight: number }> = {};
 
     logs.forEach(log => {
-      const dateStr = (log.date as Date).toISOString().split('T')[0];
-      if (Array.isArray(log.exercises)) {
-        log.exercises.forEach((ex: any) => {
-          if (!ex.name || !Array.isArray(ex.sets)) return;
-          
-          const maxWeightInSession = ex.sets.reduce(
-            (max: number, set: any) => Math.max(max, set.weight || 0), 
-            0
-          );
+      const { name, date } = log._id;
+      const weight = log.maxWeight;
 
-          if (maxWeightInSession > 0) {
-            if (!prTracker[ex.name]) {
-              // First time doing the exercise
-              prTracker[ex.name] = { 
-                weight: maxWeightInSession, 
-                date: dateStr, 
-                previousWeight: 0 
-              };
-            } else if (maxWeightInSession > prTracker[ex.name].weight) {
-              // PR broken! Track the previous max to show the difference
-              prTracker[ex.name] = {
-                weight: maxWeightInSession,
-                date: dateStr,
-                previousWeight: prTracker[ex.name].weight
-              };
-            }
-          }
-        });
+      if (!prTracker[name]) {
+        prTracker[name] = { weight, date, previousWeight: 0 };
+      } else if (weight > prTracker[name].weight) {
+        prTracker[name] = { weight, date, previousWeight: prTracker[name].weight };
       }
     });
 
-    // Map to array, calculate increment, sort by latest PRs, and grab top 3
     const recentPRs = Object.entries(prTracker)
       .map(([name, data]) => ({
         name,
