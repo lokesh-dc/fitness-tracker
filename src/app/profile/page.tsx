@@ -15,16 +15,29 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getUserStats } from "@/app/actions/logs";
 import { format } from "date-fns";
+import clientPromise from "@/lib/mongodb";
+import { ObjectId } from "mongodb";
+import { ProfileClient } from "./ProfileClient";
 
 export default async function ProfilePage() {
 	const session = await getServerSession(authOptions);
 	if (!session?.user) return null;
+
+	const client = await clientPromise;
+	const db = client.db();
+	const user = await db.collection("users").findOne({
+		_id: new ObjectId((session.user as any).id),
+	});
+
 	const stats = await getUserStats();
 
 	const userName = session.user.name || "User";
 	const userEmail = session.user.email || "";
 	const joinedDate = stats ? new Date(stats.joinedAt) : new Date();
 	const level = stats ? Math.floor(stats.totalWorkouts / 5) + 1 : 1;
+
+	const isVerified = user?.emailVerified || false;
+	const telegramChatId = user?.telegramChatId || "";
 
 	const sections = [
 		{
@@ -43,21 +56,11 @@ export default async function ProfilePage() {
 			],
 		},
 		{
-			title: "Settings",
-			items: [
-				{
-					icon: <Bell className="w-5 h-5" />,
-					label: "Notifications",
-					toggle: true,
-				},
-				{ icon: <Shield className="w-5 h-5" />, label: "Privacy & Security" },
-				{ icon: <Settings className="w-5 h-5" />, label: "Preferences" },
-			],
-		},
-		{
 			title: "Support",
 			items: [
 				{ icon: <CircleHelp className="w-5 h-5" />, label: "Help Center" },
+				{ icon: <Shield className="w-5 h-5" />, label: "Privacy & Security" },
+				{ icon: <Settings className="w-5 h-5" />, label: "Preferences" },
 			],
 		},
 	];
@@ -100,6 +103,11 @@ export default async function ProfilePage() {
 						</div>
 					</div>
 				</GlassCard>
+
+				<ProfileClient 
+					isVerified={isVerified}
+					initialTelegramId={telegramChatId}
+				/>
 
 				{sections.map((section, idx) => (
 					<section key={idx} className="space-y-3">
