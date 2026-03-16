@@ -7,7 +7,7 @@ import {
   XCircle, 
   RefreshCw
 } from "lucide-react";
-import { resendVerification } from "@/app/actions/user";
+import { resendVerification, updateProfile } from "@/app/actions/user";
 
 interface ProfileClientProps {
   isVerified: boolean;
@@ -40,7 +40,7 @@ export function ProfileClient({ isVerified }: ProfileClientProps) {
         <h3 className="text-xs font-bold text-foreground/40 uppercase tracking-[0.2em] ml-2">
           Identity Verification
         </h3>
-        <GlassCard className="p-4 flex items-center justify-between">
+        <GlassCard className="p-4 flex items-center justify-between border-blue-500/10 hover:border-blue-500/30 transition-all">
           <div className="flex items-center space-x-4">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
               isVerified ? "bg-green-500/10 text-green-500" : "bg-rose-500/10 text-rose-500"
@@ -81,3 +81,5 @@ export function ProfileClient({ isVerified }: ProfileClientProps) {
     </div>
   );
 }
+
+
