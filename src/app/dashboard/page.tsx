@@ -1,10 +1,11 @@
 import { getPlanByDate, getActivePlanInfo } from "../actions/plan";
+import { getTodayWorkoutLog } from "../actions/logs";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { WorkoutListItem } from "@/components/ui/WorkoutListItem";
 import { GlassCard } from "@/components/ui/GlassCard";
-import { Plus, ChevronRight, BarChart2, Quote, Coffee, Trophy } from "lucide-react";
+import { Plus, ChevronRight, BarChart2, Quote, Coffee, Trophy, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 
@@ -42,6 +43,7 @@ export default async function DashboardPage() {
 	let plan = null;
 	let error = null;
 	let activePlanInfo = null;
+	let todayWorkoutLog = null;
 
 	const session = await getServerSession(authOptions);
 
@@ -54,6 +56,7 @@ export default async function DashboardPage() {
 	try {
 		plan = await getPlanByDate();
 		activePlanInfo = await getActivePlanInfo();
+		todayWorkoutLog = await getTodayWorkoutLog();
 	} catch (e) {
 		console.error("Error loading home page data:", e);
 		error = "Failed to load workout data.";
@@ -62,11 +65,14 @@ export default async function DashboardPage() {
 	const today = new Date();
 	const randomQuote = await getDailyQuote();
 
+	// Check if today's workout is done (has at least one exercise)
+	const isTodayDone = todayWorkoutLog && todayWorkoutLog.exercises && todayWorkoutLog.exercises.length > 0;
+
 	return (
 		<div className="flex flex-col">
 			<Header title={`Hi, ${userName}! 👋`} subtitle={format(today, "EEEE, MMMM d")} />
 
-			<main className="flex-1 px-6 space-y-8 max-w-4xl mx-auto w-full pb-12">
+			<main className="flex-1 px-6 space-y-8 max-w-4xl mx-auto w-full pb-12 transition-all duration-500 animate-in fade-in slide-in-from-bottom-4">
 				<section>
 					<GlassCard className="relative overflow-hidden p-6 border-foreground/5 bg-gradient-to-br from-orange-500/10 to-transparent">
 						<Quote className="absolute -bottom-4 -right-4 w-24 h-24 text-orange-500/10 -rotate-12" />
@@ -92,13 +98,31 @@ export default async function DashboardPage() {
 							Your Plan
 						</h2>
 						<Link
-							href="#"
+							href="/plan"
 							className="text-xs font-bold text-orange-500 hover:underline">
-							Edit Plan
+							View Plan
 						</Link>
 					</div>
 
-					{plan && plan.dayOfWeek !== 0 ? (
+					{isTodayDone ? (
+						<Link href="/workout" className="block">
+							<GlassCard className="border-emerald-500/30 bg-emerald-500/5 p-6 flex items-center justify-between group overflow-hidden relative">
+								<div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+									<CheckCircle2 className="w-16 h-16 text-emerald-500" />
+								</div>
+								<div className="flex items-center space-x-4 relative z-10">
+									<div className="w-12 h-12 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+										<CheckCircle2 className="w-6 h-6 text-black" />
+									</div>
+									<div>
+										<h3 className="text-base font-black text-foreground uppercase tracking-tight">Today's done! 🎉</h3>
+										<p className="text-[10px] font-bold text-emerald-500/60 uppercase tracking-widest">Do you want to change the log?</p>
+									</div>
+								</div>
+								<ChevronRight className="w-5 h-5 text-emerald-500 relative z-10 group-hover:translate-x-1 transition-transform" />
+							</GlassCard>
+						</Link>
+					) : plan && plan.dayOfWeek !== 0 ? (
 						<Link href="/workout" className="block">
 							<WorkoutListItem
 								title={`${(plan as any).splitName || `Day ${plan.dayOfWeek}`} Training`}
