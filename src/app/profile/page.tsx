@@ -37,7 +37,6 @@ export default async function ProfilePage() {
 	const level = stats ? Math.floor(stats.totalWorkouts / 5) + 1 : 1;
 
 	const isVerified = user?.emailVerified || false;
-	const telegramChatId = user?.telegramChatId || "";
 
 	const sections = [
 		{
@@ -106,7 +105,6 @@ export default async function ProfilePage() {
 
 				<ProfileClient 
 					isVerified={isVerified}
-					initialTelegramId={telegramChatId}
 				/>
 
 				{sections.map((section, idx) => (

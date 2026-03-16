@@ -7,22 +7,6 @@ import { revalidatePath } from "next/cache";
 import { ObjectId } from "mongodb";
 import { sendVerificationEmail } from "@/lib/mail";
 
-export async function updateTelegramChatId(chatId: string) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new Error("Unauthorized");
-
-  const client = await clientPromise;
-  const db = client.db();
-
-  await db.collection("users").updateOne(
-    { _id: new ObjectId((session.user as any).id) },
-    { $set: { telegramChatId: chatId } }
-  );
-
-  revalidatePath("/profile");
-  return { success: true };
-}
-
 export async function resendVerification() {
   const session = await getServerSession(authOptions);
   if (!session?.user) throw new Error("Unauthorized");
