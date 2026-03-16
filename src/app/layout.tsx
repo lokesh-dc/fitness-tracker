@@ -15,6 +15,7 @@ export default function RootLayout({
 }) {
 	const pathname = usePathname();
 	const isWorkoutPage = pathname === "/workout";
+	const isLandingPage = pathname === "/";
 
 	return (
 		<html lang="en" suppressHydrationWarning>
@@ -31,7 +32,8 @@ export default function RootLayout({
 						<DailyReminder />
 						<div
 							className={cn(
-								"flex-1 md:pb-0 md:pl-20 pt-28 md:pt-32",
+								"flex-1",
+								!isLandingPage && "md:pb-0 md:pl-20 pt-28 md:pt-32",
 								isWorkoutPage ? "pb-0" : "pb-0",
 							)}>
 							{children}

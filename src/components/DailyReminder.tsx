@@ -11,10 +11,12 @@ import {
 	Moon,
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { getReminderData } from "@/app/actions/plan";
 import { useSession } from "next-auth/react";
 
 export function DailyReminder() {
+	const pathname = usePathname();
 	const { data: session } = useSession();
 	const [show, setShow] = useState(false);
 	const [data, setData] = useState<any>(null);
@@ -66,7 +68,7 @@ export function DailyReminder() {
 		setShow(false);
 	};
 
-	if (!show || !data) return null;
+	if (pathname === "/" || !show || !data) return null;
 
 	const hour = new Date().getHours();
 	const isNight = hour >= 19;

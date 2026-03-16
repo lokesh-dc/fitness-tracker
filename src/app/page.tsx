@@ -1,182 +1,213 @@
-import { getPlanByDate, getActivePlanInfo } from "./actions/plan";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { WorkoutListItem } from "@/components/ui/WorkoutListItem";
-import { GlassCard } from "@/components/ui/GlassCard";
-import { Plus, ChevronRight, BarChart2, Quote, Coffee, Trophy } from "lucide-react";
 import Link from "next/link";
-import { format } from "date-fns";
+import {
+	Dumbbell,
+	Calendar,
+	Activity,
+	CheckCircle2,
+	BarChart3,
+	Dumbbell as DumbbellIcon,
+	Trophy,
+} from "lucide-react";
+import { GlassCard } from "@/components/ui/GlassCard";
 
-import { Header } from "@/components/Header";
-
-export const dynamic = "force-dynamic";
-
-const QUOTES = [
-	"The only bad workout is the one that didn't happen.",
-	"Rest and recovery are just as important as the work you put in.",
-	"Your body can stand almost anything. It's your mind you have to convince.",
-	"Growth happens outside your comfort zone.",
-	"Strength comes from overcoming the things you once thought you couldn't.",
-	"Train hard, recover harder. Growth is in the balance.",
-	"It never gets easier, you just get stronger.",
-	"Strive for progress, not perfection.",
-];
-
-async function getDailyQuote() {
-	try {
-		// Cache the quote for 1 hour to avoid hitting API rate limits
-		const res = await fetch("https://zenquotes.io/api/random", {
-			next: { revalidate: 3600 },
-		});
-		if (!res.ok) throw new Error("Failed to fetch quote");
-		const data = await res.json();
-		return data[0]?.q || QUOTES[Math.floor(Math.random() * QUOTES.length)];
-	} catch (error) {
-		// Fallback to our hardcoded fitness quotes if offline or rate limited
-		return QUOTES[Math.floor(Math.random() * QUOTES.length)];
-	}
-}
-
-export default async function Home() {
-	let plan = null;
-	let error = null;
-	let activePlanInfo = null;
-
-	const session = await getServerSession(authOptions);
-	const userName = session?.user?.name?.split(" ")[0] || "there";
-
-	try {
-		plan = await getPlanByDate();
-		activePlanInfo = await getActivePlanInfo();
-	} catch (e) {
-		console.error("Error loading home page data:", e);
-		error = "Failed to load workout data.";
-	}
-
-	const today = new Date();
-	const randomQuote = await getDailyQuote();
-
+export default async function LandingPage() {
 	return (
-		<div className="flex flex-col">
-			<Header title={`Hi, ${userName}! 👋`} subtitle={format(today, "EEEE, MMMM d")} />
+		<div className="flex flex-col min-h-screen bg-[#050505] text-white">
+			{/* Hero Section */}
+			<section className="relative pt-20 pb-16 md:pt-32 md:pb-24 overflow-hidden">
+				<div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] bg-orange-500/10 blur-[120px] rounded-full -z-10" />
 
-			<main className="flex-1 px-6 space-y-8 max-w-4xl mx-auto w-full pb-12">
-				<section>
-					<GlassCard className="relative overflow-hidden p-6 border-foreground/5 bg-gradient-to-br from-orange-500/10 to-transparent">
-						<Quote className="absolute -bottom-4 -right-4 w-24 h-24 text-orange-500/10 -rotate-12" />
-						<div className="relative z-10">
-							<div className="flex items-center space-x-2 mb-3">
-								<div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
-									<Quote className="w-4 h-4 text-orange-500" />
-								</div>
-								<h3 className="text-xs font-black uppercase tracking-widest text-orange-500">
-									Daily Motivation
-								</h3>
-							</div>
-							<p className="text-2xl font-black text-foreground leading-tight tracking-tight">
-								&quot; {randomQuote} &quot;
-							</p>
-						</div>
-					</GlassCard>
-				</section>
-
-				<section className="space-y-4">
-					<div className="flex justify-between items-end">
-						<h2 className="text-lg font-bold text-foreground tracking-tight">
-							Your Plan
-						</h2>
-						<Link
-							href="#"
-							className="text-xs font-bold text-orange-500 hover:underline">
-							Edit Plan
-						</Link>
+				<div className="max-w-6xl mx-auto px-6 text-center space-y-8">
+					<div className="inline-flex items-center space-x-2 px-4 py-2 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-500 text-xs font-black uppercase tracking-widest animate-in fade-in slide-in-from-bottom-4 duration-1000">
+						<Trophy className="w-4 h-4" />
+						<span>The Future of Strength Tracking</span>
 					</div>
 
-					{plan && plan.dayOfWeek !== 0 ? (
-						<Link href="/workout" className="block">
-							<WorkoutListItem
-								title={`${(plan as any).splitName || `Day ${plan.dayOfWeek}`} Training`}
-								subtitle={`Week ${plan.weekNumber} • Master Plan`}
-								duration={`${plan.exercises.length * 10} min`}
-								exercisesCount={plan.exercises.length}
-								active
-							/>
-						</Link>
-					) : activePlanInfo?.isCompleted ? (
-						<Link href={`/plan/${activePlanInfo.id}/report`} className="block">
-							<GlassCard className="border-emerald-500/30 bg-emerald-500/5 p-6 flex items-center justify-between group overflow-hidden relative">
-								<div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-									<Trophy className="w-16 h-16 text-emerald-500" />
-								</div>
-								<div className="flex items-center space-x-4 relative z-10">
-									<div className="w-12 h-12 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)]">
-										<Trophy className="w-6 h-6 text-black" />
-									</div>
-									<div>
-										<h3 className="text-base font-black text-foreground uppercase tracking-tight">Cycle Completed!</h3>
-										<p className="text-[10px] font-bold text-emerald-500/60 uppercase tracking-widest">Tap to view your report</p>
-									</div>
-								</div>
-								<ChevronRight className="w-5 h-5 text-emerald-500 relative z-10 group-hover:translate-x-1 transition-transform" />
-							</GlassCard>
-						</Link>
-					) : (
-						<div className="glass-card border-dashed border-foreground/10 flex flex-col items-center justify-center py-12 text-center">
-							<div className="w-12 h-12 rounded-2xl bg-foreground/5 flex items-center justify-center mb-4">
-								{plan?.dayOfWeek === 0 ? (
-									<Coffee className="w-6 h-6 text-foreground/40" />
-								) : (
-									<Plus className="w-6 h-6 text-foreground/40" />
-								)}
-							</div>
-							<p className="text-foreground/60 text-sm font-medium mb-1">
-								{plan?.dayOfWeek === 0 ? "It's a Rest Day! 🧘‍♂️" : "No workout scheduled for today"}
-							</p>
-							<p className="text-foreground/40 text-xs">
-								{plan?.dayOfWeek === 0 ? "Take some time to recover and prep for tomorrow." : "Tap to create a new session or set up a plan."}
-							</p>
-						</div>
-					)}
-				</section>
+					<h1 className="text-5xl md:text-8xl font-black tracking-tight leading-tight animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-200">
+						Build Your <span className="text-orange-500">Peak</span>{" "}
+						<br className="hidden md:block" /> Performance.
+					</h1>
 
-				<section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-					<GlassCard className="flex items-center justify-between group cursor-pointer">
-						<div className="flex items-center space-x-4">
-							<div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center group-hover:bg-orange-500/20 transition-colors">
-								<Plus className="w-5 h-5 text-orange-500" />
-							</div>
-							<div>
-								<h3 className="text-sm font-bold text-foreground">
-									Log Weight
-								</h3>
-								<p className="text-[10px] text-foreground/40 font-medium uppercase tracking-wider">
-									Update trend
-								</p>
-							</div>
-						</div>
-						<ChevronRight className="w-4 h-4 text-foreground/20 group-hover:text-foreground transition-colors" />
-					</GlassCard>
+					<p className="max-w-2xl mx-auto text-foreground/60 text-lg md:text-xl font-medium animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-300">
+						An elite, data-driven workout tracker designed for serious athletes.
+						Manage cycles, track PRs, and visualize your progress with surgical
+						precision.
+					</p>
 
-					<Link href="/analytics" className="contents">
-						<GlassCard className="flex items-center justify-between group cursor-pointer">
-							<div className="flex items-center space-x-4">
-								<div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center group-hover:bg-orange-500/20 transition-colors">
-									<BarChart2 className="w-5 h-5 text-orange-500" />
-								</div>
-								<div>
-									<h3 className="text-sm font-bold text-foreground">
-										View Progress
-									</h3>
-									<p className="text-[10px] text-foreground/40 font-medium uppercase tracking-wider">
-										All-time PRs
-									</p>
-								</div>
-							</div>
-							<ChevronRight className="w-4 h-4 text-foreground/20 group-hover:text-foreground transition-colors" />
-						</GlassCard>
+					<div className="flex flex-col md:flex-row items-center justify-center gap-4 pt-8 animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-500">
+						<Link
+							href="/auth/signup"
+							className="w-full md:w-auto px-10 py-5 bg-orange-500 text-black rounded-2xl font-black uppercase tracking-widest text-sm hover:scale-105 active:scale-95 transition-all shadow-[0_10px_30px_rgba(249,115,22,0.4)]">
+							Start Your Journey
+						</Link>
+						<Link
+							href="/auth/signin"
+							className="w-full md:w-auto px-10 py-5 glass-button border-foreground/10 text-foreground rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-foreground/5 transition-all">
+							Log In
+						</Link>
+					</div>
+				</div>
+			</section>
+
+			{/* Feature Sections */}
+			<section className="py-24 space-y-32">
+				{/* Analytics */}
+				<FeatureSection
+					title="Surgical Analytics"
+					subtitle="Visualize Every Variable"
+					description="Gain deep insights into your training with advanced charts. Track weight trends, exercise progress, and volume distribution with intuitive data visualization."
+					image="file:///Users/lokesh_choudhary/.gemini/antigravity/brain/6867d406-bff9-41ee-bf84-83f679449511/analytics_view_1773651725358.png"
+					features={[
+						"Dynamic Trend Lines",
+						"PR History Tracking",
+						"Volume Breakdown",
+						"Weight Management",
+					]}
+				/>
+
+				{/* Planning */}
+				<FeatureSection
+					title="Intelligent Cycles"
+					subtitle="Precision Programming"
+					description="Design multi-week training cycles with ease. Copy weeks, adjust intensity, and set specific targets for every muscle group in our visual plan designer."
+					image="file:///Users/lokesh_choudhary/.gemini/antigravity/brain/6867d406-bff9-41ee-bf84-83f679449511/plan_view_1773651742821.png"
+					features={[
+						"Automated Cycle Creation",
+						"Template Library",
+						"Progressive Overload Planning",
+						"Master Week Templating",
+					]}
+					reverse
+				/>
+
+				{/* Logging */}
+				<FeatureSection
+					title="Frictionless Logging"
+					subtitle="Focus on the Lift"
+					description="A distraction-free logging interface designed for the gym floor. Quickly record sets, weight, and reps while keeping an eye on your best performance."
+					image="file:///Users/lokesh_choudhary/.gemini/antigravity/brain/6867d406-bff9-41ee-bf84-83f679449511/dashboard_view_1773651707613.png"
+					features={[
+						"Set-Level Detail",
+						"Personal Best Alerts",
+						"Real-time Volume Calculation",
+						"Historical Reference",
+					]}
+				/>
+			</section>
+
+			{/* Stats Section */}
+			<section className="py-24 bg-foreground/[0.02]">
+				<div className="max-w-6xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8">
+					<StatBox icon={<BarChart3 />} label="Data Driven" value="100%" />
+					<StatBox icon={<Activity />} label="Precision" value="High" />
+					<StatBox icon={<DumbbellIcon />} label="Customizable" value="Total" />
+					<StatBox icon={<Calendar />} label="Cycle Based" value="Focus" />
+				</div>
+			</section>
+
+			{/* Footer / CTA */}
+			<section className="py-32 px-6">
+				<GlassCard className="max-w-4xl mx-auto p-12 text-center space-y-8 bg-gradient-to-br from-orange-500/10 to-transparent border-orange-500/20">
+					<Dumbbell className="w-16 h-16 text-orange-500 mx-auto" />
+					<h2 className="text-4xl md:text-5xl font-black uppercase tracking-tight">
+						Ready to transcend?
+					</h2>
+					<p className="text-foreground/60 max-w-lg mx-auto text-lg">
+						Stop guessing and start growing. Join the elite community of
+						athletes using peak data to achieve peak results.
+					</p>
+					<Link
+						href="/auth/signup"
+						className="inline-flex items-center space-x-2 px-12 py-6 bg-orange-500 text-black rounded-2xl font-black uppercase tracking-widest text-sm hover:scale-105 active:scale-95 transition-all shadow-[0_15px_35px_rgba(249,115,22,0.5)]">
+						Get Started Now
 					</Link>
-				</section>
-			</main>
+				</GlassCard>
+			</section>
+
+			<footer className="py-12 px-6 border-t border-foreground/5 text-center">
+				<p className="text-xs font-black text-foreground/20 uppercase tracking-[0.3em]">
+					&copy; 2026 Peak Performance Workout Tracker
+				</p>
+			</footer>
+		</div>
+	);
+}
+
+function FeatureSection({
+	title,
+	subtitle,
+	description,
+	image,
+	features,
+	reverse = false,
+}: {
+	title: string;
+	subtitle: string;
+	description: string;
+	image: string;
+	features: string[];
+	reverse?: boolean;
+}) {
+	return (
+		<div
+			className={`max-w-6xl mx-auto px-6 flex flex-col ${reverse ? "md:flex-row-reverse" : "md:flex-row"} items-center gap-12 md:gap-24`}>
+			<div className="flex-1 space-y-6">
+				<p className="text-orange-500 text-[10px] font-black uppercase tracking-[0.3em]">
+					{subtitle}
+				</p>
+				<h2 className="text-4xl md:text-6xl font-black tracking-tight uppercase leading-none">
+					{title}
+				</h2>
+				<p className="text-foreground/60 font-medium leading-relaxed max-w-lg">
+					{description}
+				</p>
+				<ul className="space-y-3 pt-4">
+					{features.map((feat, i) => (
+						<li
+							key={i}
+							className="flex items-center space-x-3 text-sm font-bold text-foreground/80">
+							<CheckCircle2 className="w-5 h-5 text-orange-500 flex-shrink-0" />
+							<span>{feat}</span>
+						</li>
+					))}
+				</ul>
+			</div>
+			<div className="flex-1 w-full group">
+				<div className="relative rounded-[2rem] overflow-hidden border border-foreground/10 shadow-[0_20px_60px_rgba(0,0,0,0.5)] group-hover:scale-[1.02] transition-transform duration-500">
+					<div className="absolute inset-0 bg-gradient-to-tr from-orange-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+					<img
+						src={image}
+						alt={title}
+						className="w-full aspect-[16/10] object-cover object-top"
+					/>
+				</div>
+			</div>
+		</div>
+	);
+}
+
+function StatBox({
+	icon,
+	label,
+	value,
+}: {
+	icon: React.ReactNode;
+	label: string;
+	value: string;
+}) {
+	return (
+		<div className="flex flex-col items-center justify-center text-center space-y-4">
+			<div className="w-14 h-14 rounded-2xl bg-orange-500/10 flex items-center justify-center text-orange-500 border border-orange-500/10">
+				{icon}
+			</div>
+			<div>
+				<p className="text-[10px] font-black uppercase tracking-widest text-foreground/40 mb-1">
+					{label}
+				</p>
+				<p className="text-3xl font-black text-foreground tracking-tight">
+					{value}
+				</p>
+			</div>
 		</div>
 	);
 }

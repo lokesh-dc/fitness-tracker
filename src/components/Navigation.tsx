@@ -8,14 +8,14 @@ import { cn } from "@/lib/utils";
 export function Navigation() {
   const pathname = usePathname();
 
-  // Don't show navigation on auth pages
-  if (pathname.startsWith("/auth")) return null;
+  // Don't show navigation on auth pages or landing page
+  if (pathname.startsWith("/auth") || pathname === "/") return null;
 
   // Specific paths where navigation should be hidden
   const isWorkoutPage = pathname === "/workout";
 
   const navItems = [
-    { href: "/", icon: LayoutDashboard, label: "Home", mobile: true, desktop: true },
+    { href: "/dashboard", icon: LayoutDashboard, label: "Home", mobile: true, desktop: true },
     { href: "/plan", icon: CalendarRange, label: "Plan", mobile: true, desktop: true },
     { href: "/workout", icon: Dumbbell, label: "Workout", isAction: true, mobile: true, desktop: true },
     { href: "/workouts", icon: Activity, label: "History", mobile: true, desktop: true },
@@ -71,7 +71,7 @@ export function Navigation() {
 
       {/* Sidebar Navigation (Desktop Only) */}
       <nav className="fixed left-0 top-0 bottom-0 w-20 glass border-r border-foreground/10 hidden md:flex flex-col items-center py-8 space-y-8 z-50">
-        <Link href="/" className="w-12 h-12 rounded-2xl bg-orange-500 flex items-center justify-center shadow-[0_0_20px_rgba(249,115,22,0.4)] mb-8 hover:scale-105 active:scale-95 transition-all cursor-pointer">
+        <Link href="/dashboard" className="w-12 h-12 rounded-2xl bg-orange-500 flex items-center justify-center shadow-[0_0_20px_rgba(249,115,22,0.4)] mb-8 hover:scale-105 active:scale-95 transition-all cursor-pointer">
           <Dumbbell className="w-6 h-6 text-black" />
         </Link>
         
