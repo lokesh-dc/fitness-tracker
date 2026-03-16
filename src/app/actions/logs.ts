@@ -321,38 +321,39 @@ export async function getWorkoutHistory(): Promise<WorkoutLog[]> {
 
     const db = await getDb();
 
-    const logsRaw = await db.collection("WorkoutLog")
-      .find({ userId })
-      .sort({ date: -1 })
-      .toArray();
-
-    // Aggregate by local date strings to ensure 1 unique card per day
-    const aggregatedLogs = logsRaw.reduce((acc, log) => {
-      // Use the local date string portion (e.g., "2024-03-14")
-      const dateStr = new Date(log.date).toDateString();
-      
-      if (!acc[dateStr]) {
-        acc[dateStr] = {
-          id: log._id.toString(), // Use the first found ID as the primary route parameter
-          userId: log.userId.toString(),
-          date: log.date,
-          bodyWeight: log.bodyWeight || null,
-          exercises: [...(log.exercises || [])],
-          createdAt: log.createdAt,
-        };
-      } else {
-        // Merge this log into the existing date
-        const existing = acc[dateStr];
-        existing.exercises = [...existing.exercises, ...(log.exercises || [])];
-        if (!existing.bodyWeight && log.bodyWeight) {
-          existing.bodyWeight = log.bodyWeight;
+    // Use MongoDB aggregation to group logs by local date
+    const logs = await db.collection("WorkoutLog").aggregate([
+      { $match: { userId } },
+      { $sort: { date: -1 } },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
+          id: { $first: { $toString: "$_id" } },
+          userId: { $first: { $toString: "$userId" } },
+          date: { $first: "$date" },
+          bodyWeight: { $max: "$bodyWeight" },
+          exercises: { $push: "$exercises" },
+          createdAt: { $first: "$createdAt" }
         }
-      }
-      return acc;
-    }, {} as Record<string, WorkoutLog>);
+      },
+      { $project: {
+          id: 1,
+          userId: 1,
+          date: 1,
+          bodyWeight: 1,
+          createdAt: 1,
+          exercises: {
+            $reduce: {
+              input: "$exercises",
+              initialValue: [],
+              in: { $concatArrays: ["$$value", "$$this"] }
+            }
+          }
+      }},
+      { $sort: { date: -1 } }
+    ]).toArray();
 
-    // Convert back to array
-    return Object.values(aggregatedLogs) as WorkoutLog[];
+    return JSON.parse(JSON.stringify(logs)) as WorkoutLog[];
   } catch (error) {
     console.error("Error getting workout history:", error);
     return [];

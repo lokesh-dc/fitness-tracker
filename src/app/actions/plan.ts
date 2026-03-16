@@ -341,20 +341,20 @@ export async function getReminderData() {
 
     const db = await getDb();
     const dayOfWeek = getCurrentDayOfWeek();
-    
-    // Get today's plan
-    const todayPlanRaw = await db.collection("WorkoutTemplate").findOne({
-      userId: new ObjectId(userId),
-      dayOfWeek,
-    });
-
-    // Get today's log
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const log = await db.collection("WorkoutLog").findOne({
-      userId: new ObjectId(userId),
-      date: { $gte: today }
-    });
+    
+    // Get today's plan and log concurrently
+    const [todayPlanRaw, log] = await Promise.all([
+      db.collection("WorkoutTemplate").findOne({
+        userId: new ObjectId(userId),
+        dayOfWeek,
+      }),
+      db.collection("WorkoutLog").findOne({
+        userId: new ObjectId(userId),
+        date: { $gte: today }
+      })
+    ]);
 
     const isLogged = !!(log && log.exercises && log.exercises.length > 0);
 

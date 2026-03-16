@@ -25,6 +25,7 @@ export const authOptions: NextAuthOptions = {
             id: user._id.toString(),
             email: user.email,
             name: user.name,
+            emailVerified: user.emailVerified,
           };
         }
         return null;
@@ -38,12 +39,14 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.emailVerified = (user as any).emailVerified;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).id = token.id;
+        (session.user as any).emailVerified = token.emailVerified;
       }
       return session;
     },

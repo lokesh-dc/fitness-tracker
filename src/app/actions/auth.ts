@@ -2,6 +2,8 @@
 
 import clientPromise from "@/lib/mongodb";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import { sendVerificationEmail } from "@/lib/mail";
 
 export async function registerUser(formData: FormData) {
   const email = formData.get("email") as string;
@@ -21,13 +23,23 @@ export async function registerUser(formData: FormData) {
   }
 
   const hashedPassword = bcrypt.hashSync(password, 10);
+  const verificationToken = crypto.randomBytes(32).toString("hex");
 
   await db.collection("users").insertOne({
     email,
     password: hashedPassword,
     name,
+    emailVerified: false,
+    verificationToken,
     createdAt: new Date(),
   });
+
+  // Try to send email, but don't block the whole registration if it fails (can retry later)
+  try {
+    await sendVerificationEmail(email, verificationToken);
+  } catch (error) {
+    console.error("Failed to send verification email:", error);
+  }
 
   return { success: true };
 }
