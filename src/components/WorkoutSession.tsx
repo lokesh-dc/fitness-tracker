@@ -28,6 +28,7 @@ import {
 import { GlassCard } from "./ui/GlassCard";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { WorkoutCelebration } from "./WorkoutCelebration";
 
 const DAYS = [
 	"Sunday",
@@ -88,6 +89,7 @@ export default function WorkoutSession({
 	const [isSubmittingWeight, setIsSubmittingWeight] = useState(false);
 	const [isSubmittingExercise, setIsSubmittingExercise] = useState(false);
 	const [showSuccess, setShowSuccess] = useState(false);
+	const [showCelebration, setShowCelebration] = useState(false);
 
 	const addSet = (exerciseIndex: number) => {
 		setExercises((prev) => {
@@ -155,7 +157,7 @@ export default function WorkoutSession({
 				date
 			);
 			setShowSuccess(true);
-			setTimeout(() => setShowSuccess(false), 3000);
+			setShowCelebration(true);
 		} catch (error) {
 			console.error(error);
 			alert("Failed to save workout.");
@@ -420,95 +422,109 @@ export default function WorkoutSession({
 			</GlassCard>
 		);
 
-		return (
-			<SessionLayout
-				title={(template as any).splitName || "Session"}
-				subtitle={`Week ${template.weekNumber} • ${DAYS[template.dayOfWeek]}`}
-				footer={footer}
-				exercises={exercises}
-				completedCount={completedCount}
-				totalCount={totalCount}
-				progress={progress}
-				date={date}>
-				<GlassCard className="flex items-center justify-between p-4 px-6 border-orange-500/10 bg-orange-500/5">
-					<div className="flex items-center space-x-3">
-						<span className="text-sm font-bold text-foreground uppercase tracking-widest">
-							Body Weight
-						</span>
-						<span className="text-lg font-black text-orange-500">
-							{bodyWeight}{" "}
-							<span className="text-xs text-foreground/40">KG</span>
-						</span>
-					</div>
-					<button
-						onClick={() => setStep(1)}
-						className="p-2 text-foreground/40 hover:text-orange-500 transition-colors rounded-lg hover:bg-orange-500/10 flex items-center space-x-2">
-						<Edit2 className="w-4 h-4" />
-						<span className="text-[10px] items-center font-bold uppercase tracking-wider hidden sm:inline-block">
-							Edit
-						</span>
-					</button>
-				</GlassCard>
+		const celebrationStats = {
+			exercises: exercises.filter((ex: any) => ex.isDone).length,
+			totalSets: exercises.reduce((acc, ex: any) => acc + (ex.isDone ? ex.sets.length : 0), 0),
+			totalReps: exercises.reduce((acc, ex: any) => acc + (ex.isDone ? ex.sets.reduce((sAcc: any, s: any) => sAcc + s.reps, 0) : 0), 0)
+		};
 
-				<div className="space-y-4">
-					<div className="flex items-center space-x-2 ml-2 mb-2">
-						<Dumbbell className="w-4 h-4 text-orange-500" />
-						<h3 className="text-xs font-black text-foreground uppercase tracking-widest">
-							Exercises
-						</h3>
-					</div>
-					{exercises.map((ex, exIndex) => (
-						<GlassCard
-							key={ex.exerciseId}
-							className={cn(
-								"p-4 flex items-center justify-between group transition-all duration-300",
-								(ex as any).isDone
-									? "border-emerald-500/20 bg-emerald-500/5 shadow-none"
-									: "hover:bg-foreground/5 shadow-xl",
-							)}>
-							<div className="flex items-center space-x-4">
-								<div
-									className={cn(
-										"w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300",
-										(ex as any).isDone
-											? "bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]"
-											: "bg-foreground/5 text-foreground/20 group-hover:text-orange-500",
-									)}>
-									{(ex as any).isDone ? (
-										<CheckCircle2 className="w-5 h-5" />
-									) : (
-										<Play className="w-4 h-4" />
-									)}
-								</div>
-								<div>
-									<h4 className="text-sm font-black text-foreground">
-										{ex.name}
-									</h4>
-									<p className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest">
-										{ex.targetSets} Sets • {ex.targetReps} Reps
-									</p>
-								</div>
-							</div>
-							<button
-								onClick={() => {
-									setActiveExerciseIndex(exIndex);
-									setStep(3);
-								}}
+		return (
+			<>
+				{showCelebration && (
+					<WorkoutCelebration 
+						stats={celebrationStats} 
+						onClose={() => setShowCelebration(false)} 
+					/>
+				)}
+				<SessionLayout
+					title={(template as any).splitName || "Session"}
+					subtitle={`Week ${template.weekNumber} • ${DAYS[template.dayOfWeek]}`}
+					footer={footer}
+					exercises={exercises}
+					completedCount={completedCount}
+					totalCount={totalCount}
+					progress={progress}
+					date={date}>
+					<GlassCard className="flex items-center justify-between p-4 px-6 border-orange-500/10 bg-orange-500/5">
+						<div className="flex items-center space-x-3">
+							<span className="text-sm font-bold text-foreground uppercase tracking-widest">
+								Body Weight
+							</span>
+							<span className="text-lg font-black text-orange-500">
+								{bodyWeight}{" "}
+								<span className="text-xs text-foreground/40">KG</span>
+							</span>
+						</div>
+						<button
+							onClick={() => setStep(1)}
+							className="p-2 text-foreground/40 hover:text-orange-500 transition-colors rounded-lg hover:bg-orange-500/10 flex items-center space-x-2">
+							<Edit2 className="w-4 h-4" />
+							<span className="text-[10px] items-center font-bold uppercase tracking-wider hidden sm:inline-block">
+								Edit
+							</span>
+						</button>
+					</GlassCard>
+
+					<div className="space-y-4">
+						<div className="flex items-center space-x-2 ml-2 mb-2">
+							<Dumbbell className="w-4 h-4 text-orange-500" />
+							<h3 className="text-xs font-black text-foreground uppercase tracking-widest">
+								Exercises
+							</h3>
+						</div>
+						{exercises.map((ex, exIndex) => (
+							<GlassCard
+								key={ex.exerciseId}
 								className={cn(
-									"flex items-center px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+									"p-4 flex items-center justify-between group transition-all duration-300",
 									(ex as any).isDone
-										? "bg-foreground/5 text-foreground/40 hover:bg-foreground/10"
-										: "bg-orange-500 text-black shadow-[0_0_15px_rgba(249,115,22,0.2)] hover:scale-105 active:scale-95",
+										? "border-emerald-500/20 bg-emerald-500/5 shadow-none"
+										: "hover:bg-foreground/5 shadow-xl",
 								)}>
-								{(ex as any).isDone ? "Log Again" : "Log"}
-								{(!ex as any).isDone ? null : (
-									<ArrowRight className="w-3 h-3 ml-2" />
-								)}
-							</button>
-						</GlassCard>
-					))}
-				</div>
-			</SessionLayout>
+								<div className="flex items-center space-x-4">
+									<div
+										className={cn(
+											"w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300",
+											(ex as any).isDone
+												? "bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+												: "bg-foreground/5 text-foreground/20 group-hover:text-orange-500",
+										)}>
+										{(ex as any).isDone ? (
+											<CheckCircle2 className="w-5 h-5" />
+										) : (
+											<Play className="w-4 h-4" />
+										)}
+									</div>
+									<div>
+										<h4 className="text-sm font-black text-foreground">
+											{ex.name}
+										</h4>
+										<p className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest">
+											{ex.targetSets} Sets • {ex.targetReps} Reps
+										</p>
+									</div>
+								</div>
+								<button
+									onClick={() => {
+										setActiveExerciseIndex(exIndex);
+										setStep(3);
+									}}
+									className={cn(
+										"flex items-center px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+										(ex as any).isDone
+											? "bg-foreground/5 text-foreground/40 hover:bg-foreground/10"
+											: "bg-orange-500 text-black shadow-[0_0_15px_rgba(249,115,22,0.2)] hover:scale-105 active:scale-95",
+									)}>
+									{(ex as any).isDone ? "Log Again" : "Log"}
+									{(!ex as any).isDone ? null : (
+										<ArrowRight className="w-3 h-3 ml-2" />
+									)}
+								</button>
+							</GlassCard>
+						))}
+					</div>
+				</SessionLayout>
+			</>
 		);
 	}
 
