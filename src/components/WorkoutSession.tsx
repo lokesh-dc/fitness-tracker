@@ -428,11 +428,20 @@ export default function WorkoutSession({
 			totalReps: exercises.reduce((acc, ex: any) => acc + (ex.isDone ? ex.sets.reduce((sAcc: any, s: any) => sAcc + s.reps, 0) : 0), 0)
 		};
 
+		const celebrationExerciseDetails = exercises
+			.filter((ex: any) => ex.isDone)
+			.map((ex) => ({
+				name: ex.name,
+				sets: ex.sets,
+			}));
+
 		return (
 			<>
 				{showCelebration && (
 					<WorkoutCelebration 
-						stats={celebrationStats} 
+						stats={celebrationStats}
+						exerciseDetails={celebrationExerciseDetails}
+						splitName={template?.splitName}
 						onClose={() => setShowCelebration(false)} 
 					/>
 				)}

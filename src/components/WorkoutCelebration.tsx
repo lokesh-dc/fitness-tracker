@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
 	Trophy,
@@ -10,9 +10,12 @@ import {
 	Activity,
 	CheckCircle2,
 	Share2,
+	Loader2,
+	Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GlassCard } from "./ui/GlassCard";
+import { WorkoutShareCard, type ExerciseDetail } from "./WorkoutShareCard";
 
 interface WorkoutCelebrationProps {
 	stats: {
@@ -20,17 +23,23 @@ interface WorkoutCelebrationProps {
 		totalSets: number;
 		totalReps: number;
 	};
+	exerciseDetails: ExerciseDetail[];
+	splitName?: string;
 	onClose: () => void;
 	targetUrl?: string;
 }
 
 export function WorkoutCelebration({
 	stats,
+	exerciseDetails,
+	splitName,
 	onClose,
 	targetUrl = "/dashboard",
 }: WorkoutCelebrationProps) {
 	const router = useRouter();
 	const [isVisible, setIsVisible] = useState(false);
+	const [isGenerating, setIsGenerating] = useState(false);
+	const shareCardRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
 		setIsVisible(true);
@@ -43,24 +52,78 @@ export function WorkoutCelebration({
 		return () => clearTimeout(timer);
 	}, [router, targetUrl]);
 
-	const handleShare = async () => {
-		const shareData = {
-			title: "Workout Completed!",
-			text: `I just finished my workout! 🏋️‍♂️\n\n- ${stats.exercises} Exercises\n- ${stats.totalSets} Sets\n- ${stats.totalReps} Reps\n\nTracked with Fitness Tracker.`,
-			url: window.location.origin,
-		};
+	const generateShareImage = async (): Promise<Blob | null> => {
+		if (!shareCardRef.current) return null;
 
+		const html2canvas = (await import("html2canvas")).default;
+		const canvas = await html2canvas(shareCardRef.current, {
+			backgroundColor: null,
+			scale: 1,
+			useCORS: true,
+			logging: false,
+			width: 1080,
+			height: 1920,
+		});
+
+		return new Promise<Blob | null>((resolve) => {
+			canvas.toBlob((blob) => resolve(blob), "image/png", 1.0);
+		});
+	};
+
+	const handleShare = async () => {
+		setIsGenerating(true);
 		try {
-			if (navigator.share) {
-				await navigator.share(shareData);
-			} else {
-				// Fallback: Copy to clipboard
-				await navigator.clipboard.writeText(`${shareData.text}\n${shareData.url}`);
-				alert("Summary copied to clipboard!");
+			const blob = await generateShareImage();
+			if (!blob) {
+				throw new Error("Failed to generate image");
 			}
-		} catch (err) {
-			console.error("Error sharing:", err);
+
+			const file = new File([blob], "workout-summary.png", {
+				type: "image/png",
+			});
+
+			const shareText = `I just finished my workout! 🏋️‍♂️\n\n- ${stats.exercises} Exercises\n- ${stats.totalSets} Sets\n- ${stats.totalReps} Reps\n\nTracked with Fitness Tracker.`;
+
+			// Try native share with file
+			if (navigator.share && navigator.canShare?.({ files: [file] })) {
+				await navigator.share({
+					title: "Workout Completed!",
+					text: shareText,
+					files: [file],
+				});
+			} else if (navigator.share) {
+				// Native share without file support — share text + download image
+				downloadImage(blob);
+				await navigator.share({
+					title: "Workout Completed!",
+					text: shareText,
+					url: window.location.origin,
+				});
+			} else {
+				// Full fallback — just download
+				downloadImage(blob);
+				await navigator.clipboard.writeText(shareText);
+				alert("Image downloaded & summary copied to clipboard!");
+			}
+		} catch (err: any) {
+			// User cancelled sharing — not an error
+			if (err?.name !== "AbortError") {
+				console.error("Error sharing:", err);
+			}
+		} finally {
+			setIsGenerating(false);
 		}
+	};
+
+	const downloadImage = (blob: Blob) => {
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement("a");
+		a.href = url;
+		a.download = "workout-summary.png";
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+		URL.revokeObjectURL(url);
 	};
 
 	return (
@@ -100,6 +163,14 @@ export function WorkoutCelebration({
 					}
 				}
 			`}</style>
+
+			{/* Hidden share card for capture */}
+			<WorkoutShareCard
+				ref={shareCardRef}
+				stats={stats}
+				exerciseDetails={exerciseDetails}
+				splitName={splitName}
+			/>
 
 			<GlassCard
 				className={cn(
@@ -151,9 +222,19 @@ export function WorkoutCelebration({
 				<div className="space-y-3">
 					<button
 						onClick={handleShare}
-						className="w-full bg-emerald-500 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-[0_10px_20px_rgba(0,0,0,0.1)] hover:scale-105 active:scale-95 transition-all flex items-center justify-center group border border-white/20">
-						<Share2 className="w-4 h-4 mr-3" />
-						Share Achievement
+						disabled={isGenerating}
+						className="w-full bg-emerald-500 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-[0_10px_20px_rgba(0,0,0,0.1)] hover:scale-105 active:scale-95 transition-all flex items-center justify-center group border border-white/20 disabled:opacity-70 disabled:hover:scale-100">
+						{isGenerating ? (
+							<>
+								<Loader2 className="w-4 h-4 mr-3 animate-spin" />
+								Generating Image...
+							</>
+						) : (
+							<>
+								<Share2 className="w-4 h-4 mr-3" />
+								Share Achievement
+							</>
+						)}
 					</button>
 
 					<button
