@@ -33,7 +33,7 @@ function SignInForm() {
       setError("Invalid credentials. Try again.");
       setLoading(false);
     } else {
-      router.push(callbackUrl);
+      router.replace(callbackUrl);
     }
   };
 

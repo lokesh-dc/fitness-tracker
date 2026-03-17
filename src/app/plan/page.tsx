@@ -94,6 +94,7 @@ export default async function PlanPage() {
 									? Math.round(templatesMap[plan.id] / plan.numWeeks)
 									: 0;
 
+								console.log(templatesMap);
 								return (
 									<Link
 										key={plan.id}
@@ -104,24 +105,26 @@ export default async function PlanPage() {
 												<div className="w-12 h-12 rounded-2xl bg-foreground/5 flex items-center justify-center text-foreground/40 group-hover:text-orange-500 transition-colors flex-shrink-0">
 													<Calendar className="w-6 h-6" />
 												</div>
-												<div>
+												<div className="flex flex-col gap-3">
 													<h3 className="text-base font-black text-foreground uppercase tracking-tight group-hover:text-orange-500 transition-colors">
 														{plan.name?.startsWith("Plan starting ")
 															? `Plan starting (${format(new Date(plan.startDate + "T00:00:00"), "d MMMM ''yy")})`
 															: plan.name ||
 																`Plan starting (${format(new Date(plan.startDate + "T00:00:00"), "d MMMM ''yy")})`}
 													</h3>
-													<div className="flex flex-wrap gap-2 mt-2">
-														<span className="text-[10px] font-black text-foreground/60 uppercase tracking-widest bg-foreground/5 px-2 py-1 rounded-md">
+													<div className="flex flex-wrap items-center gap-3">
+														<span className="text-[10px] font-black text-foreground/60 uppercase tracking-widest bg-foreground/5  rounded-md">
 															{format(
 																new Date(plan.startDate + "T00:00:00"),
 																"d MMMM ''yy",
 															)}
 														</span>
-														<span className="text-[10px] font-black text-foreground/60 uppercase tracking-widest bg-foreground/5 px-2 py-1 rounded-md">
+														<span className="text-gray-500">|</span>
+														<span className="text-[10px] font-black text-foreground/60 uppercase tracking-widest bg-foreground/5 rounded-md">
 															{plan.numWeeks} Weeks
 														</span>
-														<span className="text-[10px] font-black text-foreground/60 uppercase tracking-widest bg-foreground/5 px-2 py-1 rounded-md">
+														<span className="text-gray-500">|</span>
+														<span className="text-[10px] font-black text-foreground/60 uppercase tracking-widest bg-foreground/5 rounded-md">
 															{uniqueDays} Days/Week
 														</span>
 													</div>

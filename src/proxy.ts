@@ -6,31 +6,39 @@ export async function proxy(req: NextRequest) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   const { pathname } = req.nextUrl;
 
-  // Define public paths that shouldn't be redirected
   const isAuthPage = pathname.startsWith("/auth");
   const isLandingPage = pathname === "/";
-  const isPublicApi = pathname.startsWith("/api/auth");
 
-  // If user is logged in and trying to access auth pages (login/signup), redirect to dashboard
-  if (token && isAuthPage) {
+  if (token && (isAuthPage || isLandingPage)) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
-  // If user is NOT logged in and trying to access protected pages, redirect to login
-  // Excluding landing page, auth pages, public APIs, and static files
-  const isProtectedPath = !isAuthPage && !isLandingPage && !isPublicApi && 
-                          !pathname.includes(".") && // simple check for static files
-                          !pathname.startsWith("/_next");
+  const isPrivatePage = pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/plan") ||
+    pathname.startsWith("/profile") ||
+    pathname.startsWith("/workout");
 
-  if (!token && isProtectedPath) {
-    const signInUrl = new URL("/auth/signin", req.url);
-    signInUrl.searchParams.set("callbackUrl", pathname);
-    return NextResponse.redirect(signInUrl);
+  if (!token && isPrivatePage) {
+    let from = pathname;
+    if (req.nextUrl.search) {
+      from += req.nextUrl.search;
+    }
+
+    return NextResponse.redirect(
+      new URL(`/auth/signin?callbackUrl=${encodeURIComponent(from)}`, req.url)
+    );
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/",
+    "/auth/:path*",
+    "/dashboard/:path*",
+    "/plan/:path*",
+    "/profile/:path*",
+    "/workout/:path*",
+  ],
 };

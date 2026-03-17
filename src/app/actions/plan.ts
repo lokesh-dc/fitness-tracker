@@ -127,6 +127,15 @@ export async function getPlanReport(planId: string) {
 
     const loggedDates = logs.map(l => new Date(l.date).toISOString().split('T')[0]);
 
+    // Fetch templates to find training days (only days with exercises)
+    const templates = await db.collection("WorkoutTemplate").find({
+      planId: planId,
+      userId,
+      "exercises.0": { $exists: true }
+    }).toArray();
+
+    const trainingDays = Array.from(new Set(templates.map(t => t.dayOfWeek)));
+
     return {
       planName: plan.name,
       startDate: plan.startDate,
@@ -136,6 +145,7 @@ export async function getPlanReport(planId: string) {
       topPRs: Object.values(exercisePRs).sort((a, b) => b.weight - a.weight).slice(0, 5),
       weightChange,
       loggedDates,
+      trainingDays,
     };
   } catch (error) {
     console.error("Error generating plan report:", error);

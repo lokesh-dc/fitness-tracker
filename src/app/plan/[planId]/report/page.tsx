@@ -167,6 +167,7 @@ export default async function PlanReportPage({
 							startDate={report.startDate}
 							numWeeks={report.numWeeks}
 							loggedDates={report.loggedDates}
+							trainingDays={report.trainingDays || []}
 						/>
 					</div>
 				</div>

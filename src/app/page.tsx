@@ -10,7 +10,17 @@ import {
 } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { redirect } from "next/navigation";
+
 export default async function LandingPage() {
+	const session = await getServerSession(authOptions);
+
+	if (session) {
+		redirect("/dashboard");
+	}
+
 	return (
 		<div className="flex flex-col min-h-screen bg-[#050505] text-white">
 			{/* Hero Section */}
