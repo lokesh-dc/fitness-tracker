@@ -28,6 +28,7 @@ export default async function WorkoutPage({
 		}
 	}
 
+	console.log({ initialPRs, initialBodyWeight });
 	return (
 		<div className="flex flex-col pb-24 md:pb-0 md:pl-20">
 			<Header title="Workout Session" />

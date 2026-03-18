@@ -7,6 +7,123 @@ import { WorkoutLog, Exercise, SetLog } from "@/types/workout";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
+// export async function saveWorkoutSession(
+//   data: {
+//     bodyWeight?: number;
+//     name?: string;
+//     splitName?: string;
+//     exercises: Array<{
+//       exerciseId: string;
+//       name: string;
+//       sets: Array<{ weight: number; reps: number }>;
+//     }>;
+//   },
+//   updateTemplate: boolean,
+//   date?: string | Date
+// ): Promise<WorkoutLog> {
+//   try {
+//     const session = await getServerSession(authOptions);
+//     if (!session?.user) throw new Error("Unauthorized");
+//     const userId = (session.user as any).id;
+
+//     const db = await getDb();
+
+//     // Target date normalized to start/end of that day
+//     const targetDate = date ? new Date(date) : new Date();
+//     const startOfDay = new Date(targetDate);
+//     startOfDay.setHours(0, 0, 0, 0);
+//     const endOfDay = new Date(targetDate);
+//     endOfDay.setHours(23, 59, 59, 999);
+
+//     const existingLog = await db.collection("WorkoutLog").findOne(
+//       {
+//         userId: new ObjectId(userId),
+//         date: { $gte: startOfDay, $lte: endOfDay }
+//       },
+//       { sort: { date: -1 } }
+//     );
+
+//     let log: any;
+
+//     if (existingLog) {
+//       const mergedExercises = [...(existingLog.exercises || [])];
+
+//       for (const newEx of data.exercises) {
+//         const index = mergedExercises.findIndex((ex: any) => ex.exerciseId === newEx.exerciseId);
+//         if (index > -1) {
+//           mergedExercises[index] = newEx;
+//         } else {
+//           mergedExercises.push(newEx);
+//         }
+//       }
+
+//       await db.collection("WorkoutLog").updateOne(
+//         { _id: existingLog._id },
+//         { 
+//           $set: { 
+//             bodyWeight: data.bodyWeight !== undefined ? data.bodyWeight : existingLog.bodyWeight, 
+//             exercises: mergedExercises,
+//             updatedAt: new Date()
+//           } 
+//         }
+//       );
+//       log = { 
+//         ...existingLog, 
+//         bodyWeight: data.bodyWeight !== undefined ? data.bodyWeight : existingLog.bodyWeight, 
+//         name: data.name !== undefined ? data.name : existingLog.name,
+//         splitName: data.splitName !== undefined ? data.splitName : existingLog.splitName,
+//         exercises: mergedExercises, 
+//         id: existingLog._id.toString() 
+//       };
+//     } else {
+//       const logData = {
+//         userId: new ObjectId(userId),
+//         date: startOfDay,
+//         bodyWeight: data.bodyWeight,
+//         name: data.name,
+//         splitName: data.splitName,
+//         exercises: data.exercises,
+//         createdAt: new Date(),
+//       };
+//       const result = await db.collection("WorkoutLog").insertOne(logData);
+//       log = { ...logData, id: result.insertedId.toString() };
+//     }
+
+//     if (updateTemplate) {
+//       const dayOfWeek = getCurrentDayOfWeek();
+//       const weekNumber = getCurrentWeekIndex();
+
+//       const template = await db.collection("WorkoutTemplate").findOne({
+//         userId: new ObjectId(userId),
+//         weekNumber,
+//         dayOfWeek,
+//       });
+
+//       if (template) {
+//         const updatedExercises = (template.exercises as Exercise[]).map((ex) => {
+//           const sessionEx = data.exercises.find((se) => se.name === ex.name);
+//           if (sessionEx && sessionEx.sets.length > 0) {
+//             const maxSessionWeight = Math.max(...sessionEx.sets.map((s) => s.weight));
+//             return { ...ex, lastWeight: maxSessionWeight };
+//           }
+//           return ex;
+//         });
+
+//         await db.collection("WorkoutTemplate").updateOne(
+//           { _id: template._id },
+//           { $set: { exercises: updatedExercises, updatedAt: new Date() } }
+//         );
+//       }
+//     }
+
+//     revalidatePath("/");
+//     return JSON.parse(JSON.stringify(log)) as WorkoutLog;
+//   } catch (error) {
+//     console.error("Error saving workout session:", error);
+//     throw new Error("Failed to save workout session.");
+//   }
+// }
+
 export async function saveWorkoutSession(
   data: {
     bodyWeight?: number;
@@ -27,8 +144,7 @@ export async function saveWorkoutSession(
     const userId = (session.user as any).id;
 
     const db = await getDb();
-    
-    // Target date normalized to start/end of that day
+
     const targetDate = date ? new Date(date) : new Date();
     const startOfDay = new Date(targetDate);
     startOfDay.setHours(0, 0, 0, 0);
@@ -38,18 +154,20 @@ export async function saveWorkoutSession(
     const existingLog = await db.collection("WorkoutLog").findOne(
       {
         userId: new ObjectId(userId),
-        date: { $gte: startOfDay, $lte: endOfDay }
+        date: { $gte: startOfDay, $lte: endOfDay },
       },
       { sort: { date: -1 } }
     );
 
     let log: any;
-    
+
     if (existingLog) {
       const mergedExercises = [...(existingLog.exercises || [])];
-      
+
       for (const newEx of data.exercises) {
-        const index = mergedExercises.findIndex((ex: any) => ex.exerciseId === newEx.exerciseId);
+        const index = mergedExercises.findIndex(
+          (ex: any) => ex.exerciseId === newEx.exerciseId
+        );
         if (index > -1) {
           mergedExercises[index] = newEx;
         } else {
@@ -57,23 +175,43 @@ export async function saveWorkoutSession(
         }
       }
 
+      const updatedAt = new Date();
+
+      // FIX 1: persist name & splitName to the database on update
       await db.collection("WorkoutLog").updateOne(
         { _id: existingLog._id },
-        { 
-          $set: { 
-            bodyWeight: data.bodyWeight !== undefined ? data.bodyWeight : existingLog.bodyWeight, 
+        {
+          $set: {
+            bodyWeight:
+              data.bodyWeight !== undefined
+                ? data.bodyWeight
+                : existingLog.bodyWeight,
+            name: data.name !== undefined ? data.name : existingLog.name,
+            splitName:
+              data.splitName !== undefined
+                ? data.splitName
+                : existingLog.splitName,
             exercises: mergedExercises,
-            updatedAt: new Date()
-          } 
+            updatedAt,
+          },
         }
       );
-      log = { 
-        ...existingLog, 
-        bodyWeight: data.bodyWeight !== undefined ? data.bodyWeight : existingLog.bodyWeight, 
+
+      // FIX 3: reflect updatedAt in the returned object
+      log = {
+        ...existingLog,
+        bodyWeight:
+          data.bodyWeight !== undefined
+            ? data.bodyWeight
+            : existingLog.bodyWeight,
         name: data.name !== undefined ? data.name : existingLog.name,
-        splitName: data.splitName !== undefined ? data.splitName : existingLog.splitName,
-        exercises: mergedExercises, 
-        id: existingLog._id.toString() 
+        splitName:
+          data.splitName !== undefined
+            ? data.splitName
+            : existingLog.splitName,
+        exercises: mergedExercises,
+        updatedAt,
+        id: existingLog._id.toString(),
       };
     } else {
       const logData = {
@@ -101,9 +239,14 @@ export async function saveWorkoutSession(
 
       if (template) {
         const updatedExercises = (template.exercises as Exercise[]).map((ex) => {
-          const sessionEx = data.exercises.find((se) => se.name === ex.name);
+          // FIX 2: match by exerciseId instead of name
+          const sessionEx = data.exercises.find(
+            (se) => se.exerciseId === ex.exerciseId
+          );
           if (sessionEx && sessionEx.sets.length > 0) {
-            const maxSessionWeight = Math.max(...sessionEx.sets.map((s) => s.weight));
+            const maxSessionWeight = Math.max(
+              ...sessionEx.sets.map((s) => s.weight)
+            );
             return { ...ex, lastWeight: maxSessionWeight };
           }
           return ex;
@@ -134,7 +277,7 @@ export async function getTodayBodyWeight(date?: string | Date): Promise<number |
     const userId = new ObjectId((session.user as any).id);
 
     const db = await getDb();
-    
+
     // Target date normalized
     const targetDate = date ? new Date(date) : new Date();
     const startOfDay = new Date(targetDate);
@@ -165,7 +308,7 @@ export async function saveBodyWeight(bodyWeight: number, date?: string | Date): 
     const userId = new ObjectId((session.user as any).id);
 
     const db = await getDb();
-    
+
     // Target date normalized
     const targetDate = date ? new Date(date) : new Date();
     const startOfDay = new Date(targetDate);
@@ -242,7 +385,7 @@ export async function saveSingleExerciseLog(
       // Update existing log
       const exercises = existingLog.exercises || [];
       const index = exercises.findIndex((ex: any) => ex.exerciseId === exercise.exerciseId);
-      
+
       if (index > -1) {
         exercises[index] = exercise;
       } else {
@@ -342,7 +485,8 @@ export async function getWorkoutHistory(): Promise<WorkoutLog[]> {
           createdAt: { $first: "$createdAt" }
         }
       },
-      { $project: {
+      {
+        $project: {
           id: 1,
           userId: 1,
           date: 1,
@@ -355,7 +499,8 @@ export async function getWorkoutHistory(): Promise<WorkoutLog[]> {
               in: { $concatArrays: ["$$value", "$$this"] }
             }
           }
-      }},
+        }
+      },
       { $sort: { date: -1 } }
     ]).toArray();
 
@@ -416,14 +561,14 @@ export async function getUserStats() {
     const userId = new ObjectId((session.user as any).id);
 
     const db = await getDb();
-    
+
     // Get total workouts (unique days)
     const logs = await db.collection("WorkoutLog").find({ userId }).toArray();
     const uniqueDays = new Set(logs.map(log => new Date(log.date).toDateString())).size;
 
     // Get joined date (from user doc)
     const user = await db.collection("users").findOne({ _id: userId });
-    
+
     return {
       totalWorkouts: uniqueDays,
       joinedAt: user?.createdAt || user?._id.getTimestamp() || new Date(),
