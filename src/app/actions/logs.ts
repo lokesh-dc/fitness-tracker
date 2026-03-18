@@ -3,7 +3,7 @@
 import { ObjectId } from "mongodb";
 import { revalidatePath } from "next/cache";
 import { getDb, getCurrentDayOfWeek, getCurrentWeekIndex } from "@/lib/db-utils";
-import { WorkoutLog, Exercise } from "@/types/workout";
+import { WorkoutLog, Exercise, SetLog } from "@/types/workout";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
@@ -115,6 +115,9 @@ export async function saveWorkoutSession(
         );
       }
     }
+    
+    // UPDATE EXERCISE RECORDS
+    await updateExerciseRecords(new ObjectId(userId), data.exercises, startOfDay);
 
     revalidatePath("/");
     return JSON.parse(JSON.stringify(log)) as WorkoutLog;
@@ -278,6 +281,9 @@ export async function saveSingleExerciseLog(
       }
     }
 
+    // UPDATE EXERCISE RECORDS
+    await updateExerciseRecords(userId, [exercise], startOfDay);
+
     revalidatePath("/");
   } catch (error) {
     console.error("Error saving single exercise log:", error);
@@ -425,5 +431,78 @@ export async function getUserStats() {
   } catch (error) {
     console.error("Error getting user stats:", error);
     return null;
+  }
+}
+
+export async function updateExerciseRecords(
+  userId: ObjectId,
+  exercises: any[],
+  date: Date
+) {
+  const db = await getDb();
+  const sessionDate = date instanceof Date ? date : new Date(date);
+
+  for (const exercise of exercises) {
+    if (!exercise.sets || exercise.sets.length === 0) continue;
+
+    const maxWeight = Math.max(...exercise.sets.map((s: SetLog) => s.weight || 0));
+    const totalSets = exercise.sets.length;
+    const totalReps = exercise.sets.reduce((acc: number, s: SetLog) => acc + (s.reps || 0), 0);
+    const exerciseId = exercise.exerciseId;
+
+    // We use a findOne and manual check instead of just $max so we can track prDate and previousPR
+    const existing = await db.collection("ExerciseRecords").findOne({ userId, exerciseId });
+
+    const historyEntry = {
+      date: sessionDate,
+      maxWeight,
+      totalSets,
+      totalReps,
+    };
+
+    if (!existing) {
+      await db.collection("ExerciseRecords").insertOne({
+        userId,
+        exerciseId,
+        exerciseName: exercise.name,
+        currentPR: maxWeight,
+        prDate: sessionDate,
+        previousPR: 0,
+        history: [historyEntry],
+        updatedAt: new Date(),
+      });
+    } else {
+      const isNewPR = maxWeight > (existing.currentPR || 0);
+      
+      // Update history: if there's an entry for the same day, replace it, otherwise push
+      const existingHistory = existing.history || [];
+      const sameDayIndex = existingHistory.findIndex((h: any) => 
+        new Date(h.date).toDateString() === sessionDate.toDateString()
+      );
+
+      const updateOps: any = {
+        $set: { 
+          exerciseName: exercise.name,
+          updatedAt: new Date()
+        }
+      };
+
+      if (sameDayIndex > -1) {
+        updateOps.$set[`history.${sameDayIndex}`] = historyEntry;
+      } else {
+        updateOps.$push = { history: historyEntry };
+      }
+
+      if (isNewPR) {
+        updateOps.$set.previousPR = existing.currentPR;
+        updateOps.$set.currentPR = maxWeight;
+        updateOps.$set.prDate = sessionDate;
+      }
+
+      await db.collection("ExerciseRecords").updateOne(
+        { _id: existing._id },
+        updateOps
+      );
+    }
   }
 }

@@ -13,17 +13,9 @@ export async function getHighestWeightPR(exerciseName: string): Promise<number> 
     const userId = new ObjectId((session.user as any).id);
 
     const db = await getDb();
+    const record = await db.collection("ExerciseRecords").findOne({ userId, exerciseName });
     
-    // Using aggregation for better performance on large log sets
-    const result = await db.collection("WorkoutLog").aggregate([
-      { $match: { userId, "exercises.name": exerciseName } },
-      { $unwind: "$exercises" },
-      { $match: { "exercises.name": exerciseName } },
-      { $unwind: "$exercises.sets" },
-      { $group: { _id: null, maxWeight: { $max: "$exercises.sets.weight" } } }
-    ]).toArray();
-
-    return result[0]?.maxWeight || 0;
+    return record?.currentPR || 0;
   } catch (error) {
     console.error("Error fetching highest weight PR:", error);
     return 0;
@@ -37,19 +29,13 @@ export async function getHighestWeightPRsBulk(exerciseIds: string[]): Promise<Re
     const userId = new ObjectId((session.user as any).id);
 
     const db = await getDb();
-    
-    // Using aggregation for better performance on large log sets
-    const result = await db.collection("WorkoutLog").aggregate([
-      { $match: { userId, "exercises.exerciseId": { $in: exerciseIds } } },
-      { $unwind: "$exercises" },
-      { $match: { "exercises.exerciseId": { $in: exerciseIds } } },
-      { $unwind: "$exercises.sets" },
-      { $group: { _id: "$exercises.exerciseId", maxWeight: { $max: "$exercises.sets.weight" } } }
-    ]).toArray();
+    const records = await db.collection("ExerciseRecords")
+      .find({ userId, exerciseId: { $in: exerciseIds } })
+      .toArray();
 
     const prMap: Record<string, number> = {};
-    result.forEach(doc => {
-      prMap[doc._id] = doc.maxWeight;
+    records.forEach(doc => {
+      prMap[doc.exerciseId] = doc.currentPR;
     });
 
     return prMap;
@@ -67,47 +53,18 @@ export async function getRecentPRs(): Promise<{ name: string; weight: number; da
 
     const db = await getDb();
     
-    // Use aggregation to find the maximum weight per exercise and day
-    const logs = await db.collection("WorkoutLog").aggregate([
-      { $match: { userId } },
-      { $unwind: "$exercises" },
-      { $unwind: "$exercises.sets" },
-      {
-        $group: {
-          _id: {
-            name: "$exercises.name",
-            date: { $dateToString: { format: "%Y-%m-%d", date: "$date" } }
-          },
-          maxWeight: { $max: "$exercises.sets.weight" }
-        }
-      },
-      { $sort: { "_id.date": 1 } }
-    ]).toArray();
+    const records = await db.collection("ExerciseRecords")
+      .find({ userId, currentPR: { $gt: 0 } })
+      .sort({ prDate: -1 })
+      .limit(3)
+      .toArray();
 
-    const prTracker: Record<string, { weight: number; date: string; previousWeight: number }> = {};
-
-    logs.forEach(log => {
-      const { name, date } = log._id;
-      const weight = log.maxWeight;
-
-      if (!prTracker[name]) {
-        prTracker[name] = { weight, date, previousWeight: 0 };
-      } else if (weight > prTracker[name].weight) {
-        prTracker[name] = { weight, date, previousWeight: prTracker[name].weight };
-      }
-    });
-
-    const recentPRs = Object.entries(prTracker)
-      .map(([name, data]) => ({
-        name,
-        weight: data.weight,
-        date: data.date,
-        increment: data.previousWeight > 0 ? Number((data.weight - data.previousWeight).toFixed(2)) : 0
-      }))
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 3);
-
-    return recentPRs;
+    return records.map(doc => ({
+      name: doc.exerciseName,
+      weight: doc.currentPR,
+      date: doc.prDate instanceof Date ? doc.prDate.toISOString() : doc.prDate,
+      increment: doc.previousPR > 0 ? Number((doc.currentPR - doc.previousPR).toFixed(2)) : 0
+    }));
   } catch (error) {
     console.error("Error fetching recent PRs:", error);
     return [];
@@ -122,26 +79,20 @@ export async function getExerciseHistory(exerciseName: string) {
 
     const db = await getDb();
 
-    // Get the most recent log containing this exercise to suggest sets/reps
-    const lastLog = await db.collection("WorkoutLog")
-      .find({ userId, "exercises.name": exerciseName })
-      .sort({ date: -1 })
-      .limit(1)
-      .toArray();
-
-    const pr = await getHighestWeightPR(exerciseName);
+    // Get the record for PR and history
+    const record = await db.collection("ExerciseRecords").findOne({ userId, exerciseName });
 
     let suggestedSets = 3;
     let suggestedReps = 10;
     let lastWeight = 0;
+    let pr = record?.currentPR || 0;
 
-    if (lastLog.length > 0) {
-      const exercise = lastLog[0].exercises.find((ex: any) => ex.name === exerciseName);
-      if (exercise) {
-        suggestedSets = exercise.sets.length;
-        suggestedReps = exercise.sets[0]?.reps || 10;
-        lastWeight = Math.max(...exercise.sets.map((s: SetLog) => s.weight));
-      }
+    if (record && record.history && record.history.length > 0) {
+      // Get the latest history entry
+      const latest = record.history[record.history.length - 1];
+      suggestedSets = latest.totalSets || 3;
+      suggestedReps = Math.round((latest.totalReps / latest.totalSets)) || 10;
+      lastWeight = latest.maxWeight || 0;
     }
 
     return {
@@ -177,11 +128,8 @@ export async function getBodyWeightTrend(): Promise<WeightTrendData[]> {
     const uniqueByDay = new Map<string, WeightTrendData>();
     
     logs.forEach((log) => {
-      // Get the local day string. Using ISO string assumes UTC which is fine for trend lines
       const dateStr = (log.date as Date).toISOString().split('T')[0];
       
-      // Because logs are sorted by date ascending, overwriting this key 
-      // guarantees we keep only the latest/most recent entry for this day!
       uniqueByDay.set(dateStr, {
         id: log._id.toString(),
         date: (log.date as Date).toISOString(),
@@ -203,8 +151,8 @@ export async function getUserExercises(): Promise<string[]> {
     const userId = new ObjectId((session.user as any).id);
 
     const db = await getDb();
-    const exercises = await db.collection("WorkoutLog").distinct("exercises.name", { userId });
-    return exercises.filter(Boolean).sort();
+    const records = await db.collection("ExerciseRecords").find({ userId }).toArray();
+    return records.map(r => r.exerciseName).filter(Boolean).sort();
   } catch (error) {
     console.error("Error fetching user exercises:", error);
     return [];
@@ -218,34 +166,17 @@ export async function getExerciseProgress(exerciseName: string): Promise<{ date:
     const userId = new ObjectId((session.user as any).id);
 
     const db = await getDb();
-    
-    const logs = await db.collection("WorkoutLog").aggregate([
-      { $match: { userId, "exercises.name": exerciseName } },
-      { $unwind: "$exercises" },
-      { $match: { "exercises.name": exerciseName } },
-      { $project: {
-          date: 1,
-          maxWeight: { $max: "$exercises.sets.weight" }
-      }},
-      { $sort: { date: 1 } }
-    ]).toArray();
+    const record = await db.collection("ExerciseRecords").findOne({ userId, exerciseName });
 
-    // Deduplicate by day (keep max weight for the day)
-    const dailyMax = new Map<string, number>();
-    logs.forEach(log => {
-      const dateStr = (log.date as Date).toISOString().split('T')[0];
-      const weight = log.maxWeight || 0;
-      if (!dailyMax.has(dateStr) || weight > dailyMax.get(dateStr)!) {
-        dailyMax.set(dateStr, weight);
-      }
-    });
+    if (!record || !record.history) return [];
 
-    return Array.from(dailyMax.entries()).map(([date, weight]) => ({
-      date,
-      weight
+    return record.history.map((h: any) => ({
+      date: h.date instanceof Date ? h.date.toISOString() : h.date,
+      weight: h.maxWeight
     }));
   } catch (error) {
     console.error("Error fetching exercise progress:", error);
     return [];
   }
 }
+
