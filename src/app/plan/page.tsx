@@ -90,9 +90,7 @@ export default async function PlanPage() {
 						<div className="space-y-4">
 							{plans.map((plan) => {
 								const status = getPlanStatus(plan.startDate, plan.numWeeks);
-								const uniqueDays = templatesMap[plan.id]
-									? Math.round(templatesMap[plan.id] / plan.numWeeks)
-									: 0;
+								const uniqueDays = templatesMap[plan.id] || 0;
 
 								console.log(templatesMap);
 								return (

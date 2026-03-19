@@ -192,11 +192,11 @@ export async function savePlanTemplates(
       planId = planResult.insertedId.toString();
     }
 
-    // 2. Insert all the templates linked to that planId
+    // 2. Insert templates (now strictly Week 1 as per UI simplification)
     const finalTemplates = templates.map(t => ({
       userId,
       planId,
-      weekNumber: t.weekNumber,
+      weekNumber: t.weekNumber || 1,
       dayOfWeek: t.dayOfWeek,
       exercises: t.exercises,
       splitName: (t as any).splitName || "Workout",
@@ -236,18 +236,19 @@ export async function getUserPlanSummary() {
       return { id: _id.toString(), ...rest };
     }) as PlanDocument[];
 
-    // We optionally fetch the individual templates for preview counting
+    // We fetch count of unique dayOfWeek per plan (where exercises are present)
     const allTemplatesCount = await db.collection("WorkoutTemplate").aggregate([
-      { $match: { userId } },
-      { $group: { _id: "$planId", days: { $sum: 1 } } }
+      { $match: { userId, "exercises.0": { $exists: true } } },
+      { $group: { _id: "$planId", days: { $addToSet: "$dayOfWeek" } } },
+      { $project: { _id: 1, count: { $size: "$days" } } }
     ]).toArray();
 
     const templatesMap = allTemplatesCount.reduce((acc, curr) => {
-      acc[curr._id] = curr.days;
+      acc[curr._id] = curr.count;
       return acc;
     }, {});
 
-    return { plans, templatesMap };
+    return JSON.parse(JSON.stringify({ plans, templatesMap }));
   } catch (error) {
     console.error("Error fetching plan summary:", error);
     return { plans: [], templatesMap: {} };
@@ -316,10 +317,10 @@ export async function getPlanDetails(planId: string) {
 
     const { _id, ...restPlan } = planDoc;
 
-    return {
+    return JSON.parse(JSON.stringify({
       plan: { id: _id.toString(), ...restPlan } as PlanDocument,
       templates
-    };
+    }));
   } catch (err) {
     console.error("Error fetching plan details:", err);
     return null;

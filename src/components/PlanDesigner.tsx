@@ -168,18 +168,18 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
     try {
       const allTemplates: Partial<WorkoutTemplate>[] = [];
       
-      for (let w = 1; w <= numWeeks; w++) {
-        for (let d = 0; d < 7; d++) {
-          const isTraining = trainingDays.includes(d);
-          const dayData = masterWeekData[d];
-          
-          allTemplates.push({
-            weekNumber: w,
-            dayOfWeek: d,
-            splitName: isTraining ? ((dayData as any).splitName || "Workout") : "Rest Day",
-            exercises: isTraining ? dayData.exercises : []
-          });
-        }
+      // We only send Week 1 templates because the current UI only supports a repeating master week.
+      // The backend uses weekNumber: 1 as the source of truth for all weeks in the plan.
+      for (let d = 0; d < 7; d++) {
+        const isTraining = trainingDays.includes(d);
+        const dayData = masterWeekData[d];
+        
+        allTemplates.push({
+          weekNumber: 1,
+          dayOfWeek: d,
+          splitName: isTraining ? ((dayData as any).splitName || "Workout") : "Rest Day",
+          exercises: isTraining ? dayData.exercises : []
+        });
       }
       
       await savePlanTemplates({ startDate, numWeeks, planId: editPlanId || undefined }, allTemplates);
