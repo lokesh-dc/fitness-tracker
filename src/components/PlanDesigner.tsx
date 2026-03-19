@@ -12,6 +12,7 @@ import { Exercise, ExerciseDefinition } from "@/types/workout";
 import { MuscleGroup } from "@/lib/exercises";
 import { PlanDocument, WorkoutTemplate } from "@/types/workout";
 import { addCustomExercise } from "@/app/actions/exercises";
+import { WarmupSetsPanel } from "./WarmupSetsPanel";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -441,7 +442,6 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
                       />
                     </div>
                   </div>
-
                   {/* Rest Duration Selector */}
                   <div className="pt-2 border-t border-foreground/5">
                     <label className="text-[8px] font-black text-foreground/40 uppercase tracking-widest ml-1 mb-2 block">Rest Duration</label>
@@ -481,6 +481,12 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
                       </div>
                     </div>
                   </div>
+
+                  <WarmupSetsPanel 
+                    workingWeight={ex.lastWeight}
+                    repsField={ex.targetReps}
+                    mode="PLAN_DESIGNER"
+                  />
                 </GlassCard>
               ))
             )}

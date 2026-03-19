@@ -11,6 +11,8 @@ export interface ExerciseDefinition {
   isCustom?: boolean;
 }
 
+export type WorkoutMode = 'LIVE_SESSION' | 'MANUAL_LOG' | 'PLAN_DESIGNER';
+
 export interface Exercise {
   exerciseId: string;
   name: string;
@@ -59,6 +61,22 @@ export interface WorkoutLog {
 
 export interface UserSettings {
   defaultRestDuration: number;
+}
+
+export type WarmupScheme = 'STRENGTH' | 'STRENGTH_HYPER' | 'HYPERTROPHY' | 'ENDURANCE';
+
+export interface WarmupSet {
+  percentage: number;
+  weight: number;
+  reps: number;
+  label: string;
+}
+
+export interface WarmupResult {
+  scheme: WarmupScheme;
+  sets: WarmupSet[];
+  workingWeight: number;
+  workingReps: number;
 }
 
 export interface WeightTrendData {
