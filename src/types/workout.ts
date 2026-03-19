@@ -84,3 +84,14 @@ export interface WeightTrendData {
   date: string;
   bodyWeight: number;
 }
+
+export interface ExerciseTimelineEntry {
+  date: Date | string;
+  maxWeight: number;       // heaviest weight lifted that session
+  estimatedOneRM: number;  // Epley: maxWeight * (1 + avgReps/30)
+  totalVolume: number;     // sum of weight × reps across all sets
+  totalSets: number;       // number of sets completed
+  totalReps: number;       // total reps across all sets
+  avgRepsPerSet: number;   // totalReps / totalSets
+  isPR: boolean;           // true if date matches prDate in ExerciseRecords
+}
