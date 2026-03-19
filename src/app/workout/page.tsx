@@ -1,15 +1,17 @@
 import { getPlanByDate } from "@/app/actions/plan";
 import { getTodayBodyWeight, getTodayWorkoutLog } from "@/app/actions/logs";
 import { getHighestWeightPRsBulk } from "@/app/actions/analytics";
-import WorkoutSession from "@/components/WorkoutSession";
+import WorkoutSession, { type WorkoutMode } from "@/components/WorkoutSession";
 import { Header } from "@/components/Header";
+import { getUserSettings } from "@/app/actions/user";
+import { format } from "date-fns";
 
 export const dynamic = "force-dynamic";
 
 export default async function WorkoutPage({
 	searchParams,
 }: {
-	searchParams: { date?: string };
+	searchParams: { date?: string; mode?: WorkoutMode };
 }) {
 	const resolvedParams = await searchParams;
 	const date = resolvedParams.date;
@@ -17,6 +19,10 @@ export default async function WorkoutPage({
 	const plan = await getPlanByDate(date);
 	const initialBodyWeight = await getTodayBodyWeight(date);
 	const initialWorkoutLog = await getTodayWorkoutLog(date);
+	const userSettings = await getUserSettings();
+
+	const today = format(new Date(), "yyyy-MM-dd");
+	const explicitMode = resolvedParams.mode || (date && date !== today ? 'MANUAL_LOG' : 'LIVE_SESSION');
 
 	let initialPRs: Record<string, number> = {};
 	if (plan) {
@@ -28,7 +34,6 @@ export default async function WorkoutPage({
 		}
 	}
 
-	console.log({ initialPRs, initialBodyWeight });
 	return (
 		<div className="flex flex-col pb-24 md:pb-0 md:pl-20">
 			<Header title="Workout Session" />
@@ -39,6 +44,8 @@ export default async function WorkoutPage({
 					initialWorkoutLog={initialWorkoutLog}
 					initialPRs={initialPRs}
 					date={date}
+					mode={explicitMode}
+					userDefaultRest={userSettings.defaultRestDuration}
 				/>
 			</div>
 		</div>

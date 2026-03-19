@@ -105,7 +105,7 @@ export default async function DashboardPage() {
 					</div>
 
 					{isTodayDone ? (
-						<Link href="/workout" className="block">
+						<Link href="/workout?mode=MANUAL_LOG" className="block">
 							<GlassCard className="border-emerald-500/30 bg-emerald-500/5 p-6 flex items-center justify-between group overflow-hidden relative">
 								<div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
 									<CheckCircle2 className="w-16 h-16 text-emerald-500" />
@@ -123,7 +123,7 @@ export default async function DashboardPage() {
 							</GlassCard>
 						</Link>
 					) : plan && plan.dayOfWeek !== 0 ? (
-						<Link href="/workout" className="block">
+						<Link href="/workout?mode=LIVE_SESSION" className="block">
 							<WorkoutListItem
 								title={`${(plan as any).splitName || `Day ${plan.dayOfWeek}`} Training`}
 								subtitle={`Week ${plan.weekNumber} • Master Plan`}

@@ -41,7 +41,7 @@ export default async function WorkoutsPage({
             description="No exercises were logged on this date."
             action={
               <Link 
-                href={`/workout?date=${targetDateStr}`}
+                href={`/workout?date=${targetDateStr}&mode=MANUAL_LOG`}
                 className="flex items-center space-x-2 px-8 py-4 bg-orange-500 text-black rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-105 active:scale-95 transition-all shadow-[0_10px_20px_rgba(249,115,22,0.3)]"
               >
                 <Plus className="w-4 h-4" />
@@ -101,7 +101,7 @@ export default async function WorkoutsPage({
                   <Calendar className="w-4 h-4 text-orange-500 mr-2" /> Session Breakdown
                 </h3>
                 <Link 
-                  href={`/workout?date=${targetDateStr}`}
+                  href={`/workout?date=${targetDateStr}&mode=MANUAL_LOG`}
                   className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-foreground/5 hover:bg-orange-500/10 hover:text-orange-500 transition-all text-[10px] font-black uppercase tracking-widest text-foreground/40"
                 >
                   <Edit2 className="w-3 h-3" />

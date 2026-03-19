@@ -113,6 +113,7 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
           lastWeight: history?.pr || history?.lastWeight || 0,
           pr: history?.pr || 0,
           unit: availableExercises.find(e => e.name === exerciseName)?.unit || 'reps',
+          restDuration: 90, // Default to 90s
           sets: []
         });
       }
@@ -438,6 +439,46 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
                         }}
                         className="w-full bg-foreground/5 border border-foreground/10 rounded-xl py-3 text-center font-bold text-orange-500 outline-none focus:border-orange-500"
                       />
+                    </div>
+                  </div>
+
+                  {/* Rest Duration Selector */}
+                  <div className="pt-2 border-t border-foreground/5">
+                    <label className="text-[8px] font-black text-foreground/40 uppercase tracking-widest ml-1 mb-2 block">Rest Duration</label>
+                    <div className="flex flex-wrap gap-2">
+                      {[60, 90, 120, 180].map((time) => (
+                        <button
+                          key={time}
+                          type="button"
+                          onClick={() => {
+                            const newExs = [...currentDayData.exercises];
+                            newExs[idx].restDuration = time;
+                            updateDayData(currentDay, { exercises: newExs });
+                          }}
+                          className={cn(
+                            "px-3 py-1.5 rounded-lg border text-[10px] font-bold transition-all",
+                            ex.restDuration === time 
+                              ? "bg-orange-500 border-orange-500 text-black" 
+                              : "border-foreground/10 text-foreground/40 hover:border-foreground/20"
+                          )}
+                        >
+                          {time < 60 ? `${time}s` : time % 60 === 0 ? `${time/60}m` : `${time}s`}
+                        </button>
+                      ))}
+                      <div className="flex items-center bg-foreground/5 border border-foreground/10 rounded-lg px-2 py-1.5 ml-auto">
+                        <input 
+                          type="number"
+                          placeholder="Custom..."
+                          value={ex.restDuration || ""}
+                          onChange={(e) => {
+                            const newExs = [...currentDayData.exercises];
+                            newExs[idx].restDuration = parseInt(e.target.value) || 0;
+                            updateDayData(currentDay, { exercises: newExs });
+                          }}
+                          className="w-12 bg-transparent text-center font-bold text-[10px] outline-none placeholder:font-normal"
+                        />
+                        <span className="text-[8px] font-black text-foreground/20 uppercase ml-1">Secs</span>
+                      </div>
                     </div>
                   </div>
                 </GlassCard>

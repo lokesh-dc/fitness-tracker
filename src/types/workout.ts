@@ -20,6 +20,7 @@ export interface Exercise {
   lastWeight?: number;
   sets: SetLog[];
   pr?: number;
+  restDuration?: number;
 }
 
 export interface PlanDocument {
@@ -54,6 +55,10 @@ export interface WorkoutLog {
     sets: SetLog[];
   }[];
   createdAt: string | Date;
+}
+
+export interface UserSettings {
+  defaultRestDuration: number;
 }
 
 export interface WeightTrendData {
