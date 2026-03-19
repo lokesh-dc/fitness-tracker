@@ -12,6 +12,7 @@ import { Exercise, ExerciseDefinition } from "@/types/workout";
 import { MuscleGroup } from "@/lib/exercises";
 import { PlanDocument, WorkoutTemplate } from "@/types/workout";
 import { addCustomExercise } from "@/app/actions/exercises";
+import { WarmupSetsPanel } from "./WarmupSetsPanel";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -113,6 +114,7 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
           lastWeight: history?.pr || history?.lastWeight || 0,
           pr: history?.pr || 0,
           unit: availableExercises.find(e => e.name === exerciseName)?.unit || 'reps',
+          restDuration: 90, // Default to 90s
           sets: []
         });
       }
@@ -168,18 +170,18 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
     try {
       const allTemplates: Partial<WorkoutTemplate>[] = [];
       
-      for (let w = 1; w <= numWeeks; w++) {
-        for (let d = 0; d < 7; d++) {
-          const isTraining = trainingDays.includes(d);
-          const dayData = masterWeekData[d];
-          
-          allTemplates.push({
-            weekNumber: w,
-            dayOfWeek: d,
-            splitName: isTraining ? ((dayData as any).splitName || "Workout") : "Rest Day",
-            exercises: isTraining ? dayData.exercises : []
-          });
-        }
+      // We only send Week 1 templates because the current UI only supports a repeating master week.
+      // The backend uses weekNumber: 1 as the source of truth for all weeks in the plan.
+      for (let d = 0; d < 7; d++) {
+        const isTraining = trainingDays.includes(d);
+        const dayData = masterWeekData[d];
+        
+        allTemplates.push({
+          weekNumber: 1,
+          dayOfWeek: d,
+          splitName: isTraining ? ((dayData as any).splitName || "Workout") : "Rest Day",
+          exercises: isTraining ? dayData.exercises : []
+        });
       }
       
       await savePlanTemplates({ startDate, numWeeks, planId: editPlanId || undefined }, allTemplates);
@@ -440,6 +442,51 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
                       />
                     </div>
                   </div>
+                  {/* Rest Duration Selector */}
+                  <div className="pt-2 border-t border-foreground/5">
+                    <label className="text-[8px] font-black text-foreground/40 uppercase tracking-widest ml-1 mb-2 block">Rest Duration</label>
+                    <div className="flex flex-wrap gap-2">
+                      {[60, 90, 120, 180].map((time) => (
+                        <button
+                          key={time}
+                          type="button"
+                          onClick={() => {
+                            const newExs = [...currentDayData.exercises];
+                            newExs[idx].restDuration = time;
+                            updateDayData(currentDay, { exercises: newExs });
+                          }}
+                          className={cn(
+                            "px-3 py-1.5 rounded-lg border text-[10px] font-bold transition-all",
+                            ex.restDuration === time 
+                              ? "bg-orange-500 border-orange-500 text-black" 
+                              : "border-foreground/10 text-foreground/40 hover:border-foreground/20"
+                          )}
+                        >
+                          {time < 60 ? `${time}s` : time % 60 === 0 ? `${time/60}m` : `${time}s`}
+                        </button>
+                      ))}
+                      <div className="flex items-center bg-foreground/5 border border-foreground/10 rounded-lg px-2 py-1.5 ml-auto">
+                        <input 
+                          type="number"
+                          placeholder="Custom..."
+                          value={ex.restDuration || ""}
+                          onChange={(e) => {
+                            const newExs = [...currentDayData.exercises];
+                            newExs[idx].restDuration = parseInt(e.target.value) || 0;
+                            updateDayData(currentDay, { exercises: newExs });
+                          }}
+                          className="w-12 bg-transparent text-center font-bold text-[10px] outline-none placeholder:font-normal"
+                        />
+                        <span className="text-[8px] font-black text-foreground/20 uppercase ml-1">Secs</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <WarmupSetsPanel 
+                    workingWeight={ex.lastWeight}
+                    repsField={ex.targetReps}
+                    mode="PLAN_DESIGNER"
+                  />
                 </GlassCard>
               ))
             )}

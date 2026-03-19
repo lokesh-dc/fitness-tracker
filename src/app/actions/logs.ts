@@ -228,34 +228,49 @@ export async function saveWorkoutSession(
     }
 
     if (updateTemplate) {
-      const dayOfWeek = getCurrentDayOfWeek();
-      const weekNumber = getCurrentWeekIndex();
+      const targetDate = date ? new Date(date) : new Date();
+      const targetDateStr = targetDate.toISOString().split("T")[0];
+      const dayOfWeek = targetDate.getDay();
 
-      const template = await db.collection("WorkoutTemplate").findOne({
-        userId: new ObjectId(userId),
-        weekNumber,
-        dayOfWeek,
-      });
+      // Find the plan that was "active" on that day
+      const activePlan = await db.collection("PlanDocument").findOne(
+        {
+          userId: new ObjectId(userId),
+          startDate: { $lte: targetDateStr }
+        },
+        { sort: { startDate: -1 } }
+      );
 
-      if (template) {
-        const updatedExercises = (template.exercises as Exercise[]).map((ex) => {
-          // FIX 2: match by exerciseId instead of name
-          const sessionEx = data.exercises.find(
-            (se) => se.exerciseId === ex.exerciseId
-          );
-          if (sessionEx && sessionEx.sets.length > 0) {
-            const maxSessionWeight = Math.max(
-              ...sessionEx.sets.map((s) => s.weight)
-            );
-            return { ...ex, lastWeight: maxSessionWeight };
-          }
-          return ex;
+      if (activePlan) {
+        // Find the Master Template (Week 1) for this plan and day
+        const template = await db.collection("WorkoutTemplate").findOne({
+          userId: new ObjectId(userId),
+          planId: activePlan._id.toString(),
+          weekNumber: 1,
+          dayOfWeek,
         });
 
-        await db.collection("WorkoutTemplate").updateOne(
-          { _id: template._id },
-          { $set: { exercises: updatedExercises, updatedAt: new Date() } }
-        );
+        if (template) {
+          const updatedExercises = (template.exercises as Exercise[]).map((ex) => {
+            const sessionEx = data.exercises.find(
+              (se) => se.exerciseId === ex.exerciseId
+            );
+            if (sessionEx && sessionEx.sets.length > 0) {
+              const maxSessionWeight = Math.max(
+                ...sessionEx.sets.map((s) => s.weight)
+              );
+              // Only update if the session weight is higher than current target (as requested)
+              // OR just update it if the user checked the box. Usually, we update to newest performance.
+              return { ...ex, lastWeight: maxSessionWeight };
+            }
+            return ex;
+          });
+
+          await db.collection("WorkoutTemplate").updateOne(
+            { _id: template._id },
+            { $set: { exercises: updatedExercises, updatedAt: new Date() } }
+          );
+        }
       }
     }
     
@@ -399,28 +414,40 @@ export async function saveSingleExerciseLog(
     }
 
     if (updateTemplate) {
-      const dayOfWeek = getCurrentDayOfWeek();
-      const weekNumber = getCurrentWeekIndex();
+      const targetDate = date ? new Date(date) : new Date();
+      const targetDateStr = targetDate.toISOString().split("T")[0];
+      const dayOfWeek = targetDate.getDay();
 
-      const template = await db.collection("WorkoutTemplate").findOne({
-        userId,
-        weekNumber,
-        dayOfWeek,
-      });
+      const activePlan = await db.collection("PlanDocument").findOne(
+        {
+          userId: new ObjectId(userId),
+          startDate: { $lte: targetDateStr }
+        },
+        { sort: { startDate: -1 } }
+      );
 
-      if (template) {
-        const updatedExercises = (template.exercises as Exercise[]).map((ex) => {
-          if (ex.exerciseId === exercise.exerciseId && exercise.sets.length > 0) {
-            const maxSessionWeight = Math.max(...exercise.sets.map((s) => s.weight));
-            return { ...ex, lastWeight: maxSessionWeight };
-          }
-          return ex;
+      if (activePlan) {
+        const template = await db.collection("WorkoutTemplate").findOne({
+          userId: new ObjectId(userId),
+          planId: activePlan._id.toString(),
+          weekNumber: 1,
+          dayOfWeek,
         });
 
-        await db.collection("WorkoutTemplate").updateOne(
-          { _id: template._id },
-          { $set: { exercises: updatedExercises, updatedAt: new Date() } }
-        );
+        if (template) {
+          const updatedExercises = (template.exercises as Exercise[]).map((ex) => {
+            if (ex.exerciseId === exercise.exerciseId && exercise.sets.length > 0) {
+              const maxSessionWeight = Math.max(...exercise.sets.map((s) => s.weight));
+              return { ...ex, lastWeight: maxSessionWeight };
+            }
+            return ex;
+          });
+
+          await db.collection("WorkoutTemplate").updateOne(
+            { _id: template._id },
+            { $set: { exercises: updatedExercises, updatedAt: new Date() } }
+          );
+        }
       }
     }
 
@@ -591,6 +618,10 @@ export async function updateExerciseRecords(
     if (!exercise.sets || exercise.sets.length === 0) continue;
 
     const maxWeight = Math.max(...exercise.sets.map((s: SetLog) => s.weight || 0));
+    const maxReps = Math.max(...exercise.sets
+      .filter((s: SetLog) => (s.weight || 0) === maxWeight)
+      .map((s: SetLog) => s.reps || 0));
+      
     const totalSets = exercise.sets.length;
     const totalReps = exercise.sets.reduce((acc: number, s: SetLog) => acc + (s.reps || 0), 0);
     const exerciseId = exercise.exerciseId;
@@ -611,13 +642,19 @@ export async function updateExerciseRecords(
         exerciseId,
         exerciseName: exercise.name,
         currentPR: maxWeight,
+        currentPRReps: maxReps,
         prDate: sessionDate,
         previousPR: 0,
         history: [historyEntry],
         updatedAt: new Date(),
       });
     } else {
-      const isNewPR = maxWeight > (existing.currentPR || 0);
+      // NEW PR LOGIC:
+      // 1. maxWeight is strictly higher
+      // 2. maxWeight is same AND maxReps is strictly higher
+      const isWeightPR = maxWeight > (existing.currentPR || 0);
+      const isRepPR = maxWeight === existing.currentPR && maxReps > (existing.currentPRReps || 0);
+      const isNewPR = isWeightPR || isRepPR;
       
       // Update history: if there's an entry for the same day, replace it, otherwise push
       const existingHistory = existing.history || [];
@@ -641,6 +678,7 @@ export async function updateExerciseRecords(
       if (isNewPR) {
         updateOps.$set.previousPR = existing.currentPR;
         updateOps.$set.currentPR = maxWeight;
+        updateOps.$set.currentPRReps = maxReps;
         updateOps.$set.prDate = sessionDate;
       }
 

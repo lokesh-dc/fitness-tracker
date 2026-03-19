@@ -10,6 +10,7 @@ import {
 	type Exercise,
 	type WorkoutTemplate,
 	type WorkoutLog,
+	type WorkoutMode,
 } from "@/types/workout";
 import { format } from "date-fns";
 import {
@@ -29,6 +30,9 @@ import { GlassCard } from "./ui/GlassCard";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { WorkoutCelebration } from "./WorkoutCelebration";
+import { useRestTimer } from "@/hooks/useRestTimer";
+import { RestTimerBar } from "./RestTimerBar";
+import { WarmupSetsPanel } from "./WarmupSetsPanel";
 
 const DAYS = [
 	"Sunday",
@@ -46,6 +50,8 @@ interface WorkoutSessionProps {
 	initialWorkoutLog?: WorkoutLog | null;
 	initialPRs?: Record<string, number>;
 	date?: string;
+	mode?: WorkoutMode;
+	userDefaultRest?: number;
 }
 
 export default function WorkoutSession({
@@ -54,6 +60,8 @@ export default function WorkoutSession({
 	initialWorkoutLog,
 	initialPRs = {},
 	date,
+	mode = "LIVE_SESSION",
+	userDefaultRest = 90,
 }: WorkoutSessionProps) {
 	// Sync logic for initial weight and step
 	const effectiveBodyWeight =
@@ -91,11 +99,13 @@ export default function WorkoutSession({
 	const [showSuccess, setShowSuccess] = useState(false);
 	const [showCelebration, setShowCelebration] = useState(false);
 
+	const timer = useRestTimer();
+
 	const addSet = (exerciseIndex: number) => {
 		setExercises((prev) => {
 			const newExs = [...prev];
 			const targetEx = { ...newExs[exerciseIndex] };
-			
+
 			let newSet = {
 				weight: targetEx.lastWeight || 0,
 				reps: targetEx.targetReps || 0,
@@ -105,7 +115,7 @@ export default function WorkoutSession({
 				const lastSet = targetEx.sets[targetEx.sets.length - 1];
 				newSet = { ...lastSet };
 			}
-			
+
 			targetEx.sets = [...targetEx.sets, newSet];
 			newExs[exerciseIndex] = targetEx;
 			return newExs;
@@ -147,14 +157,14 @@ export default function WorkoutSession({
 		setIsSubmitting(true);
 		try {
 			await saveWorkoutSession(
-				{ 
-					bodyWeight, 
+				{
+					bodyWeight,
 					exercises,
 					splitName: template?.splitName,
-					name: template?.splitName || "Workout Session"
-				}, 
-				updateTemplate, 
-				date
+					name: template?.splitName || "Workout Session",
+				},
+				updateTemplate,
+				date,
 			);
 			setShowSuccess(true);
 			setShowCelebration(true);
@@ -233,7 +243,8 @@ export default function WorkoutSession({
 				completedCount={completedCount}
 				totalCount={totalCount}
 				progress={progress}
-				date={date}>
+				date={date}
+				timer={timer}>
 				<div className="space-y-6">
 					<GlassCard className="p-6 border-orange-500/10 bg-orange-500/5">
 						<div className="flex items-center justify-between">
@@ -327,7 +338,8 @@ export default function WorkoutSession({
 				completedCount={completedCount}
 				totalCount={totalCount}
 				progress={progress}
-				date={date}>
+				date={date}
+				timer={timer}>
 				<GlassCard className="p-8 space-y-8 flex flex-col items-center justify-center min-h-[40vh]">
 					<div className="text-center space-y-2">
 						<h2 className="text-2xl font-black text-foreground uppercase tracking-wider">
@@ -424,8 +436,18 @@ export default function WorkoutSession({
 
 		const celebrationStats = {
 			exercises: exercises.filter((ex: any) => ex.isDone).length,
-			totalSets: exercises.reduce((acc, ex: any) => acc + (ex.isDone ? ex.sets.length : 0), 0),
-			totalReps: exercises.reduce((acc, ex: any) => acc + (ex.isDone ? ex.sets.reduce((sAcc: any, s: any) => sAcc + s.reps, 0) : 0), 0)
+			totalSets: exercises.reduce(
+				(acc, ex: any) => acc + (ex.isDone ? ex.sets.length : 0),
+				0,
+			),
+			totalReps: exercises.reduce(
+				(acc, ex: any) =>
+					acc +
+					(ex.isDone
+						? ex.sets.reduce((sAcc: any, s: any) => sAcc + s.reps, 0)
+						: 0),
+				0,
+			),
 		};
 
 		const celebrationExerciseDetails = exercises
@@ -438,11 +460,11 @@ export default function WorkoutSession({
 		return (
 			<>
 				{showCelebration && (
-					<WorkoutCelebration 
+					<WorkoutCelebration
 						stats={celebrationStats}
 						exerciseDetails={celebrationExerciseDetails}
 						splitName={template?.splitName}
-						onClose={() => setShowCelebration(false)} 
+						onClose={() => setShowCelebration(false)}
 					/>
 				)}
 				<SessionLayout
@@ -453,7 +475,8 @@ export default function WorkoutSession({
 					completedCount={completedCount}
 					totalCount={totalCount}
 					progress={progress}
-					date={date}>
+					date={date}
+					timer={mode === "LIVE_SESSION" ? timer : null}>
 					<GlassCard className="flex items-center justify-between p-4 px-6 border-orange-500/10 bg-orange-500/5">
 						<div className="flex items-center space-x-3">
 							<span className="text-sm font-bold text-foreground uppercase tracking-widest">
@@ -556,6 +579,7 @@ export default function WorkoutSession({
 
 		return (
 			<SessionLayout
+				timer={mode === "LIVE_SESSION" ? timer : null}
 				title={ex.name}
 				subtitle="Logging Exercise"
 				onBack={() => setStep(2)}
@@ -585,12 +609,18 @@ export default function WorkoutSession({
 						) : null}
 					</div>
 
+					<WarmupSetsPanel
+						workingWeight={ex.sets[0]?.weight}
+						repsField={ex.sets[0]?.reps ?? ex.targetReps}
+						mode={mode}
+					/>
+
 					<div className="space-y-3">
 						<div className="grid grid-cols-12 gap-4 text-[10px] font-black text-foreground/20 uppercase tracking-[0.2em] px-2">
 							<div className="col-span-1">Set</div>
 							<div className="col-span-5 text-center">Weight</div>
-							<div className="col-span-5 text-center">Reps</div>
-							<div className="col-span-1"></div>
+							<div className="col-span-4 text-center">Reps</div>
+							<div className="col-span-2"></div>
 						</div>
 
 						{ex.sets.map((set, setIndex) => (
@@ -615,7 +645,7 @@ export default function WorkoutSession({
 										className="w-full bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-3 text-center font-bold text-foreground outline-none focus:bg-foreground/10 focus:border-orange-500/50 transition-all font-mono"
 									/>
 								</div>
-								<div className="col-span-5">
+								<div className="col-span-4">
 									<input
 										type="number"
 										value={set.reps || ""}
@@ -630,10 +660,22 @@ export default function WorkoutSession({
 										className="w-full bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-3 text-center font-bold text-foreground outline-none focus:bg-foreground/10 focus:border-orange-500/50 transition-all font-mono"
 									/>
 								</div>
-								<div className="col-span-1 flex justify-center">
+								<div className="col-span-2 flex items-center justify-center gap-2">
+									{mode === "LIVE_SESSION" && (
+										<button
+											onClick={() => {
+												const rest = ex.restDuration ?? userDefaultRest;
+												if (rest > 0) {
+													timer.start(rest);
+												}
+											}}
+											className="p-1 text-emerald-500/40 hover:text-emerald-500 transition-colors">
+											<CheckCircle2 className="w-4 h-4" />
+										</button>
+									)}
 									<button
 										onClick={() => removeSet(activeExerciseIndex, setIndex)}
-										className="p-2 text-foreground/20 hover:text-rose-500 transition-colors">
+										className="p-1 text-foreground/20 hover:text-rose-500 transition-colors">
 										<Trash2 className="w-4 h-4" />
 									</button>
 								</div>
@@ -675,6 +717,7 @@ const SessionLayout = ({
 	totalCount,
 	progress,
 	date,
+	timer,
 }: {
 	title: string;
 	subtitle?: string;
@@ -687,6 +730,7 @@ const SessionLayout = ({
 	totalCount: number;
 	progress: number;
 	date?: string;
+	timer: any;
 }) => (
 	<div className={cn(maxWidth, "mx-auto space-y-8 pt-4 pb-12")}>
 		<div className="space-y-6">
@@ -701,7 +745,8 @@ const SessionLayout = ({
 								Historical Logging
 							</p>
 							<p className="text-xs font-bold text-foreground/60 uppercase">
-								Recording Session for {format(new Date(`${date}T00:00:00`), "d MMMM ''yy")}
+								Recording Session for{" "}
+								{format(new Date(`${date}T00:00:00`), "d MMMM ''yy")}
 							</p>
 						</div>
 					</div>
@@ -764,6 +809,15 @@ const SessionLayout = ({
 			<div className="fixed bottom-0 left-0 right-0 p-6 md:pl-32 bg-gradient-to-t from-background via-background/80 to-transparent z-40">
 				{footer}
 			</div>
+		)}
+
+		{timer && (
+			<RestTimerBar
+				timeLeft={timer.timeLeft}
+				totalDuration={timer.totalDuration}
+				onSkip={timer.skip}
+				onAdjust={timer.adjust}
+			/>
 		)}
 	</div>
 );
