@@ -1,7 +1,8 @@
 import { getPlanByDate } from "@/app/actions/plan";
 import { getTodayBodyWeight, getTodayWorkoutLog } from "@/app/actions/logs";
 import { getHighestWeightPRsBulk } from "@/app/actions/analytics";
-import WorkoutSession, { type WorkoutMode } from "@/components/WorkoutSession";
+import WorkoutSession from "@/components/WorkoutSession";
+import { WorkoutMode } from "@/types/workout";
 import { Header } from "@/components/Header";
 import { getUserSettings } from "@/app/actions/user";
 import { format } from "date-fns";

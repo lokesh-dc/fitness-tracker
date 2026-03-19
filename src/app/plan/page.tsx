@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 
 import { Header } from "@/components/Header";
 import { format } from "date-fns";
+import { PlanDocument } from "@/types/workout";
 
 export const dynamic = "force-dynamic";
 
@@ -88,7 +89,7 @@ export default async function PlanPage() {
 						</div>
 					) : (
 						<div className="space-y-4">
-							{plans.map((plan) => {
+							{plans.map((plan: PlanDocument) => {
 								const status = getPlanStatus(plan.startDate, plan.numWeeks);
 								const uniqueDays = templatesMap[plan.id] || 0;
 

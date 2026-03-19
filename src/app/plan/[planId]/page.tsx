@@ -14,6 +14,7 @@ import { getPlanDetails } from "@/app/actions/plan";
 import { WeeklySchedule } from "./WeeklySchedule";
 import { PlanActionButtons } from "./PlanActionButtons";
 import { Header } from "@/components/Header";
+import { WorkoutTemplate } from "@/types/workout";
 
 export default async function PlanDetailPage({
 	params,
@@ -35,8 +36,8 @@ export default async function PlanDetailPage({
 	// We only show the daily structure for the first week, since it repeats.
 	// Filter out the rest days (0 exercises)
 	const baseWeek = templates
-		.filter((t) => t.weekNumber === 1 && t.exercises.length > 0)
-		.sort((a, b) => a.dayOfWeek - b.dayOfWeek);
+		.filter((t: WorkoutTemplate) => t.weekNumber === 1 && t.exercises.length > 0)
+		.sort((a: WorkoutTemplate, b: WorkoutTemplate) => a.dayOfWeek - b.dayOfWeek);
 
 	const start = new Date(plan.startDate + "T00:00:00");
 	const end = new Date(start);
