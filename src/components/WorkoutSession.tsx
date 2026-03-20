@@ -33,6 +33,12 @@ import { WorkoutCelebration } from "./WorkoutCelebration";
 import { useRestTimer } from "@/hooks/useRestTimer";
 import { RestTimerBar } from "./RestTimerBar";
 import { WarmupSetsPanel } from "./WarmupSetsPanel";
+import { useSessionStats } from "@/hooks/useSessionStats";
+import { SessionTimerDisplay } from "./workout/SessionTimerDisplay";
+import { LiveStatsDisplay } from "./workout/LiveStatsDisplay";
+import { PRsFeedDisplay } from "./workout/PRsFeedDisplay";
+import PageWithSidebar from "./layout/PageWithSidebar";
+import WorkoutSidebar from "./sidebar/WorkoutSidebar";
 
 const DAYS = [
 	"Sunday",
@@ -99,6 +105,17 @@ export default function WorkoutSession({
 	const [showSuccess, setShowSuccess] = useState(false);
 	const [showCelebration, setShowCelebration] = useState(false);
 
+	const sessionStats = useSessionStats(
+		exercises,
+		initialWorkoutLog?.id || "",
+		"", // userId handled serverside
+		template?.splitName || "Workout",
+		template?.splitName,
+		date,
+		userDefaultRest,
+		initialWorkoutLog?.startedAt,
+	);
+
 	const timer = useRestTimer();
 
 	const addSet = (exerciseIndex: number) => {
@@ -109,11 +126,12 @@ export default function WorkoutSession({
 			let newSet = {
 				weight: targetEx.lastWeight || 0,
 				reps: targetEx.targetReps || 0,
+				completed: false,
 			};
 
 			if (targetEx.sets.length > 0) {
 				const lastSet = targetEx.sets[targetEx.sets.length - 1];
-				newSet = { ...lastSet };
+				newSet = { ...lastSet, completed: false };
 			}
 
 			targetEx.sets = [...targetEx.sets, newSet];
@@ -139,16 +157,25 @@ export default function WorkoutSession({
 	const updateSet = (
 		exerciseIndex: number,
 		setIndex: number,
-		field: "weight" | "reps",
-		value: number,
+		field: "weight" | "reps" | "completed",
+		value: number | boolean,
 	) => {
 		setExercises((prev) => {
 			const newExs = [...prev];
 			const targetEx = { ...newExs[exerciseIndex] };
 			const newSets = [...targetEx.sets];
-			newSets[setIndex] = { ...newSets[setIndex], [field]: value };
+			const oldVal = newSets[setIndex][field as keyof (typeof newSets)[0]];
+			newSets[setIndex] = { ...newSets[setIndex], [field]: value } as any;
 			targetEx.sets = newSets;
 			newExs[exerciseIndex] = targetEx;
+
+			if (field === "completed" && value === true && oldVal !== true) {
+				const rest = targetEx.restDuration ?? userDefaultRest;
+				if (rest > 0) {
+					timer.start(rest);
+				}
+			}
+
 			return newExs;
 		});
 	};
@@ -162,6 +189,7 @@ export default function WorkoutSession({
 					exercises,
 					splitName: template?.splitName,
 					name: template?.splitName || "Workout Session",
+					startedAt: sessionStats.stats.startedAt || undefined,
 				},
 				updateTemplate,
 				date,
@@ -197,6 +225,19 @@ export default function WorkoutSession({
 			const exercise = exercises[activeExerciseIndex];
 			await saveSingleExerciseLog(exercise, updateTemplate, date);
 
+			// PR Detection
+			const maxWeightThisSession = Math.max(
+				...exercise.sets.map((s) => s.weight),
+			);
+			if (maxWeightThisSession > (exercise.pr || 0)) {
+				sessionStats.registerPR({
+					exerciseName: exercise.name,
+					newPRWeight: maxWeightThisSession,
+					previousPRWeight: exercise.pr || null,
+					timestamp: new Date(),
+				});
+			}
+
 			// Mark as done locally
 			setExercises((prev) => {
 				const newExs = [...prev];
@@ -227,7 +268,10 @@ export default function WorkoutSession({
 		const footer = (
 			<div className="glass-card p-2 bg-foreground/2 max-w-3xl mx-auto flex items-center justify-between gap-4">
 				<button
-					onClick={() => setStep(effectiveBodyWeight > 0 ? 2 : 1)}
+					onClick={() => {
+						setStep(effectiveBodyWeight > 0 ? 2 : 1);
+						sessionStats.startSession();
+					}}
 					className="flex-1 px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center bg-orange-500 text-black hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(249,115,22,0.3)]">
 					Start Now <ArrowRight className="w-4 h-4 ml-2" />
 				</button>
@@ -330,54 +374,60 @@ export default function WorkoutSession({
 	}
 
 	if (step === 1) {
+		const footer = (
+			<button
+				onClick={handleBodyWeightSubmit}
+				disabled={!bodyWeight || bodyWeight <= 0 || isSubmittingWeight}
+				className="max-w-3xl mx-auto w-[calc(100%-3rem)] md:w-full px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center bg-orange-500 text-black hover:scale-105 active:scale-95 shadow-[0_20px_40px_rgba(249,115,22,0.3)] backdrop-blur-xl">
+				{isSubmittingWeight ? (
+					<Loader2 className="w-5 h-5 animate-spin" />
+				) : (
+					<>
+						Continue <ArrowRight className="w-5 h-5 ml-2" />
+					</>
+				)}
+			</button>
+		);
+
 		return (
-			<SessionLayout
-				title="Step 1: Body Weight"
-				maxWidth="max-w-md"
-				exercises={exercises}
-				completedCount={completedCount}
-				totalCount={totalCount}
-				progress={progress}
-				date={date}
-				timer={timer}>
-				<GlassCard className="p-8 space-y-8 flex flex-col items-center justify-center min-h-[40vh]">
-					<div className="text-center space-y-2">
-						<h2 className="text-2xl font-black text-foreground uppercase tracking-wider">
-							Current Weight
-						</h2>
-						<p className="text-xs font-bold text-foreground/40 uppercase tracking-widest">
-							Log today's body weight
-						</p>
-					</div>
+			<PageWithSidebar sidebar={<WorkoutSidebar stats={sessionStats.stats} />}>
+				<SessionLayout
+					title="Step 1: Body Weight"
+					maxWidth="max-w-md"
+					exercises={exercises}
+					completedCount={completedCount}
+					totalCount={totalCount}
+					progress={progress}
+					date={date}
+					timer={timer}
+					footer={footer}
+					stats={sessionStats.stats}>
+					<GlassCard className="p-8 space-y-8 flex flex-col items-center justify-center min-h-[40vh]">
+						<div className="text-center space-y-2">
+							<h2 className="text-2xl font-black text-foreground uppercase tracking-wider">
+								Current Weight
+							</h2>
+							<p className="text-xs font-bold text-foreground/40 uppercase tracking-widest">
+								Log today's body weight
+							</p>
+						</div>
 
-					<div className="flex items-end justify-center space-x-2">
-						<input
-							type="number"
-							value={bodyWeight || ""}
-							placeholder="0.0"
-							onChange={(e) => setBodyWeight(Number(e.target.value))}
-							className="w-32 bg-transparent text-5xl text-center font-black text-orange-500 outline-none border-b-2 border-foreground/10 focus:border-orange-500 transition-colors pb-2"
-							autoFocus
-						/>
-						<span className="text-xl font-black text-foreground/20 uppercase mb-2">
-							KG
-						</span>
-					</div>
-
-					<button
-						onClick={handleBodyWeightSubmit}
-						disabled={!bodyWeight || bodyWeight <= 0 || isSubmittingWeight}
-						className="w-full mt-8 px-10 py-4 rounded-2xl font-black text-sm uppercase tracking-[0.2em] transition-all flex items-center justify-center bg-orange-500 text-black hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(249,115,22,0.3)] disabled:opacity-50 disabled:pointer-events-none disabled:shadow-none">
-						{isSubmittingWeight ? (
-							<Loader2 className="w-5 h-5 animate-spin" />
-						) : (
-							<>
-								Continue <ArrowRight className="w-5 h-5 ml-2" />
-							</>
-						)}
-					</button>
-				</GlassCard>
-			</SessionLayout>
+						<div className="flex items-end justify-center space-x-2">
+							<input
+								type="number"
+								value={bodyWeight || ""}
+								placeholder="0.0"
+								onChange={(e) => setBodyWeight(Number(e.target.value))}
+								className="w-32 bg-transparent text-5xl text-center font-black text-orange-500 outline-none border-b-2 border-foreground/10 focus:border-orange-500 transition-colors pb-2"
+								autoFocus
+							/>
+							<span className="text-xl font-black text-foreground/20 uppercase mb-2">
+								KG
+							</span>
+						</div>
+					</GlassCard>
+				</SessionLayout>
+			</PageWithSidebar>
 		);
 	}
 
@@ -417,7 +467,7 @@ export default function WorkoutSession({
 						"w-full md:w-auto px-10 py-4 md:py-3 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center",
 						showSuccess
 							? "bg-emerald-500 text-white"
-							: "bg-orange-500 text-black hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(249,115,22,0.3)]",
+							: "bg-orange-500 text-black hover:scale-105 active:scale-95 shadow-[0_20px_40px_rgba(249,115,22,0.3)]",
 					)}>
 					{isSubmitting ? (
 						<Loader2 className="w-5 h-5 animate-spin" />
@@ -426,9 +476,19 @@ export default function WorkoutSession({
 							<CheckCircle2 className="w-5 h-5 mr-2" /> All Done!
 						</>
 					) : (
-						<>
-							<Save className="w-5 h-5 mr-2" /> Complete Workout
-						</>
+						<div className="flex flex-col items-center">
+							{sessionStats.stats.prsHit.length > 0 && (
+								<div className="flex items-center space-x-1 mb-1 animate-pulse">
+									<Trophy className="w-3 h-3 text-white" />
+									<span className="text-[8px] font-black text-white uppercase">
+										{sessionStats.stats.prsHit.length} PRs Hit!
+									</span>
+								</div>
+							)}
+							<div className="flex items-center">
+								<Save className="w-5 h-5 mr-2" /> Complete Workout
+							</div>
+						</div>
 					)}
 				</button>
 			</GlassCard>
@@ -458,7 +518,7 @@ export default function WorkoutSession({
 			}));
 
 		return (
-			<>
+			<PageWithSidebar sidebar={<WorkoutSidebar stats={sessionStats.stats} />}>
 				{showCelebration && (
 					<WorkoutCelebration
 						stats={celebrationStats}
@@ -476,7 +536,8 @@ export default function WorkoutSession({
 					totalCount={totalCount}
 					progress={progress}
 					date={date}
-					timer={mode === "LIVE_SESSION" ? timer : null}>
+					timer={mode === "LIVE_SESSION" ? timer : null}
+					stats={sessionStats.stats}>
 					<GlassCard className="flex items-center justify-between p-4 px-6 border-orange-500/10 bg-orange-500/5">
 						<div className="flex items-center space-x-3">
 							<span className="text-sm font-bold text-foreground uppercase tracking-widest">
@@ -556,140 +617,170 @@ export default function WorkoutSession({
 						))}
 					</div>
 				</SessionLayout>
-			</>
+			</PageWithSidebar>
 		);
 	}
 
 	if (step === 3 && activeExerciseIndex !== null) {
 		const ex = exercises[activeExerciseIndex];
 		const footer = (
-			<button
-				onClick={handleSingleExerciseSubmit}
-				disabled={isSubmittingExercise}
-				className="max-w-3xl mx-auto w-full px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center bg-orange-500 text-black hover:scale-105 active:scale-95 shadow-[0_20px_40px_rgba(249,115,22,0.3)] backdrop-blur-xl">
-				{isSubmittingExercise ? (
-					<Loader2 className="w-5 h-5 animate-spin" />
-				) : (
-					<>
-						<CheckCircle2 className="w-5 h-5 mr-3" /> Save Exercise
-					</>
-				)}
-			</button>
+			<GlassCard className="max-w-3xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 py-4 md:py-3 shadow-[0_-20px_40px_rgba(0,0,0,0.2)] border-foreground/10 backdrop-blur-xl">
+				<div className="flex items-center space-x-3">
+					<div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
+						<Dumbbell className="w-5 h-5 text-orange-500" />
+					</div>
+					<div className="flex flex-col text-left">
+						<span className="text-[10px] font-black text-foreground uppercase tracking-wider">
+							{ex.name}
+						</span>
+						<span className="text-[8px] font-bold text-foreground/40 uppercase">
+							{ex.sets.filter((s) => s.completed).length} of {ex.sets.length}{" "}
+							Sets Completed
+						</span>
+					</div>
+				</div>
+
+				<button
+					onClick={handleSingleExerciseSubmit}
+					disabled={isSubmittingExercise}
+					className="w-full md:w-auto px-10 py-4 md:py-3 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center bg-orange-500 text-black hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(249,115,22,0.3)]">
+					{isSubmittingExercise ? (
+						<Loader2 className="w-5 h-5 animate-spin" />
+					) : (
+						<>
+							<CheckCircle2 className="w-5 h-5 mr-3" /> Save Exercise
+						</>
+					)}
+				</button>
+			</GlassCard>
 		);
 
 		return (
-			<SessionLayout
-				timer={mode === "LIVE_SESSION" ? timer : null}
-				title={ex.name}
-				subtitle="Logging Exercise"
-				onBack={() => setStep(2)}
-				footer={footer}
-				exercises={exercises}
-				completedCount={completedCount}
-				totalCount={totalCount}
-				progress={progress}
-				date={date}>
-				<GlassCard className="space-y-6 p-6">
-					<div className="flex justify-between items-start border-b border-foreground/5 pb-4">
-						<div>
-							<h2 className="text-lg font-black text-foreground tracking-tight">
-								{ex.name}
-							</h2>
-							<p className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest">
-								Target: {ex.targetSets} Sets • {ex.targetReps} Reps
-							</p>
-						</div>
-						{ex.pr && ex.pr > 0 ? (
-							<div className="flex items-center bg-orange-500/10 border border-orange-500/20 px-2 py-1 rounded-lg">
-								<Trophy className="w-3 h-3 text-orange-500 mr-1.5" />
-								<span className="text-[10px] font-black text-orange-500 uppercase tracking-tighter">
-									PR: {ex.pr} KG
-								</span>
+			<PageWithSidebar sidebar={<WorkoutSidebar stats={sessionStats.stats} />}>
+				<SessionLayout
+					timer={mode === "LIVE_SESSION" ? timer : null}
+					title={ex.name}
+					subtitle="Logging Exercise"
+					onBack={() => setStep(2)}
+					footer={footer}
+					exercises={exercises}
+					completedCount={completedCount}
+					totalCount={totalCount}
+					progress={progress}
+					date={date}
+					stats={sessionStats.stats}>
+					<GlassCard className="space-y-6 p-6">
+						<div className="flex justify-between items-start border-b border-foreground/5 pb-4">
+							<div>
+								<h2 className="text-lg font-black text-foreground tracking-tight">
+									{ex.name}
+								</h2>
+								<p className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest">
+									Target: {ex.targetSets} Sets • {ex.targetReps} Reps
+								</p>
 							</div>
-						) : null}
-					</div>
-
-					<WarmupSetsPanel
-						workingWeight={ex.sets[0]?.weight}
-						repsField={ex.sets[0]?.reps ?? ex.targetReps}
-						mode={mode}
-					/>
-
-					<div className="space-y-3">
-						<div className="grid grid-cols-12 gap-4 text-[10px] font-black text-foreground/20 uppercase tracking-[0.2em] px-2">
-							<div className="col-span-1">Set</div>
-							<div className="col-span-5 text-center">Weight</div>
-							<div className="col-span-4 text-center">Reps</div>
-							<div className="col-span-2"></div>
+							{ex.pr && ex.pr > 0 ? (
+								<div className="flex items-center bg-orange-500/10 border border-orange-500/20 px-2 py-1 rounded-lg">
+									<Trophy className="w-3 h-3 text-orange-500 mr-1.5" />
+									<span className="text-[10px] font-black text-orange-500 uppercase tracking-tighter">
+										PR: {ex.pr} KG
+									</span>
+								</div>
+							) : null}
 						</div>
 
-						{ex.sets.map((set, setIndex) => (
-							<div
-								key={setIndex}
-								className="grid grid-cols-12 gap-3 items-center group">
-								<div className="col-span-1 text-xs font-black text-foreground/40">
-									{setIndex + 1}
-								</div>
-								<div className="col-span-5">
-									<input
-										type="number"
-										value={set.weight || ""}
-										onChange={(e) =>
-											updateSet(
-												activeExerciseIndex,
-												setIndex,
-												"weight",
-												Number(e.target.value),
-											)
-										}
-										className="w-full bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-3 text-center font-bold text-foreground outline-none focus:bg-foreground/10 focus:border-orange-500/50 transition-all font-mono"
-									/>
-								</div>
-								<div className="col-span-4">
-									<input
-										type="number"
-										value={set.reps || ""}
-										onChange={(e) =>
-											updateSet(
-												activeExerciseIndex,
-												setIndex,
-												"reps",
-												Number(e.target.value),
-											)
-										}
-										className="w-full bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-3 text-center font-bold text-foreground outline-none focus:bg-foreground/10 focus:border-orange-500/50 transition-all font-mono"
-									/>
-								</div>
-								<div className="col-span-2 flex items-center justify-center gap-2">
-									{mode === "LIVE_SESSION" && (
+						<WarmupSetsPanel
+							workingWeight={ex.sets[0]?.weight}
+							repsField={ex.sets[0]?.reps ?? ex.targetReps}
+							mode={mode}
+						/>
+
+						<div className="space-y-3">
+							<div className="grid grid-cols-12 gap-4 text-[10px] font-black text-foreground/20 uppercase tracking-[0.2em] px-2">
+								<div className="col-span-1">Set</div>
+								<div className="col-span-4 text-center">Weight</div>
+								<div className="col-span-3 text-center">Reps</div>
+								<div className="col-span-4 text-right pr-4">Status</div>
+							</div>
+
+							{ex.sets.map((set, setIndex) => (
+								<div
+									key={setIndex}
+									className="grid grid-cols-12 gap-3 items-center group">
+									<div className="col-span-1 text-xs font-black text-foreground/40">
+										{setIndex + 1}
+									</div>
+									<div className="col-span-4">
+										<input
+											type="number"
+											value={set.weight || ""}
+											onChange={(e) =>
+												updateSet(
+													activeExerciseIndex,
+													setIndex,
+													"weight",
+													Number(e.target.value),
+												)
+											}
+											className="w-full bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-3 text-center font-bold text-foreground outline-none focus:bg-foreground/10 focus:border-orange-500/50 transition-all font-mono"
+										/>
+									</div>
+									<div className="col-span-3">
+										<input
+											type="number"
+											value={set.reps || ""}
+											onChange={(e) =>
+												updateSet(
+													activeExerciseIndex,
+													setIndex,
+													"reps",
+													Number(e.target.value),
+												)
+											}
+											className="w-full bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-3 text-center font-bold text-foreground outline-none focus:bg-foreground/10 focus:border-orange-500/50 transition-all font-mono"
+										/>
+									</div>
+									<div className="col-span-4 flex items-center justify-end gap-2 pr-1">
 										<button
-											onClick={() => {
-												const rest = ex.restDuration ?? userDefaultRest;
-												if (rest > 0) {
-													timer.start(rest);
-												}
-											}}
-											className="p-1 text-emerald-500/40 hover:text-emerald-500 transition-colors">
-											<CheckCircle2 className="w-4 h-4" />
+											onClick={() =>
+												updateSet(
+													activeExerciseIndex,
+													setIndex,
+													"completed",
+													!set.completed,
+												)
+											}
+											className={cn(
+												"w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-all",
+												set.completed
+													? "bg-orange-500 border-orange-500 text-black shadow-[0_0_15px_rgba(249,115,22,0.4)]"
+													: "bg-orange-500/5 border-orange-500/20 text-orange-500/50 hover:border-orange-500/50 hover:bg-orange-500/10",
+											)}>
+											<CheckCircle2
+												className={cn(
+													"w-5 h-5",
+													set.completed ? "opacity-100" : "opacity-100",
+												)}
+											/>
 										</button>
-									)}
-									<button
-										onClick={() => removeSet(activeExerciseIndex, setIndex)}
-										className="p-1 text-foreground/20 hover:text-rose-500 transition-colors">
-										<Trash2 className="w-4 h-4" />
-									</button>
+										<button
+											onClick={() => removeSet(activeExerciseIndex, setIndex)}
+											className="w-10 h-10 rounded-xl border-2 border-rose-500/10 bg-rose-500/10 flex items-center justify-center text-rose-500 hover:bg-rose-500/20 transition-all">
+											<Trash2 className="w-4 h-4" />
+										</button>
+									</div>
 								</div>
-							</div>
-						))}
-					</div>
+							))}
+						</div>
 
-					<button
-						onClick={() => addSet(activeExerciseIndex)}
-						className="w-full py-3 rounded-xl border border-dashed border-foreground/10 text-foreground/40 hover:text-foreground hover:bg-foreground/5 hover:border-foreground/20 transition-all flex items-center justify-center text-[10px] font-black uppercase tracking-widest">
-						<Plus className="w-3 h-3 mr-2" /> Add Set
-					</button>
-				</GlassCard>
-			</SessionLayout>
+						<button
+							onClick={() => addSet(activeExerciseIndex)}
+							className="w-full py-3 rounded-xl border border-dashed border-foreground/10 text-foreground/40 hover:text-foreground hover:bg-foreground/5 hover:border-foreground/20 transition-all flex items-center justify-center text-[10px] font-black uppercase tracking-widest">
+							<Plus className="w-3 h-3 mr-2" /> Add Set
+						</button>
+					</GlassCard>
+				</SessionLayout>
+			</PageWithSidebar>
 		);
 	}
 
@@ -711,13 +802,14 @@ const SessionLayout = ({
 	onBack,
 	footer,
 	children,
-	maxWidth = "max-w-3xl",
+	maxWidth = "",
 	exercises,
 	completedCount,
 	totalCount,
 	progress,
 	date,
 	timer,
+	stats,
 }: {
 	title: string;
 	subtitle?: string;
@@ -731,8 +823,10 @@ const SessionLayout = ({
 	progress: number;
 	date?: string;
 	timer: any;
+	stats?: any;
 }) => (
 	<div className={cn(maxWidth, "mx-auto space-y-8 pt-4 pb-12")}>
+		{stats && <PRsFeedDisplay prsHit={stats.prsHit} variant="mobile-toast" />}
 		<div className="space-y-6">
 			{date && date !== format(new Date(), "yyyy-MM-dd") && (
 				<div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-4 flex items-center justify-between mb-2">
@@ -776,8 +870,24 @@ const SessionLayout = ({
 						{title}
 					</h1>
 				</div>
-				<div className="w-10 h-10" />
+				<div className="w-10 h-10 flex items-center justify-end">
+					{stats && (
+						<div className="lg:hidden">
+							<SessionTimerDisplay
+								elapsedSeconds={stats.elapsedSeconds}
+								startedAt={stats.startedAt}
+								variant="mobile"
+							/>
+						</div>
+					)}
+				</div>
 			</div>
+
+			{stats && (
+				<div className="lg:hidden">
+					<LiveStatsDisplay stats={stats} variant="mobile" />
+				</div>
+			)}
 
 			{/* Segmented Progress Bar */}
 			<div className="px-2 space-y-3">
@@ -806,7 +916,10 @@ const SessionLayout = ({
 		{children}
 
 		{footer && (
-			<div className="fixed bottom-0 left-0 right-0 p-6 md:pl-32 bg-gradient-to-t from-background via-background/80 to-transparent z-40">
+			<div
+				className={cn(
+					"fixed mb-0 bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-background via-background/80 to-transparent z-40 transition-all duration-300",
+				)}>
 				{footer}
 			</div>
 		)}

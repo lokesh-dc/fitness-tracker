@@ -1,6 +1,7 @@
 export interface SetLog {
   weight: number;
   reps: number;
+  completed?: boolean;
 }
 
 export interface ExerciseDefinition {
@@ -23,6 +24,7 @@ export interface Exercise {
   sets: SetLog[];
   pr?: number;
   restDuration?: number;
+  isDone?: boolean;
 }
 
 export interface PlanDocument {
@@ -55,8 +57,20 @@ export interface WorkoutLog {
     exerciseId: string;
     name: string;
     sets: SetLog[];
+    pr?: number; // PR at time of logging
   }[];
+  startedAt?: string | Date;    // NEW
+  completedAt?: string | Date;  // NEW
+  durationSeconds?: number;     // NEW
   createdAt: string | Date;
+  updatedAt?: string | Date;
+}
+
+export interface PRHit {
+  exerciseName: string;
+  newPRWeight: number;
+  previousPRWeight: number | null;
+  timestamp: Date | string;
 }
 
 export interface UserSettings {
