@@ -2,7 +2,7 @@
 
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/db-utils";
-import { WeightTrendData, SetLog } from "@/types/workout";
+import { WeightTrendData, SetLog, ExerciseTimelineEntry } from "@/types/workout";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
@@ -152,7 +152,8 @@ export async function getUserExercises(): Promise<string[]> {
 
     const db = await getDb();
     const records = await db.collection("ExerciseRecords").find({ userId }).toArray();
-    return records.map(r => r.exerciseName).filter(Boolean).sort();
+    const names = records.map(r => r.exerciseName).filter(Boolean);
+    return Array.from(new Set(names)).sort();
   } catch (error) {
     console.error("Error fetching user exercises:", error);
     return [];
@@ -180,3 +181,103 @@ export async function getExerciseProgress(exerciseName: string): Promise<{ date:
   }
 }
 
+export async function getExerciseTimeline(
+  exerciseName: string,
+  from?: Date,
+  to?: Date
+): Promise<ExerciseTimelineEntry[]> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return [];
+    const userId = new ObjectId((session.user as any).id);
+
+    const db = await getDb();
+
+    const pipeline: any[] = [
+      {
+        $match: {
+          userId,
+          ...(from || to ? {
+            date: {
+              ...(from ? { $gte: from } : {}),
+              ...(to ? { $lte: to } : {}),
+            }
+          } : {})
+        }
+      },
+      { $unwind: '$exercises' },
+      {
+        $match: {
+          'exercises.name': exerciseName,
+          'exercises.isDone': true
+        }
+      },
+      { $unwind: '$exercises.sets' },
+      {
+        $match: {
+          'exercises.sets.weight': { $gt: 0 },
+          'exercises.sets.reps': { $gt: 0 }
+        }
+      },
+      {
+        $group: {
+          _id: '$date',
+          maxWeight: { $max: '$exercises.sets.weight' },
+          totalVolume: {
+            $sum: {
+              $multiply: ['$exercises.sets.weight', '$exercises.sets.reps']
+            }
+          },
+          totalReps: { $sum: '$exercises.sets.reps' },
+          totalSets: { $sum: 1 },
+        }
+      },
+      { $sort: { _id: 1 } },
+      { $limit: 200 }
+    ];
+
+    const results = await db.collection('WorkoutLog').aggregate(pipeline).toArray();
+
+    // Fetch prDate from ExerciseRecords for PR marker
+    const record = await db.collection('ExerciseRecords').findOne(
+      { userId, exerciseName },
+      { projection: { prDate: 1 } }
+    );
+    
+    // Normalize prDate for string comparison
+    const prDateStr = record?.prDate 
+      ? new Date(record.prDate).toISOString().split('T')[0]
+      : null;
+
+    return results.map(r => {
+      const avgRepsPerSet = r.totalSets > 0
+        ? Math.round(r.totalReps / r.totalSets)
+        : 1;
+
+      // Use maxWeight and avgReps for the 1RM estimation as per plan
+      const estimatedOneRM = calculateOneRM(r.maxWeight, avgRepsPerSet);
+      
+      const currentEntryDate = new Date(r._id);
+
+      return {
+        date: currentEntryDate.toISOString(),
+        maxWeight: r.maxWeight,
+        estimatedOneRM,
+        totalVolume: r.totalVolume,
+        totalSets: r.totalSets,
+        totalReps: r.totalReps,
+        avgRepsPerSet,
+        isPR: currentEntryDate.toISOString().split('T')[0] === prDateStr,
+      };
+    });
+
+  } catch (error) {
+    console.error("Error fetching exercise timeline:", error);
+    return [];
+  }
+}
+
+function calculateOneRM(weight: number, reps: number): number {
+  if (reps <= 1) return weight;
+  return Math.round(weight * (1 + reps / 30) * 10) / 10;
+}
