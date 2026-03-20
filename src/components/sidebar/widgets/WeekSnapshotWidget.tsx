@@ -19,7 +19,7 @@ export function WeekSnapshotWidget({ data }: WeekSnapshotWidgetProps) {
   const { sessionsCompleted, sessionsPlanned, completedDays, plannedDays } = data;
 
   return (
-    <GlassCard className="p-4 space-y-4">
+    <GlassCard className="flex flex-col gap-3 p-4 space-y-4">
       <span className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">This Week</span>
 
       <div className="flex justify-between items-center px-1">
