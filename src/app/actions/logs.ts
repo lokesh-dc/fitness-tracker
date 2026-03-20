@@ -124,6 +124,54 @@ import { authOptions } from "@/lib/auth";
 //   }
 // }
 
+export async function startWorkoutSession(
+  name?: string,
+  splitName?: string,
+  date?: string | Date
+): Promise<string> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) throw new Error("Unauthorized");
+    const userId = new ObjectId((session.user as any).id);
+    const db = await getDb();
+
+    const targetDate = date ? new Date(date) : new Date();
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const existingLog = await db.collection("WorkoutLog").findOne({
+      userId,
+      date: { $gte: startOfDay, $lte: endOfDay },
+    });
+
+    if (existingLog) {
+      if (!existingLog.startedAt) {
+        await db.collection("WorkoutLog").updateOne(
+          { _id: existingLog._id },
+          { $set: { startedAt: new Date() } }
+        );
+      }
+      return existingLog._id.toString();
+    } else {
+      const result = await db.collection("WorkoutLog").insertOne({
+        userId,
+        date: startOfDay,
+        name,
+        splitName,
+        exercises: [],
+        startedAt: new Date(),
+        createdAt: new Date(),
+      });
+      return result.insertedId.toString();
+    }
+  } catch (error) {
+    console.error("Error starting workout session:", error);
+    throw new Error("Failed to start session.");
+  }
+}
+
 export async function saveWorkoutSession(
   data: {
     bodyWeight?: number;
@@ -134,6 +182,7 @@ export async function saveWorkoutSession(
       name: string;
       sets: Array<{ weight: number; reps: number }>;
     }>;
+    startedAt?: Date | string; // Optional startedAt from client
   },
   updateTemplate: boolean,
   date?: string | Date
@@ -160,6 +209,13 @@ export async function saveWorkoutSession(
     );
 
     let log: any;
+    const completedAt = new Date();
+    let durationSeconds: number | undefined;
+
+    if (data.startedAt) {
+      const start = new Date(data.startedAt);
+      durationSeconds = Math.round((completedAt.getTime() - start.getTime()) / 1000);
+    }
 
     if (existingLog) {
       const mergedExercises = [...(existingLog.exercises || [])];
@@ -177,7 +233,6 @@ export async function saveWorkoutSession(
 
       const updatedAt = new Date();
 
-      // FIX 1: persist name & splitName to the database on update
       await db.collection("WorkoutLog").updateOne(
         { _id: existingLog._id },
         {
@@ -192,12 +247,13 @@ export async function saveWorkoutSession(
                 ? data.splitName
                 : existingLog.splitName,
             exercises: mergedExercises,
+            completedAt,
+            durationSeconds: durationSeconds || existingLog.durationSeconds,
             updatedAt,
           },
         }
       );
 
-      // FIX 3: reflect updatedAt in the returned object
       log = {
         ...existingLog,
         bodyWeight:
@@ -210,6 +266,8 @@ export async function saveWorkoutSession(
             ? data.splitName
             : existingLog.splitName,
         exercises: mergedExercises,
+        completedAt,
+        durationSeconds: durationSeconds || existingLog.durationSeconds,
         updatedAt,
         id: existingLog._id.toString(),
       };
@@ -221,6 +279,8 @@ export async function saveWorkoutSession(
         name: data.name,
         splitName: data.splitName,
         exercises: data.exercises,
+        completedAt,
+        durationSeconds,
         createdAt: new Date(),
       };
       const result = await db.collection("WorkoutLog").insertOne(logData);

@@ -36,7 +36,7 @@ export default async function WorkoutPage({
 	}
 
 	return (
-		<div className="flex flex-col pb-24 md:pb-0 md:pl-20">
+		<div className="flex flex-col pb-24 md:pb-0">
 			<Header title="Workout Session" />
 			<div className="px-6">
 				<WorkoutSession
