@@ -9,6 +9,7 @@ import {
 	ArrowRight,
 	CheckCircle2,
 	Moon,
+	Sun,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -76,41 +77,37 @@ export function DailyReminder() {
 
 	return (
 		<AnimatePresence>
-			<div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-background/40 backdrop-blur-md">
+			<div className="fixed inset-0 z-50 flex items-end justify-center p-3 bg-black/40 backdrop-blur-xs">
 				<motion.div
 					initial={{ opacity: 0, scale: 0.9, y: 20 }}
 					animate={{ opacity: 1, scale: 1, y: 0 }}
 					exit={{ opacity: 0, scale: 0.9, y: 20 }}
-					className="relative w-full max-w-md overflow-hidden glass-card p-0 shadow-2xl border border-foreground/10">
-					{/* Background Gradient Sparkle */}
-					<div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-500" />
-
-					<div className="p-8">
-						<div className="flex justify-between items-start mb-6">
+					className="bg-white shadow-xl rounded-3xl relative w-full max-w-md overflow-hidden p-0 shadow-2xl ">
+					<button
+						onClick={() => handleDismiss(false)}
+						className="absolute right-[10px] top-[10px] p-1 rounded-full hover:bg-foreground/5 transition-colors text-black/40">
+						<X className="w-5 h-5" />
+					</button>
+					<div className="p-5">
+						<div className="flex justify-between items-center">
 							<div
 								className={`p-3 rounded-2xl ${isNight ? "bg-indigo-500/10" : "bg-orange-500/10"}`}>
 								{isNight ? (
 									<Moon className="w-6 h-6 text-indigo-500" />
 								) : (
-									<Calendar className="w-6 h-6 text-orange-500" />
+									<Sun className="w-6 h-6 text-orange-500" />
 								)}
 							</div>
-							<button
-								onClick={() => handleDismiss(false)}
-								className="p-1 rounded-full hover:bg-foreground/5 transition-colors text-foreground/40">
-								<X className="w-5 h-5" />
-							</button>
 						</div>
 
-						<h2 className="text-2xl font-bold text-foreground mb-2 tracking-tight">
+						<h2 className="text-2xl font-bold text-black mb-2 tracking-tight">
 							{isNight
 								? isLogged
 									? "Great work today!"
 									: "Don't skip the log!"
 								: "Today's Plan is ready!"}
 						</h2>
-
-						<p className="text-foreground/60 text-sm mb-6 leading-relaxed">
+						<p className="text-black/60 text-sm mb-3 leading-relaxed">
 							{isNight
 								? isLogged
 									? "You've completed your workout. Sleep well and recover!"
@@ -139,7 +136,7 @@ export function DailyReminder() {
 						<div className="grid grid-cols-2 gap-3 mb-3">
 							<button
 								onClick={() => handleDismiss(false)}
-								className="px-4 py-3 rounded-2xl border border-foreground/10 text-sm font-bold text-foreground/60 hover:bg-foreground/5 transition-all text-center">
+								className="px-4 py-3 rounded-2xl border border-foreground/10 text-sm font-bold text-black/60 hover:bg-black/5 transition-all text-center">
 								Remind me later
 							</button>
 
@@ -154,7 +151,7 @@ export function DailyReminder() {
 
 						<button
 							onClick={() => handleDismiss(true)}
-							className="w-full py-2 text-xs font-semibold text-foreground/30 hover:text-foreground/60 hover:underline transition-all text-center">
+							className="w-full py-2 text-xs font-semibold text-black/30 hover:text-foreground/60 hover:underline transition-all text-center">
 							Okay, don&apos;t show this again today
 						</button>
 					</div>
