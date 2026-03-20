@@ -95,3 +95,30 @@ export interface ExerciseTimelineEntry {
   avgRepsPerSet: number;   // totalReps / totalSets
   isPR: boolean;           // true if date matches prDate in ExerciseRecords
 }
+
+export interface ActivePlanProgress {
+  planId: string;
+  planName: string;
+  sessionsCompletedThisWeek: number;
+  sessionsPlannedThisWeek: number;
+  progressPercent: number;
+}
+
+export interface AdherenceScore {
+  percent: number;
+  trend: number;
+  trendDirection: 'up' | 'down' | 'neutral';
+  hasActivePlans: boolean;
+}
+
+export type DayStatus = 'completed' | 'planned' | 'missed' | 'rest';
+
+export interface WeekScheduleDay {
+  dayOfWeek: number;
+  dayLabel: string;
+  sessions: {
+    planName: string;
+    workoutName: string;
+    status: DayStatus;
+  }[];
+}
