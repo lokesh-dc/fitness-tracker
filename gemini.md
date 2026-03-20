@@ -19,14 +19,15 @@
 
 ## Design System
 
-- **Aesthetics**: Premium, dark-themed glassmorphism.
-- **Colors**: `orange-500` accents, white/transparent glass cards.
+- **Aesthetics**: Premium, dark-themed glassmorphism (ensure light mode compatibility by avoiding hardcoded `text-white`).
+- **Colors**: `orange-500` accents, theme-aware glass cards (`text-foreground` instead of `text-white`).
 - **Components**: Use `GlassCard` for all container elements.
 - **Animations**: Use `framer-motion` for transitions and the `WorkoutCelebration` component.
 
 ## Development Workflow
 
 - **Database**: Use `src/lib/db-utils.ts` and `clientPromise` from `mongodb.ts` for connection reuse.
+- **Server-First**: Build features as Server Components by default. Use Client Components only when interactivity (hooks, event listeners) or browser-specific APIs are required.
 - **Cleanup**: Delete migration/seed scripts in `scripts/` immediately after successful one-time execution.
 - **Verification**: All features must be manually verified in-browser as no automated test suite exists yet.
 

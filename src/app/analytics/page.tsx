@@ -11,6 +11,7 @@ import Link from "next/link";
 import { format } from "date-fns";
 
 import { Header } from "@/components/Header";
+import { AnalyticsTabs } from "@/components/analytics/AnalyticsTabs";
 import ExerciseProgressSection from "@/components/ExerciseProgressSection";
 import { PRCard } from "@/components/ui/PRCard";
 import { WorkoutHistoryItem } from "@/components/ui/WorkoutHistoryItem";
@@ -41,7 +42,8 @@ export default async function AnalyticsPage() {
 		<div className="flex flex-col">
 			<Header title="Analytics" subtitle="Insights & Progress" />
 
-			<main className="flex-1 px-6 space-y-8 max-w-4xl mx-auto w-full pb-12">
+			<main className="flex-1 px-6 space-y-8 max-w-4xl mx-auto w-full pb-12 transition-all duration-500 animate-in fade-in slide-in-from-bottom-4">
+				<AnalyticsTabs />
 				<section className="space-y-4">
 					<WeightTrendChart data={weightTrend as any} />
 				</section>

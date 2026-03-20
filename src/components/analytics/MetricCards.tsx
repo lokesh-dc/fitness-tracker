@@ -24,13 +24,13 @@ export function MetricCards({ data }: MetricCardsProps) {
   const lastEntry = data[data.length - 1];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 gap-6">
       {/* Reps Card */}
       <GlassCard className="p-6 space-y-4 bg-orange-500/[0.02]">
         <div className="flex justify-between items-end">
           <div className="space-y-1">
             <h4 className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em]">Avg Reps / Set</h4>
-            <p className="text-2xl font-black text-white">{lastEntry.avgRepsPerSet}</p>
+            <p className="text-2xl font-black text-foreground">{lastEntry.avgRepsPerSet}</p>
           </div>
           <div className="text-right">
              <span className="text-[10px] font-bold text-orange-500/60 uppercase">Targeting Hyp.</span>
@@ -51,7 +51,7 @@ export function MetricCards({ data }: MetricCardsProps) {
                 content={({ active, payload }) => {
                   if (!active || !payload?.length) return null;
                   return (
-                    <GlassCard className="p-2 text-[8px] font-black uppercase text-white border-white/10">
+                    <GlassCard className="p-2 text-[8px] font-black uppercase text-foreground border-white/10">
                       {payload[0].value} Reps
                     </GlassCard>
                   );
@@ -67,7 +67,7 @@ export function MetricCards({ data }: MetricCardsProps) {
         <div className="flex justify-between items-end">
           <div className="space-y-1">
             <h4 className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em]">Session Volume</h4>
-            <p className="text-2xl font-black text-white">{lastEntry.totalVolume.toLocaleString()}kg</p>
+            <p className="text-2xl font-black text-foreground">{lastEntry.totalVolume.toLocaleString()}kg</p>
           </div>
            <div className="text-right">
              <span className="text-[10px] font-bold text-orange-500/60 uppercase">Tonnage Trend</span>
@@ -95,7 +95,7 @@ export function MetricCards({ data }: MetricCardsProps) {
                 content={({ active, payload }) => {
                   if (!active || !payload?.length) return null;
                   return (
-                    <GlassCard className="p-2 text-[8px] font-black uppercase text-white border-white/10">
+                    <GlassCard className="p-2 text-[8px] font-black uppercase text-foreground border-white/10">
                       {payload[0].value?.toLocaleString()}kg
                     </GlassCard>
                   );

@@ -152,7 +152,8 @@ export async function getUserExercises(): Promise<string[]> {
 
     const db = await getDb();
     const records = await db.collection("ExerciseRecords").find({ userId }).toArray();
-    return records.map(r => r.exerciseName).filter(Boolean).sort();
+    const names = records.map(r => r.exerciseName).filter(Boolean);
+    return Array.from(new Set(names)).sort();
   } catch (error) {
     console.error("Error fetching user exercises:", error);
     return [];
