@@ -3,7 +3,32 @@ export const EXERCISE_LIST = {
   "Back": ["Pull-ups", "Lat Pulldown", "Bent Over Row (Barbell)", "Seated Cable Row", "Deadlift", "Single Arm Dumbbell Row"],
   "Shoulders": ["Overhead Press (Barbell)", "Dumbbell Lateral Raise", "Front Raise", "Face Pulls", "Shoulder Press (Machine)"],
   "Legs": ["Squat (Barbell)", "Leg Press", "Leg Extension", "Leg Curl", "Lunges", "Calf Raise"],
-  "Arms": ["Bicep Curl (Dumbbell)", "Hammer Curl", "Tricep Pushdown", "Skullcrushers", "Preacher Curl"],
+  "Biceps": [
+    "Bicep Curl (Dumbbell)",
+    "Preacher Curl",
+    "Barbell Curl",
+    "Incline Dumbbell Curl",
+    "Cable Curl",
+    "EZ-Bar Curl",
+    "Concentration Curl"
+  ],
+  "Triceps": [
+    "Tricep Pushdown",
+    "Skullcrushers",
+    "Rope Triceps Pushdown",
+    "Dumbbell Overhead Triceps Extension",
+    "Lying Triceps Extension",
+    "Close-Grip Bench Press",
+    "Triceps Dip"
+  ],
+  "Forearms": [
+    "Hammer Curl",
+    "Wrist Curl",
+    "Reverse Wrist Curl",
+    "Farmer's Walk",
+    "Barbell Reverse Curl",
+    "Plate Pinch Hold"
+  ],
   "Core": ["Plank", "Crunches", "Leg Raise", "Russian Twist"],
   "Cardio": ["Running", "Cycling", "Swimming", "Jump Rope"]
 };

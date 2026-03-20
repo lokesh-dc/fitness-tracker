@@ -29,7 +29,11 @@
 - **Database**: Use `src/lib/db-utils.ts` and `clientPromise` from `mongodb.ts` for connection reuse.
 - **Server-First**: Build features as Server Components by default. Use Client Components only when interactivity (hooks, event listeners) or browser-specific APIs are required.
 - **Cleanup**: Delete migration/seed scripts in `scripts/` immediately after successful one-time execution.
-- **Verification**: All features must be manually verified in-browser as no automated test suite exists yet.
+- **TypeScript & Typing**: Maintain strict typing. ALL function parameters must have explicit types to avoid `implicit any` errors during production builds.
+- **Verification**: All features must be manually verified run `npm run build` locally to verify TypeScript integrity before requesting review.
+- **Test Credentials**:
+  - Email: `user@testing.com`
+  - Password: `user@testing`
 
 ## File Organization
 
