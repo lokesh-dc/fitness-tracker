@@ -122,7 +122,7 @@ export function TimelineChart({ data }: TimelineChartProps) {
           {prDates.map((date, idx) => (
             <ReferenceLine
               key={idx}
-              x={date}
+              x={date instanceof Date ? date.toISOString() : date}
               yAxisId="weight"
               stroke="#f97316"
               strokeDasharray="3 3"
