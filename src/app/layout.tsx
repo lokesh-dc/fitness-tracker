@@ -33,9 +33,10 @@ export default function RootLayout({
 				<Providers>
 					<ScrollToTop />
 					<ProgressBar
-						height="4px"
+						height="6px"
 						color="#f97316"
-						options={{ showSpinner: false }}
+						options={{ showSpinner: true }}
+						delay={10}
 						shallowRouting
 					/>
 					<div className="flex flex-col">
