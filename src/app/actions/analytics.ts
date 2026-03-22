@@ -296,63 +296,106 @@ export async function getStreakData(): Promise<{
     const userId = new ObjectId((session.user as any).id);
 
     const db = await getDb();
+    
+    // Helper to get local YYYY-MM-DD reliably
+    const getLocalDayString = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+
+    const parseLocalDayString = (dateStr: string) => {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return new Date(y, m - 1, d); // local midnight
+    };
+
     const logs = await db.collection("WorkoutLog")
       .find({ userId })
       .sort({ date: -1 })
-      .project({ date: 1 })
+      .project({ date: 1, exercises: 1 })
       .toArray();
 
-    if (logs.length === 0) return { currentStreak: 0, longestStreak: 0, lastWorkoutDate: null };
-
-    // Unique dates (normalized to YYYY-MM-DD)
+    const validLogs = logs.filter(l => l.exercises && l.exercises.length > 0);
     const uniqueDates = Array.from(new Set(
-      logs.map(l => new Date(l.date).toISOString().split('T')[0])
+      validLogs.map(l => getLocalDayString(new Date(l.date)))
     ));
 
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
 
-    let currentStreak = 0;
-    let longestStreak = 0;
+    let earliestDate = new Date(todayDate.getTime());
+    if (uniqueDates.length > 0) {
+      const oldestLog = parseLocalDayString(uniqueDates[uniqueDates.length - 1]);
+      if (oldestLog < earliestDate) earliestDate = oldestLog;
+    }
+
+    const allPlans = await db.collection("PlanDocument").find({ userId }).toArray();
+    for (const plan of allPlans) {
+      const [y, m, d] = plan.startDate.split('-').map(Number);
+      const pStart = new Date(y, m - 1, d); // robust local parser for YYYY-MM-DD
+      if (pStart < earliestDate) earliestDate = pStart;
+    }
+
+    const planIds = allPlans.map(p => p._id.toString());
+    const templates = await db.collection("WorkoutTemplate").find({
+      planId: { $in: planIds },
+      userId,
+      "exercises.0": { $exists: true }
+    }).toArray();
+
+    const diffTime = todayDate.getTime() - earliestDate.getTime();
+    const totalDays = Math.round(diffTime / 86400000) + 1;
+    
+    const logSet = new Set(uniqueDates);
+
     let tempStreak = 0;
+    let longestStreak = 0;
 
-    // Last workout date
-    const lastWorkoutDate = uniqueDates[0];
+    for (let i = 0; i < totalDays; i++) {
+      const dDate = new Date(earliestDate.getTime());
+      dDate.setDate(dDate.getDate() + i);
+      const dStr = getLocalDayString(dDate);
+      
+      const isLogged = logSet.has(dStr);
+      let isPlannedDay = false;
+      const systemDay = dDate.getDay();
 
-    // Current Streak logic: allow 1 day grace (today or yesterday start)
-    if (uniqueDates[0] === today || uniqueDates[0] === yesterday) {
-      let checkDate = new Date(uniqueDates[0]);
-      for (const dStr of uniqueDates) {
-        const d = new Date(dStr);
-        const diff = Math.round((checkDate.getTime() - d.getTime()) / 86400000);
+      for (const plan of allPlans) {
+        const [py, pm, pd] = plan.startDate.split('-').map(Number);
+        const planStart = new Date(py, pm - 1, pd);
+        const planEnd = new Date(planStart.getTime());
+        planEnd.setDate(planEnd.getDate() + plan.numWeeks * 7 - 1);
         
-        if (diff <= 1) {
-          currentStreak++;
-          checkDate = d;
-        } else {
-          break;
+        if (dDate >= planStart && dDate <= planEnd) {
+          const diffInDays = Math.round((dDate.getTime() - planStart.getTime()) / 86400000);
+          const currentWeekIndex = Math.floor(diffInDays / 7) + 1;
+          const hasSpecificWeekTemplates = templates.some(t => t.planId === plan._id.toString() && t.dayOfWeek === systemDay && t.weekNumber === currentWeekIndex);
+          const hasWeek1Templates = templates.some(t => t.planId === plan._id.toString() && t.dayOfWeek === systemDay && t.weekNumber === 1);
+          
+          if (hasSpecificWeekTemplates || hasWeek1Templates) {
+            isPlannedDay = true;
+            break;
+          }
+        }
+      }
+
+      if (isLogged) {
+        tempStreak++;
+        longestStreak = Math.max(longestStreak, tempStreak);
+      } else if (isPlannedDay) {
+        // Missed planned workout. Break if it's not today.
+        if (i !== totalDays - 1) {
+          tempStreak = 0;
         }
       }
     }
 
-    // Longest Streak logic
-    let checkDateLong = new Date(uniqueDates[0]);
-    for (const dStr of uniqueDates) {
-      const d = new Date(dStr);
-      const diff = Math.round((checkDateLong.getTime() - d.getTime()) / 86400000);
-      
-      if (diff <= 1) {
-        tempStreak++;
-        checkDateLong = d;
-      } else {
-        longestStreak = Math.max(longestStreak, tempStreak);
-        tempStreak = 1;
-        checkDateLong = d;
-      }
-    }
-    longestStreak = Math.max(longestStreak, tempStreak);
-
-    return { currentStreak, longestStreak, lastWorkoutDate };
+    return { 
+      currentStreak: tempStreak, 
+      longestStreak, 
+      lastWorkoutDate: uniqueDates[0] || null 
+    };
   } catch (error) {
     console.error("Error fetching streak data:", error);
     return { currentStreak: 0, longestStreak: 0, lastWorkoutDate: null };

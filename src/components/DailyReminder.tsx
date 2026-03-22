@@ -69,7 +69,7 @@ export function DailyReminder() {
 		setShow(false);
 	};
 
-	if (pathname === "/" || !show || !data) return null;
+	if (pathname === "/" || !show || !data || loading) return null;
 
 	const hour = new Date().getHours();
 	const isNight = hour >= 19;
@@ -77,7 +77,7 @@ export function DailyReminder() {
 
 	return (
 		<AnimatePresence>
-			<div className="fixed inset-0 z-50 flex items-end justify-center p-3 bg-black/40 backdrop-blur-xs">
+			<div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-3 bg-black/40 backdrop-blur-xs">
 				<motion.div
 					initial={{ opacity: 0, scale: 0.9, y: 20 }}
 					animate={{ opacity: 1, scale: 1, y: 0 }}

@@ -364,34 +364,24 @@ export async function getReminderData() {
     if (!session?.user) return null;
     const userId = (session.user as any).id;
 
-    const db = await getDb();
-    const dayOfWeek = getCurrentDayOfWeek();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayDate = new Date();
+    const todayStr = todayDate.toISOString().split("T")[0];
+    
+    // Use getPlanByDate which reliably checks the active plan constraints
+    const plan = await getPlanByDate(todayStr);
 
-    // Get today's plan and log concurrently
-    const [todayPlanRaw, log] = await Promise.all([
-      db.collection("WorkoutTemplate").findOne({
-        userId: new ObjectId(userId),
-        dayOfWeek,
-      }),
-      db.collection("WorkoutLog").findOne({
-        userId: new ObjectId(userId),
-        date: { $gte: today }
-      })
-    ]);
+    if (!plan || !plan.exercises || plan.exercises.length === 0) {
+      return null;
+    }
+
+    const db = await getDb();
+    todayDate.setHours(0, 0, 0, 0);
+    const log = await db.collection("WorkoutLog").findOne({
+      userId: new ObjectId(userId),
+      date: { $gte: todayDate }
+    });
 
     const isLogged = !!(log && log.exercises && log.exercises.length > 0);
-
-    let plan = null;
-    if (todayPlanRaw) {
-      const { _id, ...rest } = todayPlanRaw;
-      plan = {
-        id: _id.toString(),
-        ...rest,
-        userId: userId.toString()
-      };
-    }
 
     return {
       plan,
@@ -429,14 +419,15 @@ export async function getActivePlansSummary(userId: string): Promise<ActivePlanP
 
     if (activePlans.length === 0) return [];
 
-    // Get logs for this week
     const logsThisWeek = await db.collection("WorkoutLog").find({
       userId: new ObjectId(userId),
       date: { $gte: weekStart, $lte: weekEnd }
-    }).project({ date: 1 }).toArray();
+    }).project({ date: 1, exercises: 1 }).toArray();
 
     const loggedDates = new Set(
-      logsThisWeek.map(l => new Date(l.date).toISOString().split('T')[0])
+      logsThisWeek
+        .filter(l => l.exercises && l.exercises.length > 0)
+        .map(l => new Date(l.date).toISOString().split('T')[0])
     );
 
     const summaries = await Promise.all(activePlans.map(async (plan) => {
@@ -517,15 +508,15 @@ export async function getPlanAdherenceScore(userId: string): Promise<AdherenceSc
       db.collection("WorkoutLog").find({
         userId: new ObjectId(userId),
         date: { $gte: fourWeeksAgo, $lte: now }
-      }).project({ date: 1 }).toArray(),
+      }).project({ date: 1, exercises: 1 }).toArray(),
       db.collection("WorkoutLog").find({
         userId: new ObjectId(userId),
         date: { $gte: eightWeeksAgo, $lt: fourWeeksAgo }
-      }).project({ date: 1 }).toArray()
+      }).project({ date: 1, exercises: 1 }).toArray()
     ]);
 
-    const currentLogged = new Set(currentLogs.map(l => new Date(l.date).toISOString().split('T')[0])).size;
-    const previousLogged = new Set(previousLogs.map(l => new Date(l.date).toISOString().split('T')[0])).size;
+    const currentLogged = new Set(currentLogs.filter(l => l.exercises && l.exercises.length > 0).map(l => new Date(l.date).toISOString().split('T')[0])).size;
+    const previousLogged = new Set(previousLogs.filter(l => l.exercises && l.exercises.length > 0).map(l => new Date(l.date).toISOString().split('T')[0])).size;
 
     const countPlannedInWindow = async (start: Date, end: Date) => {
       let total = 0;
@@ -604,9 +595,13 @@ export async function getWeekPlanSchedule(userId: string): Promise<WeekScheduleD
     const logsThisWeek = await db.collection("WorkoutLog").find({
       userId: new ObjectId(userId),
       date: { $gte: weekStart, $lte: weekEnd }
-    }).project({ date: 1 }).toArray();
+    }).project({ date: 1, exercises: 1 }).toArray();
 
-    const loggedDates = new Set(logsThisWeek.map(l => new Date(l.date).toISOString().split('T')[0]));
+    const loggedDates = new Set(
+      logsThisWeek
+        .filter(l => l.exercises && l.exercises.length > 0)
+        .map(l => new Date(l.date).toISOString().split('T')[0])
+    );
 
     const schedule = await Promise.all([0, 1, 2, 3, 4, 5, 6].map(async (dayIndex) => {
       const dayDate = addDays(weekStart, dayIndex);
