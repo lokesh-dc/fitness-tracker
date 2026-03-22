@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
 	saveWorkoutSession,
 	saveBodyWeight,
@@ -117,6 +117,15 @@ export default function WorkoutSession({
 	);
 
 	const timer = useRestTimer();
+
+	useEffect(() => {
+		if (step > 0 && template && exercises.length > 0) {
+			document.body.classList.add("hide-mobile-nav");
+		} else {
+			document.body.classList.remove("hide-mobile-nav");
+		}
+		return () => document.body.classList.remove("hide-mobile-nav");
+	}, [step, template, exercises.length]);
 
 	const addSet = (exerciseIndex: number) => {
 		setExercises((prev) => {
@@ -260,7 +269,7 @@ export default function WorkoutSession({
 
 	if (!template || exercises.length === 0) {
 		return (
-			<PageWithSidebar sidebar={<WorkoutSidebar stats={sessionStats.stats} />}>
+			<PageWithSidebar>
 				<GlassCard className="p-12 md:mt-12 flex flex-col items-center justify-center text-center space-y-6 border-orange-500/10 bg-orange-500/5 max-w-2xl mx-auto min-h-[50vh]">
 					<div className="w-20 h-20 rounded-3xl bg-orange-500/10 flex items-center justify-center">
 						<CheckCircle2 className="w-10 h-10 text-orange-500" />

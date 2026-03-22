@@ -72,7 +72,7 @@ export default async function PlanPage() {
 		<div className="flex flex-col ">
 			<Header title="Your Plans" subtitle="Manage your cycles" />
 
-			<main className="flex-1 px-6 space-y-8 mx-auto w-full pb-12">
+			<main className="flex-1 px-6 space-y-8 w-full pb-12 transition-all duration-500 animate-in fade-in slide-in-from-bottom-4">
 				<PageWithSidebar
 					sidebar={
 						<PlansSidebar

@@ -30,7 +30,7 @@ export default async function WorkoutsPage({
     <div className="flex flex-col min-h-screen">
       <Header title="Workout History" subtitle="Your journey, day by day" />
       
-      <main className="flex-1 px-6 space-y-6 max-w-4xl mx-auto w-full pb-32">
+      <main className="flex-1 px-6 space-y-6 w-full pb-32">
         {/* Weekly Calendar Navigation */}
         <WeeklyCalendar selectedDateStr={targetDateStr} />
 

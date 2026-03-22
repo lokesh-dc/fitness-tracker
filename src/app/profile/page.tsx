@@ -72,7 +72,7 @@ export default async function ProfilePage() {
 		<div className="flex flex-col ">
 			<Header title="Profile" />
 
-			<main className="flex-1 px-6 space-y-6 max-w-2xl mx-auto w-full pb-12 transition-all duration-500 animate-in fade-in slide-in-from-bottom-4">
+			<main className="flex-1 px-6 space-y-6 w-full pb-12 transition-all duration-500 animate-in fade-in slide-in-from-bottom-4">
 				<GlassCard className="flex items-center justify-between p-8 group">
 					<div className="flex items-center space-x-6">
 						<div className="relative">
