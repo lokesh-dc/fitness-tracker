@@ -3,7 +3,8 @@
 
 TRAK.FIT isn't just a logbook; it's a data-driven cockpit for your training. Designed for athletes who demand precision, TRAK.FIT combines high-fidelity aesthetics with surgical analytics to turn every rep into actionable intelligence.
 
-![Project Preview](/Users/lokesh_choudhary/.gemini/antigravity/brain/6867d406-bff9-41ee-bf84-83f679449511/app_feature_screenshots_1773651668328.webp)
+<img width="1920" height="1440" alt="image" src="https://github.com/user-attachments/assets/f61ac4b9-f287-46e7-9234-c412f335f286" />
+
 
 ---
 
