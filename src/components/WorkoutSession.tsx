@@ -279,7 +279,8 @@ export default function WorkoutSession({
 							Rest Day
 						</h2>
 						<p className="text-xs font-bold text-foreground/40 max-w-sm mx-auto leading-relaxed uppercase tracking-wider">
-							No exercises are planned for today. Take some time to recover and prepare for your next session.
+							No exercises are planned for today. Take some time to recover and
+							prepare for your next session.
 						</p>
 					</div>
 					<Link
@@ -892,17 +893,17 @@ const SessionLayout = ({
 						<ChevronLeft className="w-5 h-5 text-foreground" />
 					</Link>
 				)}
-				<div className="text-center">
+				<div className="text-center w-full">
 					{subtitle && (
 						<p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em] mb-1">
 							{subtitle}
 						</p>
 					)}
-					<h1 className="text-xl font-black text-foreground uppercase tracking-wider">
+					<h1 className="text-xl text-center font-black text-foreground uppercase tracking-wider">
 						{title}
 					</h1>
 				</div>
-				<div className="w-10 h-10 flex items-center justify-end">
+				{/* <div className="w-10 h-10 flex items-center justify-end">
 					{stats && (
 						<div className="lg:hidden">
 							<SessionTimerDisplay
@@ -912,7 +913,7 @@ const SessionLayout = ({
 							/>
 						</div>
 					)}
-				</div>
+				</div> */}
 			</div>
 
 			{stats && (

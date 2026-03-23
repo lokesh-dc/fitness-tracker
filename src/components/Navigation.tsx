@@ -20,7 +20,7 @@ export function Navigation() {
 	if (pathname.startsWith("/auth") || pathname === "/") return null;
 
 	// Specific paths where navigation should be hidden
-	const isWorkoutPage = pathname === "/workout";
+	const isMobileNavHidden = pathname === "/workout";
 
 	const navItems = [
 		{
@@ -71,51 +71,55 @@ export function Navigation() {
 	return (
 		<>
 			{/* Bottom Navigation (Mobile Only) */}
-			<nav id="mobile-bottom-nav" className="fixed bottom-0 left-0 right-0 h-20 glass border-t border-foreground/10 flex justify-around items-center px-6 md:hidden z-50 rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
-				{navItems
-					.filter((item) => item.mobile)
-					.map((item) => {
-						if (item.isAction) {
+			{!isMobileNavHidden ? (
+				<nav
+					id="mobile-bottom-nav"
+					className="fixed bottom-0 left-0 right-0 h-20 glass border-t border-foreground/10 flex justify-around items-center px-6 md:hidden z-50 rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
+					{navItems
+						.filter((item) => item.mobile)
+						.map((item) => {
+							if (item.isAction) {
+								return (
+									<Link
+										key={item.href}
+										href={item.href}
+										className="flex flex-col items-center -mt-5 group transition-all">
+										<div className="w-16 h-16 rounded-full bg-black flex items-center justify-center border-4 border-background-500 shadow-[0_10px_20px_rgba(0,0,0,0.2)] group-hover:scale-110 active:scale-95 transition-all">
+											<div className="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center">
+												<Play className="w-6 h-6 text-black fill-current ml-1" />
+											</div>
+										</div>
+										<span className="text-[9px] font-black mt-2 text-foreground/40 uppercase tracking-[0.2em] group-hover:text-orange-500 transition-colors">
+											{item.label}
+										</span>
+									</Link>
+								);
+							}
+
 							return (
 								<Link
 									key={item.href}
 									href={item.href}
-									className="flex flex-col items-center -mt-5 group transition-all">
-									<div className="w-16 h-16 rounded-full bg-black flex items-center justify-center border-4 border-background-500 shadow-[0_10px_20px_rgba(0,0,0,0.2)] group-hover:scale-110 active:scale-95 transition-all">
-										<div className="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center">
-											<Play className="w-6 h-6 text-black fill-current ml-1" />
-										</div>
-									</div>
-									<span className="text-[9px] font-black mt-2 text-foreground/40 uppercase tracking-[0.2em] group-hover:text-orange-500 transition-colors">
+									className={cn(
+										"flex flex-col items-center transition-all px-2",
+										pathname === item.href
+											? "text-orange-500"
+											: "text-foreground/40 hover:text-foreground",
+									)}>
+									<item.icon
+										className={cn(
+											"w-5 h-5",
+											pathname === item.href && "stroke-[3px]",
+										)}
+									/>
+									<span className="text-[9px] font-black mt-1.5 uppercase tracking-[0.15em]">
 										{item.label}
 									</span>
 								</Link>
 							);
-						}
-
-						return (
-							<Link
-								key={item.href}
-								href={item.href}
-								className={cn(
-									"flex flex-col items-center transition-all px-2",
-									pathname === item.href
-										? "text-orange-500"
-										: "text-foreground/40 hover:text-foreground",
-								)}>
-								<item.icon
-									className={cn(
-										"w-5 h-5",
-										pathname === item.href && "stroke-[3px]",
-									)}
-								/>
-								<span className="text-[9px] font-black mt-1.5 uppercase tracking-[0.15em]">
-									{item.label}
-								</span>
-							</Link>
-						);
-					})}
-			</nav>
+						})}
+				</nav>
+			) : null}
 
 			{/* Sidebar Navigation (Desktop Only) */}
 			<nav className="fixed left-0 top-0 bottom-0 w-20 glass border-r border-foreground/10 hidden md:flex flex-col items-center py-8 space-y-8 z-50">
