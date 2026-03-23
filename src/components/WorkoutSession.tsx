@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
 	saveWorkoutSession,
 	saveBodyWeight,
@@ -117,6 +117,15 @@ export default function WorkoutSession({
 	);
 
 	const timer = useRestTimer();
+
+	useEffect(() => {
+		if (step > 0 && template && exercises.length > 0) {
+			document.body.classList.add("hide-mobile-nav");
+		} else {
+			document.body.classList.remove("hide-mobile-nav");
+		}
+		return () => document.body.classList.remove("hide-mobile-nav");
+	}, [step, template, exercises.length]);
 
 	const addSet = (exerciseIndex: number) => {
 		setExercises((prev) => {
@@ -258,7 +267,30 @@ export default function WorkoutSession({
 		}
 	};
 
-	if (!template) return null;
+	if (!template || exercises.length === 0) {
+		return (
+			<PageWithSidebar>
+				<GlassCard className="p-12 md:mt-12 flex flex-col items-center justify-center text-center space-y-6 border-orange-500/10 bg-orange-500/5 max-w-2xl mx-auto min-h-[50vh]">
+					<div className="w-20 h-20 rounded-3xl bg-orange-500/10 flex items-center justify-center">
+						<CheckCircle2 className="w-10 h-10 text-orange-500" />
+					</div>
+					<div className="space-y-2">
+						<h2 className="text-2xl font-black text-foreground uppercase tracking-widest">
+							Rest Day
+						</h2>
+						<p className="text-xs font-bold text-foreground/40 max-w-sm mx-auto leading-relaxed uppercase tracking-wider">
+							No exercises are planned for today. Take some time to recover and prepare for your next session.
+						</p>
+					</div>
+					<Link
+						href="/dashboard"
+						className="px-8 py-4 bg-orange-500 text-black rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-[0_10px_30px_rgba(249,115,22,0.3)] hover:scale-105 active:scale-95 transition-all mt-4 inline-flex items-center">
+						Back to Dashboard
+					</Link>
+				</GlassCard>
+			</PageWithSidebar>
+		);
+	}
 
 	const completedCount = exercises.filter((ex) => (ex as any).isDone).length;
 	const totalCount = exercises.length;
@@ -289,7 +321,7 @@ export default function WorkoutSession({
 				progress={progress}
 				date={date}
 				timer={timer}>
-				<div className="space-y-6">
+				<div className="max-w-4xl mx-auto space-y-6">
 					<GlassCard className="p-6 border-orange-500/10 bg-orange-500/5">
 						<div className="flex items-center justify-between">
 							<div className="flex items-center space-x-3">

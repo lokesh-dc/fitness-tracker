@@ -85,7 +85,7 @@ export default async function DashboardPage() {
 		<div className="flex flex-col">
 			<Header title={`Hi, ${userName}! 👋`} subtitle={format(today, "d MMMM ''yy")} />
 
-			<main className="flex-1 px-6 pb-12 transition-all duration-500 animate-in fade-in slide-in-from-bottom-4">
+			<main className="flex-1 px-6 pb-12 w-full transition-all duration-500 animate-in fade-in slide-in-from-bottom-4">
 				<PageWithSidebar
 					mobileWidgets={
 						<MobileWidgetStrip 

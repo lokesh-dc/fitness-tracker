@@ -9,7 +9,8 @@
   --radius-2xl: 1.5rem;
 }
 
-:root, .light {
+:root,
+.light {
   --background: #f8fafc;
   --foreground: #0f172a;
   --glass-bg: rgba(255, 255, 255, 0.85);
@@ -19,9 +20,9 @@
 }
 
 .dark {
-  --background: #020617;
+  --background: #000000;
   --foreground: #f8fafc;
-  --glass-bg: rgba(15, 23, 42, 0.6);
+  --glass-bg: #111111;
   --glass-border: rgba(255, 255, 255, 0.08);
   --shadow-glass: 0 10px 30px -5px rgba(0, 0, 0, 0.3);
 }
@@ -83,4 +84,8 @@ body {
   /* IE and Edge */
   scrollbar-width: none;
   /* Firefox */
+}
+
+body.hide-mobile-nav #mobile-bottom-nav {
+  display: none !important;
 }
