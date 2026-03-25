@@ -99,6 +99,31 @@ export interface WeightTrendData {
   bodyWeight: number;
 }
 
+export interface MuscleGroupStat {
+  muscleGroup: string;
+  totalVolume: number;
+  percentageOfTotal: number;
+}
+
+export interface MonthlyVolume {
+  month: string;
+  year: number;
+  totalVolume: number;
+}
+
+export interface MonthlyVolumeTrend {
+  months: MonthlyVolume[];
+  trendPercent: number | null;
+}
+
+export interface MissedWorkoutsStat {
+  sessionsLogged: number;
+  sessionsPlanned: number;
+  sessionsMissed: number;
+  completionPercent: number;
+  hasActivePlan: boolean;
+}
+
 export interface ExerciseTimelineEntry {
   date: Date | string;
   maxWeight: number;       // heaviest weight lifted that session

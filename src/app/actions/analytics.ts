@@ -14,7 +14,7 @@ export async function getHighestWeightPR(exerciseName: string): Promise<number> 
 
     const db = await getDb();
     const record = await db.collection("ExerciseRecords").findOne({ userId, exerciseName });
-    
+
     return record?.currentPR || 0;
   } catch (error) {
     console.error("Error fetching highest weight PR:", error);
@@ -52,7 +52,7 @@ export async function getRecentPRs(): Promise<{ name: string; weight: number; da
     const userId = new ObjectId((session.user as any).id);
 
     const db = await getDb();
-    
+
     const records = await db.collection("ExerciseRecords")
       .find({ userId, currentPR: { $gt: 0 } })
       .sort({ prDate: -1 })
@@ -118,18 +118,18 @@ export async function getBodyWeightTrend(): Promise<WeightTrendData[]> {
       userId,
       bodyWeight: { $ne: null }
     })
-    .sort({ date: 1 })
-    .project({
-      date: 1,
-      bodyWeight: 1,
-    })
-    .toArray();
+      .sort({ date: 1 })
+      .project({
+        date: 1,
+        bodyWeight: 1,
+      })
+      .toArray();
 
     const uniqueByDay = new Map<string, WeightTrendData>();
-    
+
     logs.forEach((log) => {
       const dateStr = (log.date as Date).toISOString().split('T')[0];
-      
+
       uniqueByDay.set(dateStr, {
         id: log._id.toString(),
         date: (log.date as Date).toISOString(),
@@ -243,9 +243,9 @@ export async function getExerciseTimeline(
       { userId, exerciseName },
       { projection: { prDate: 1 } }
     );
-    
+
     // Normalize prDate for string comparison
-    const prDateStr = record?.prDate 
+    const prDateStr = record?.prDate
       ? new Date(record.prDate).toISOString().split('T')[0]
       : null;
 
@@ -256,7 +256,7 @@ export async function getExerciseTimeline(
 
       // Use maxWeight and avgReps for the 1RM estimation as per plan
       const estimatedOneRM = calculateOneRM(r.maxWeight, avgRepsPerSet);
-      
+
       const currentEntryDate = new Date(r._id);
 
       return {
@@ -296,7 +296,7 @@ export async function getStreakData(): Promise<{
     const userId = new ObjectId((session.user as any).id);
 
     const db = await getDb();
-    
+
     // Helper to get local YYYY-MM-DD reliably
     const getLocalDayString = (d: Date) => {
       const y = d.getFullYear();
@@ -346,7 +346,7 @@ export async function getStreakData(): Promise<{
 
     const diffTime = todayDate.getTime() - earliestDate.getTime();
     const totalDays = Math.round(diffTime / 86400000) + 1;
-    
+
     const logSet = new Set(uniqueDates);
 
     let tempStreak = 0;
@@ -356,7 +356,7 @@ export async function getStreakData(): Promise<{
       const dDate = new Date(earliestDate.getTime());
       dDate.setDate(dDate.getDate() + i);
       const dStr = getLocalDayString(dDate);
-      
+
       const isLogged = logSet.has(dStr);
       let isPlannedDay = false;
       const systemDay = dDate.getDay();
@@ -366,13 +366,13 @@ export async function getStreakData(): Promise<{
         const planStart = new Date(py, pm - 1, pd);
         const planEnd = new Date(planStart.getTime());
         planEnd.setDate(planEnd.getDate() + plan.numWeeks * 7 - 1);
-        
+
         if (dDate >= planStart && dDate <= planEnd) {
           const diffInDays = Math.round((dDate.getTime() - planStart.getTime()) / 86400000);
           const currentWeekIndex = Math.floor(diffInDays / 7) + 1;
           const hasSpecificWeekTemplates = templates.some(t => t.planId === plan._id.toString() && t.dayOfWeek === systemDay && t.weekNumber === currentWeekIndex);
           const hasWeek1Templates = templates.some(t => t.planId === plan._id.toString() && t.dayOfWeek === systemDay && t.weekNumber === 1);
-          
+
           if (hasSpecificWeekTemplates || hasWeek1Templates) {
             isPlannedDay = true;
             break;
@@ -391,10 +391,10 @@ export async function getStreakData(): Promise<{
       }
     }
 
-    return { 
-      currentStreak: tempStreak, 
-      longestStreak, 
-      lastWorkoutDate: uniqueDates[0] || null 
+    return {
+      currentStreak: tempStreak,
+      longestStreak,
+      lastWorkoutDate: uniqueDates[0] || null
     };
   } catch (error) {
     console.error("Error fetching streak data:", error);
@@ -449,11 +449,11 @@ export async function getWeekSnapshot(): Promise<{
     const day = startOfWeek.getDay();
     const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
     startOfWeek.setDate(diff);
-    startOfWeek.setHours(0,0,0,0);
+    startOfWeek.setHours(0, 0, 0, 0);
 
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(endOfWeek.getDate() + 6);
-    endOfWeek.setHours(23,59,59,999);
+    endOfWeek.setHours(23, 59, 59, 999);
 
     const db = await getDb();
     const logs = await db.collection("WorkoutLog").find({
@@ -559,15 +559,15 @@ export async function getNextPlannedWorkout(): Promise<{
     for (let i = 0; i < 7; i++) {
       const checkDay = (todayDay + i) % 7;
       const t = templates.find(temp => temp.dayOfWeek === checkDay);
-      
+
       if (t) {
         // If today, check if already logged
         if (i === 0) {
           const startOfToday = new Date(now);
-          startOfToday.setHours(0,0,0,0);
-          const todayLog = await db.collection("WorkoutLog").findOne({ 
-            userId, 
-            date: { $gte: startOfToday } 
+          startOfToday.setHours(0, 0, 0, 0);
+          const todayLog = await db.collection("WorkoutLog").findOne({
+            userId,
+            date: { $gte: startOfToday }
           });
           if (todayLog && todayLog.exercises?.length > 0) continue;
         }
@@ -593,5 +593,241 @@ export async function getNextPlannedWorkout(): Promise<{
   } catch (error) {
     console.error("Error fetching next planned workout:", error);
     return null;
+  }
+}
+
+export async function getMostTrainedMuscleGroups(userIdStr: string, limit: number = 5) {
+  try {
+    const db = await getDb();
+    const userId = new ObjectId(userIdStr);
+
+    const pipeline = [
+      { $match: { userId } },
+      { $unwind: '$exercises' },
+      // { $match: { 'exercises.isDone': true } },
+      { $unwind: '$exercises.sets' },
+      {
+        $match: {
+          'exercises.sets.weight': { $gt: 0 },
+          'exercises.sets.reps': { $gt: 0 },
+        }
+      },
+      {
+        $lookup: {
+          from: 'Exercises',
+          localField: 'exercises.name',
+          foreignField: 'name',
+          as: 'exerciseDetails'
+        }
+      },
+      {
+        $unwind: {
+          path: '$exerciseDetails',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $group: {
+          _id: '$exerciseDetails.muscleGroup',
+          totalVolume: {
+            $sum: {
+              $multiply: [
+                '$exercises.sets.weight',
+                '$exercises.sets.reps'
+              ]
+            }
+          }
+        }
+      },
+      { $sort: { totalVolume: -1 } },
+      { $limit: limit },
+    ];
+
+    const results = await db.collection('WorkoutLog').aggregate(pipeline).toArray();
+    const grandTotal = results.reduce((acc, r) => acc + r.totalVolume, 0);
+
+    return results.map(r => ({
+      muscleGroup: r._id || 'Unknown',
+      totalVolume: Math.round(r.totalVolume),
+      percentageOfTotal: grandTotal > 0 ? Math.round((r.totalVolume / grandTotal) * 100) : 0,
+    }));
+  } catch (err) {
+    console.error("Error in getMostTrainedMuscleGroups:", err);
+    return [];
+  }
+}
+
+export async function getMonthlyVolumeTrend(userIdStr: string, months: number = 6) {
+  try {
+    const db = await getDb();
+    const userId = new ObjectId(userIdStr);
+
+    const now = new Date();
+    const startDate = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
+
+    const pipeline = [
+      {
+        $match: {
+          userId,
+          date: { $gte: startDate }
+        }
+      },
+      { $unwind: '$exercises' },
+      // { $match: { 'exercises.isDone': true } },
+      { $unwind: '$exercises.sets' },
+      {
+        $match: {
+          'exercises.sets.weight': { $gt: 0 },
+          'exercises.sets.reps': { $gt: 0 },
+        }
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$date' },
+            month: { $month: '$date' },
+          },
+          totalVolume: {
+            $sum: {
+              $multiply: [
+                '$exercises.sets.weight',
+                '$exercises.sets.reps'
+              ]
+            }
+          }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } },
+    ];
+
+    const results = await db.collection('WorkoutLog').aggregate(pipeline).toArray();
+
+    const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    const volumeArray = Array.from({ length: months }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (months - 1) + i, 1);
+      const year = d.getFullYear();
+      const month = d.getMonth() + 1;
+
+      const found = results.find(r => r._id.year === year && r._id.month === month);
+
+      return {
+        month: monthLabels[d.getMonth()],
+        year,
+        totalVolume: found ? Math.round(found.totalVolume) : 0,
+      };
+    });
+
+    const current = volumeArray[volumeArray.length - 1].totalVolume;
+    const previous = volumeArray[volumeArray.length - 2]?.totalVolume ?? 0;
+    const trendPercent = previous > 0 ? Math.round(((current - previous) / previous) * 100) : null;
+
+    return { months: volumeArray, trendPercent };
+  } catch (err) {
+    console.error("Error in getMonthlyVolumeTrend:", err);
+    return { months: [], trendPercent: null };
+  }
+}
+
+export async function getMissedWorkoutsThisMonth(userIdStr: string) {
+  try {
+    const db = await getDb();
+    const userId = new ObjectId(userIdStr);
+
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    const loggedDocs = await db.collection('WorkoutLog').find({
+      userId,
+      date: { $gte: monthStart, $lte: monthEnd }
+    }).project({ date: 1, exercises: 1 }).toArray();
+
+    // Only count logs that have at least one exercise
+    const validLogs = loggedDocs.filter(l => l.exercises && l.exercises.length > 0);
+    const loggedDates = new Set(validLogs.map(l => new Date(l.date).toDateString()));
+    const sessionsLogged = loggedDates.size;
+
+    // Find the most recent active plan
+    const activePlan = await db.collection('PlanDocument').findOne({
+      userId,
+      startDate: { $lte: now.toISOString().split('T')[0] }
+    }, { sort: { startDate: -1 } });
+
+    if (!activePlan) {
+      return {
+        sessionsLogged,
+        sessionsPlanned: 0,
+        sessionsMissed: 0,
+        completionPercent: 100,
+        hasActivePlan: false,
+      };
+    }
+
+    // Get templates for this plan that have exercises
+    const templates = await db.collection('WorkoutTemplate').find({
+      planId: activePlan._id.toString(),
+      userId,
+      'exercises.0': { $exists: true }
+    }).toArray();
+
+    if (!templates.length) {
+      return {
+        sessionsLogged,
+        sessionsPlanned: 0,
+        sessionsMissed: 0,
+        completionPercent: 100,
+        hasActivePlan: false,
+      };
+    }
+
+    let sessionsPlanned = 0;
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    const planStart = new Date(activePlan.startDate + "T00:00:00");
+    
+    // Iterate from month start to today or month end
+    const cursor = new Date(monthStart);
+    while (cursor <= today && cursor <= monthEnd) {
+      // Check if plan was active on this day
+      if (cursor >= planStart) {
+        const dayOfWeek = cursor.getDay();
+        
+        // Calculate week index relative to plan start
+        const diffInDays = Math.floor((cursor.getTime() - planStart.getTime()) / (1000 * 60 * 60 * 24));
+        const weekIndex = Math.floor(diffInDays / 7) + 1;
+        
+        if (weekIndex <= activePlan.numWeeks) {
+          const hasSession = templates.some(t => 
+            t.dayOfWeek === dayOfWeek && (t.weekNumber === weekIndex || t.weekNumber === 1)
+          );
+          if (hasSession) sessionsPlanned++;
+        }
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    const sessionsMissed = Math.max(0, sessionsPlanned - sessionsLogged);
+    const completionPercent = sessionsPlanned > 0
+      ? Math.min(100, Math.round((sessionsLogged / sessionsPlanned) * 100))
+      : 100;
+
+    return {
+      sessionsLogged,
+      sessionsPlanned,
+      sessionsMissed,
+      completionPercent,
+      hasActivePlan: true,
+    };
+  } catch (err) {
+    console.error("Error in getMissedWorkoutsThisMonth:", err);
+    return {
+      sessionsLogged: 0,
+      sessionsPlanned: 0,
+      sessionsMissed: 0,
+      completionPercent: 0,
+      hasActivePlan: false,
+    };
   }
 }
