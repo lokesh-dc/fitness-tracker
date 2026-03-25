@@ -482,17 +482,21 @@ export async function getWeekSnapshot(): Promise<{
       const weekIndex = Math.floor(diffDays / 7) + 1;
 
       if (weekIndex <= activePlan.numWeeks) {
-        const templates = await db.collection("WorkoutTemplate").find({
+        const allTemplates = await db.collection("WorkoutTemplate").find({
           planId: activePlan._id.toString(),
           userId,
           "exercises.0": { $exists: true }
         }).toArray();
 
-        templates.forEach(t => {
-          // 0=Sun, 1=Mon ... -> Map to 0=Mon ... 6=Sun
-          const normalizedDay = t.dayOfWeek === 0 ? 6 : t.dayOfWeek - 1;
-          plannedDays.push(normalizedDay);
-        });
+        for (let d = 0; d < 7; d++) {
+          const hasSpecificWeek = allTemplates.some(t => t.dayOfWeek === d && t.weekNumber === weekIndex);
+          const hasWeek1 = allTemplates.some(t => t.dayOfWeek === d && t.weekNumber === 1);
+          
+          if (hasSpecificWeek || hasWeek1) {
+            const normalizedDay = d === 0 ? 6 : d - 1;
+            plannedDays.push(normalizedDay);
+          }
+        }
       }
     }
 
