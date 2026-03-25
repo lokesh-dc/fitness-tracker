@@ -82,16 +82,16 @@ export default function WorkoutSession({
 			const loggedEx = initialWorkoutLog?.exercises?.find(
 				(le: any) => le.exerciseId === ex.exerciseId,
 			);
+			const initialSets = loggedEx
+				? loggedEx.sets
+				: Array.from({ length: ex.targetSets || 1 }).map(() => ({
+						weight: ex.lastWeight || 0,
+						reps: ex.targetReps || 0,
+						completed: false,
+					}));
 			return {
 				...ex,
-				sets: loggedEx
-					? loggedEx.sets
-					: [
-							{
-								weight: ex.lastWeight || 0,
-								reps: ex.targetReps || 0,
-							},
-						],
+				sets: initialSets,
 				pr: initialPRs[ex.exerciseId] || 0,
 				isDone: !!loggedEx,
 			};
@@ -321,6 +321,7 @@ export default function WorkoutSession({
 				totalCount={totalCount}
 				progress={progress}
 				date={date}
+				mode={mode}
 				timer={timer}>
 				<div className="max-w-4xl mx-auto space-y-6">
 					<GlassCard className="p-6 border-orange-500/10 bg-orange-500/5">
@@ -423,7 +424,7 @@ export default function WorkoutSession({
 		);
 
 		return (
-			<PageWithSidebar sidebar={<WorkoutSidebar stats={sessionStats.stats} />}>
+			<PageWithSidebar sidebar={mode !== "MANUAL_LOG" ? <WorkoutSidebar stats={sessionStats.stats} /> : null}>
 				<SessionLayout
 					title="Step 1: Body Weight"
 					maxWidth="max-w-md"
@@ -432,6 +433,7 @@ export default function WorkoutSession({
 					totalCount={totalCount}
 					progress={progress}
 					date={date}
+					mode={mode}
 					timer={timer}
 					footer={footer}
 					stats={sessionStats.stats}>
@@ -551,7 +553,7 @@ export default function WorkoutSession({
 			}));
 
 		return (
-			<PageWithSidebar sidebar={<WorkoutSidebar stats={sessionStats.stats} />}>
+			<PageWithSidebar sidebar={mode !== "MANUAL_LOG" ? <WorkoutSidebar stats={sessionStats.stats} /> : null}>
 				{showCelebration && (
 					<WorkoutCelebration
 						stats={celebrationStats}
@@ -569,6 +571,7 @@ export default function WorkoutSession({
 					totalCount={totalCount}
 					progress={progress}
 					date={date}
+					mode={mode}
 					timer={mode === "LIVE_SESSION" ? timer : null}
 					stats={sessionStats.stats}>
 					<GlassCard className="flex items-center justify-between p-4 px-6 border-orange-500/10 bg-orange-500/5">
@@ -689,7 +692,7 @@ export default function WorkoutSession({
 		);
 
 		return (
-			<PageWithSidebar sidebar={<WorkoutSidebar stats={sessionStats.stats} />}>
+			<PageWithSidebar sidebar={mode !== "MANUAL_LOG" ? <WorkoutSidebar stats={sessionStats.stats} /> : null}>
 				<SessionLayout
 					timer={mode === "LIVE_SESSION" ? timer : null}
 					title={ex.name}
@@ -701,6 +704,7 @@ export default function WorkoutSession({
 					totalCount={totalCount}
 					progress={progress}
 					date={date}
+					mode={mode}
 					stats={sessionStats.stats}>
 					<GlassCard className="space-y-6 p-6">
 						<div className="flex justify-between items-start border-b border-foreground/5 pb-4">
@@ -841,6 +845,7 @@ const SessionLayout = ({
 	totalCount,
 	progress,
 	date,
+	mode,
 	timer,
 	stats,
 }: {
@@ -855,6 +860,7 @@ const SessionLayout = ({
 	totalCount: number;
 	progress: number;
 	date?: string;
+	mode: WorkoutMode;
 	timer: any;
 	stats?: any;
 }) => (
@@ -903,47 +909,38 @@ const SessionLayout = ({
 						{title}
 					</h1>
 				</div>
-				{/* <div className="w-10 h-10 flex items-center justify-end">
-					{stats && (
-						<div className="lg:hidden">
-							<SessionTimerDisplay
-								elapsedSeconds={stats.elapsedSeconds}
-								startedAt={stats.startedAt}
-								variant="mobile"
-							/>
-						</div>
-					)}
-				</div> */}
 			</div>
 
-			{stats && (
+			{stats && mode !== "MANUAL_LOG" && (
 				<div className="lg:hidden">
 					<LiveStatsDisplay stats={stats} variant="mobile" />
 				</div>
 			)}
 
 			{/* Segmented Progress Bar */}
-			<div className="px-2 space-y-3">
-				<div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-foreground/40">
-					<span>Progress</span>
-					<span className="text-orange-500">
-						{completedCount} / {totalCount} Exercises
-					</span>
+			{mode !== "MANUAL_LOG" && (
+				<div className="px-2 space-y-3">
+					<div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-foreground/40">
+						<span>Progress</span>
+						<span className="text-orange-500">
+							{completedCount} / {totalCount} Exercises
+						</span>
+					</div>
+					<div className="flex gap-1.5 h-1.5 w-full">
+						{exercises.map((ex, idx) => (
+							<div
+								key={idx}
+								className={cn(
+									"h-full flex-1 rounded-full transition-all duration-500 ease-out",
+									(ex as any).isDone
+										? "bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.4)]"
+										: "bg-foreground/5 border border-foreground/5",
+								)}
+							/>
+						))}
+					</div>
 				</div>
-				<div className="flex gap-1.5 h-1.5 w-full">
-					{exercises.map((ex, idx) => (
-						<div
-							key={idx}
-							className={cn(
-								"h-full flex-1 rounded-full transition-all duration-500 ease-out",
-								(ex as any).isDone
-									? "bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.4)]"
-									: "bg-foreground/5 border border-foreground/5",
-							)}
-						/>
-					))}
-				</div>
-			</div>
+			)}
 		</div>
 
 		{children}
