@@ -643,7 +643,7 @@ export async function getMostTrainedMuscleGroups(userIdStr: string, limit: numbe
       { $limit: limit },
     ];
 
-    const results = await db.collection('WorkoutLogs').aggregate(pipeline).toArray();
+    const results = await db.collection('WorkoutLog').aggregate(pipeline).toArray();
     const grandTotal = results.reduce((acc, r) => acc + r.totalVolume, 0);
 
     return results.map(r => ({
@@ -673,7 +673,7 @@ export async function getMonthlyVolumeTrend(userIdStr: string, months: number = 
         }
       },
       { $unwind: '$exercises' },
-      { $match: { 'exercises.isDone': true } },
+      // { $match: { 'exercises.isDone': true } },
       { $unwind: '$exercises.sets' },
       {
         $match: {
@@ -700,7 +700,7 @@ export async function getMonthlyVolumeTrend(userIdStr: string, months: number = 
       { $sort: { '_id.year': 1, '_id.month': 1 } },
     ];
 
-    const results = await db.collection('WorkoutLogs').aggregate(pipeline).toArray();
+    const results = await db.collection('WorkoutLog').aggregate(pipeline).toArray();
 
     const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -738,7 +738,7 @@ export async function getMissedWorkoutsThisMonth(userIdStr: string) {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-    const loggedDocs = await db.collection('WorkoutLogs').find({
+    const loggedDocs = await db.collection('WorkoutLog').find({
       userId,
       date: { $gte: monthStart, $lte: monthEnd }
     }).project({ date: 1, exercises: 1 }).toArray();
@@ -748,12 +748,30 @@ export async function getMissedWorkoutsThisMonth(userIdStr: string) {
     const loggedDates = new Set(validLogs.map(l => new Date(l.date).toDateString()));
     const sessionsLogged = loggedDates.size;
 
-    const activePlans = await db.collection('Plans').find({
+    // Find the most recent active plan
+    const activePlan = await db.collection('PlanDocument').findOne({
       userId,
-      status: 'active'
+      startDate: { $lte: now.toISOString().split('T')[0] }
+    }, { sort: { startDate: -1 } });
+
+    if (!activePlan) {
+      return {
+        sessionsLogged,
+        sessionsPlanned: 0,
+        sessionsMissed: 0,
+        completionPercent: 100,
+        hasActivePlan: false,
+      };
+    }
+
+    // Get templates for this plan that have exercises
+    const templates = await db.collection('WorkoutTemplate').find({
+      planId: activePlan._id.toString(),
+      userId,
+      'exercises.0': { $exists: true }
     }).toArray();
 
-    if (!activePlans.length) {
+    if (!templates.length) {
       return {
         sessionsLogged,
         sessionsPlanned: 0,
@@ -765,15 +783,29 @@ export async function getMissedWorkoutsThisMonth(userIdStr: string) {
 
     let sessionsPlanned = 0;
     const today = new Date();
+    today.setHours(23, 59, 59, 999);
 
-    for (const plan of activePlans) {
-      const cursor = new Date(monthStart);
-      while (cursor <= today && cursor <= monthEnd) {
-        const dayOfWeek = cursor.getDay(); // 0=Sun, 6=Sat. DB has 0=Sun
-        const hasSession = plan.days && plan.days.some((d: any) => d.dayOfWeek === dayOfWeek && d.exercises && d.exercises.length > 0);
-        if (hasSession) sessionsPlanned++;
-        cursor.setDate(cursor.getDate() + 1);
+    const planStart = new Date(activePlan.startDate + "T00:00:00");
+    
+    // Iterate from month start to today or month end
+    const cursor = new Date(monthStart);
+    while (cursor <= today && cursor <= monthEnd) {
+      // Check if plan was active on this day
+      if (cursor >= planStart) {
+        const dayOfWeek = cursor.getDay();
+        
+        // Calculate week index relative to plan start
+        const diffInDays = Math.floor((cursor.getTime() - planStart.getTime()) / (1000 * 60 * 60 * 24));
+        const weekIndex = Math.floor(diffInDays / 7) + 1;
+        
+        if (weekIndex <= activePlan.numWeeks) {
+          const hasSession = templates.some(t => 
+            t.dayOfWeek === dayOfWeek && (t.weekNumber === weekIndex || t.weekNumber === 1)
+          );
+          if (hasSession) sessionsPlanned++;
+        }
       }
+      cursor.setDate(cursor.getDate() + 1);
     }
 
     const sessionsMissed = Math.max(0, sessionsPlanned - sessionsLogged);
