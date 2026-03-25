@@ -73,6 +73,7 @@ export default function WorkoutSession({
 	const effectiveBodyWeight =
 		initialWorkoutLog?.bodyWeight || initialBodyWeight || 0;
 
+	const [activeMode, setActiveMode] = useState<WorkoutMode>(mode);
 	const [step, setStep] = useState<number>(0);
 	const [activeExerciseIndex, setActiveExerciseIndex] = useState<number | null>(
 		null,
@@ -179,8 +180,8 @@ export default function WorkoutSession({
 			newExs[exerciseIndex] = targetEx;
 
 			if (field === "completed" && value === true && oldVal !== true) {
-				const rest = targetEx.restDuration ?? userDefaultRest;
-				if (rest > 0) {
+				const rest = targetEx.restDuration || userDefaultRest;
+				if (rest > 0 && activeMode === "LIVE_SESSION") {
 					timer.start(rest);
 				}
 			}
@@ -299,16 +300,44 @@ export default function WorkoutSession({
 
 	if (step === 0) {
 		const footer = (
-			<div className="glass-card p-2 bg-foreground/2 max-w-3xl mx-auto flex items-center justify-between gap-4">
+			<GlassCard className="max-w-3xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 py-4 md:py-3 shadow-[0_-20px_40px_rgba(0,0,0,0.2)] border-foreground/10 backdrop-blur-xl">
+				<div className="flex items-center space-x-3">
+					<div
+						onClick={() => setActiveMode(activeMode === "LIVE_SESSION" ? "MANUAL_LOG" : "LIVE_SESSION")}
+						className={cn(
+							"w-10 h-6 rounded-full relative cursor-pointer transition-colors duration-300",
+							activeMode === "LIVE_SESSION"
+								? "bg-orange-500 border border-orange-500"
+								: "bg-foreground/10 border border-foreground/10",
+						)}>
+						<div
+							className={cn(
+								"absolute top-[3px]  w-4 h-4 bg-white rounded-full transition-all duration-300",
+								activeMode === "LIVE_SESSION" ? "right-1" : "left-1 bg-orange-500",
+							)}
+						/>
+					</div>
+					<div className="flex flex-col text-left">
+						<span className="text-[10px] font-black text-foreground uppercase tracking-wider">
+							Currently Working Out?
+						</span>
+						<span className="text-[8px] font-bold text-foreground/40 uppercase">
+							{activeMode === "LIVE_SESSION" ? "Live Session + Timer" : "Manual History Log"}
+						</span>
+					</div>
+				</div>
+
 				<button
 					onClick={() => {
 						setStep(effectiveBodyWeight > 0 ? 2 : 1);
-						sessionStats.startSession();
+						if (activeMode === "LIVE_SESSION") {
+							sessionStats.startSession();
+						}
 					}}
-					className="flex-1 px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center bg-orange-500 text-black hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(249,115,22,0.3)]">
+					className="w-full md:w-auto px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center bg-orange-500 text-black hover:scale-105 active:scale-95 shadow-[0_20px_40px_rgba(249,115,22,0.3)]">
 					Start Now <ArrowRight className="w-4 h-4 ml-2" />
 				</button>
-			</div>
+			</GlassCard>
 		);
 
 		return (
@@ -321,8 +350,8 @@ export default function WorkoutSession({
 				totalCount={totalCount}
 				progress={progress}
 				date={date}
-				mode={mode}
-				timer={timer}>
+				mode={activeMode}
+				timer={activeMode === "LIVE_SESSION" ? timer : null}>
 				<div className="max-w-4xl mx-auto space-y-6">
 					<GlassCard className="p-6 border-orange-500/10 bg-orange-500/5">
 						<div className="flex items-center justify-between">
@@ -424,7 +453,7 @@ export default function WorkoutSession({
 		);
 
 		return (
-			<PageWithSidebar sidebar={mode !== "MANUAL_LOG" ? <WorkoutSidebar stats={sessionStats.stats} /> : null}>
+			<PageWithSidebar sidebar={activeMode !== "MANUAL_LOG" ? <WorkoutSidebar stats={sessionStats.stats} /> : null}>
 				<SessionLayout
 					title="Step 1: Body Weight"
 					maxWidth="max-w-md"
@@ -433,8 +462,8 @@ export default function WorkoutSession({
 					totalCount={totalCount}
 					progress={progress}
 					date={date}
-					mode={mode}
-					timer={timer}
+					mode={activeMode}
+					timer={activeMode === "LIVE_SESSION" ? timer : null}
 					footer={footer}
 					stats={sessionStats.stats}>
 					<GlassCard className="p-8 space-y-8 flex flex-col items-center justify-center min-h-[40vh]">
@@ -553,7 +582,7 @@ export default function WorkoutSession({
 			}));
 
 		return (
-			<PageWithSidebar sidebar={mode !== "MANUAL_LOG" ? <WorkoutSidebar stats={sessionStats.stats} /> : null}>
+			<PageWithSidebar sidebar={activeMode !== "MANUAL_LOG" ? <WorkoutSidebar stats={sessionStats.stats} /> : null}>
 				{showCelebration && (
 					<WorkoutCelebration
 						stats={celebrationStats}
@@ -571,8 +600,8 @@ export default function WorkoutSession({
 					totalCount={totalCount}
 					progress={progress}
 					date={date}
-					mode={mode}
-					timer={mode === "LIVE_SESSION" ? timer : null}
+					mode={activeMode}
+					timer={activeMode === "LIVE_SESSION" ? timer : null}
 					stats={sessionStats.stats}>
 					<GlassCard className="flex items-center justify-between p-4 px-6 border-orange-500/10 bg-orange-500/5">
 						<div className="flex items-center space-x-3">
@@ -692,9 +721,9 @@ export default function WorkoutSession({
 		);
 
 		return (
-			<PageWithSidebar sidebar={mode !== "MANUAL_LOG" ? <WorkoutSidebar stats={sessionStats.stats} /> : null}>
+			<PageWithSidebar sidebar={activeMode !== "MANUAL_LOG" ? <WorkoutSidebar stats={sessionStats.stats} /> : null}>
 				<SessionLayout
-					timer={mode === "LIVE_SESSION" ? timer : null}
+					timer={activeMode === "LIVE_SESSION" ? timer : null}
 					title={ex.name}
 					subtitle="Logging Exercise"
 					onBack={() => setStep(2)}
@@ -704,7 +733,7 @@ export default function WorkoutSession({
 					totalCount={totalCount}
 					progress={progress}
 					date={date}
-					mode={mode}
+					mode={activeMode}
 					stats={sessionStats.stats}>
 					<GlassCard className="space-y-6 p-6">
 						<div className="flex justify-between items-start border-b border-foreground/5 pb-4">
@@ -729,7 +758,7 @@ export default function WorkoutSession({
 						<WarmupSetsPanel
 							workingWeight={ex.sets[0]?.weight}
 							repsField={ex.sets[0]?.reps ?? ex.targetReps}
-							mode={mode}
+							mode={activeMode}
 						/>
 
 						<div className="space-y-3">
