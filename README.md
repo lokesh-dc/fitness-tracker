@@ -3,10 +3,8 @@
 
 TRAK.FIT is a data-driven cockpit for your training. Designed for athletes who demand precision, TRAK.FIT combines high-fidelity aesthetics with surgical analytics to turn every rep into actionable intelligence.
 
-<img width="1920" height="1440" alt="image" src="https://github.com/user-attachments/assets/f61ac4b9-f287-46e7-9234-c412f335f286" />
+---<img width="1920" height="1440" alt="shot" src="https://github.com/user-attachments/assets/b3a3b8fc-3dd1-47f2-afb1-65fb47a7735f" />
 
-
----
 
 ## 💎 The Athlete's Toolkit
 
