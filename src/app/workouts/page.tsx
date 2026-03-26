@@ -73,13 +73,14 @@ export default async function WorkoutsPage({
 							missedWorkouts={missedWorkouts}
 						/>
 					}
-					mobileWidgets={
-						<HistoryMobileStrip
-							muscleGroups={muscleGroups}
-							volumeTrend={volumeTrend}
-							missedWorkouts={missedWorkouts}
-						/>
-					}>
+					// mobileWidgets={
+					// 	<HistoryMobileStrip
+					// 		muscleGroups={muscleGroups}
+					// 		volumeTrend={volumeTrend}
+					// 		missedWorkouts={missedWorkouts}
+					// 	/>
+					// }
+				>
 					<div className="space-y-6">
 						{/* Weekly Calendar Navigation */}
 						<WeeklyCalendar selectedDateStr={targetDateStr} />
