@@ -15,7 +15,7 @@ export function PRCard({ name, weight, date, increment = 0, className }: PRCardP
   return (
     <GlassCard className={cn("relative overflow-hidden group", className)}>
       <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-        <Trophy className="w-12 h-12 text-orange-500" />
+        <Trophy className="w-12 h-12 text-brand-primary" />
       </div>
       <p className="text-[10px] font-black text-foreground/40 uppercase tracking-widest mb-1">
         {name}

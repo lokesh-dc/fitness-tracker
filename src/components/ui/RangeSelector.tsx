@@ -24,7 +24,7 @@ export function RangeSelector({
           className={cn(
             "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tighter transition-all",
             range === r
-              ? "bg-orange-500 text-black shadow-lg"
+              ? "bg-brand-primary text-black shadow-lg"
               : "text-foreground/40 hover:text-foreground"
           )}
         >

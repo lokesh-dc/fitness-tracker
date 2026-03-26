@@ -19,7 +19,7 @@ export function StreakWidget({ data }: StreakWidgetProps) {
   const isToday = lastWorkoutDate === new Date().toISOString().split('T')[0];
 
   return (
-    <div className="p-4 rounded-2xl space-y-4 bg-gradient-to-br from-orange-500 to-orange-600 border-none shadow-[0_10px_30px_rgba(249,115,22,0.3)] transition-all duration-300">
+    <div className="p-4 rounded-2xl space-y-4 bg-gradient-to-br from-brand-primary to-brand-secondary border-none shadow-[0_10px_30px_rgba(249,115,22,0.3)] transition-all duration-300">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-black text-black/40 uppercase tracking-widest">Streak Tracker</span>
         <Flame className={`w-4 h-4 ${currentStreak > 0 ? 'text-black/80 fill-black/20' : 'text-black/20'}`} />

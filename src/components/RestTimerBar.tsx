@@ -29,13 +29,13 @@ export function RestTimerBar({ timeLeft, totalDuration, onSkip, onAdjust }: Rest
   // 0.1 - 0.0: Red
   const getColor = () => {
     if (progress > 0.3) return "stroke-emerald-500";
-    if (progress > 0.1) return "stroke-orange-500";
+    if (progress > 0.1) return "stroke-brand-primary";
     return "stroke-rose-500";
   };
 
   const getTextColor = () => {
     if (progress > 0.3) return "text-emerald-500";
-    if (progress > 0.1) return "text-orange-500";
+    if (progress > 0.1) return "text-brand-primary";
     return "text-rose-500";
   };
 

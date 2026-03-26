@@ -46,7 +46,7 @@ export function HistoryMobileStrip({
 						? muscleGroups[0].muscleGroup
 						: "—"}
 				</p>
-				<p className="text-[10px] font-bold text-orange-500 mt-1 uppercase tracking-widest">
+				<p className="text-[10px] font-bold text-brand-primary mt-1 uppercase tracking-widest">
 					{muscleGroups && muscleGroups.length > 0
 						? `${muscleGroups[0].percentageOfTotal}% of vol`
 						: "No data"}

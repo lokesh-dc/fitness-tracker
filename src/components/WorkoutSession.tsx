@@ -271,9 +271,9 @@ export default function WorkoutSession({
 	if (!template || exercises.length === 0) {
 		return (
 			<PageWithSidebar>
-				<GlassCard className="p-12 md:mt-12 flex flex-col items-center justify-center text-center space-y-6 border-orange-500/10 bg-orange-500/5 max-w-2xl mx-auto min-h-[50vh]">
-					<div className="w-20 h-20 rounded-3xl bg-orange-500/10 flex items-center justify-center">
-						<CheckCircle2 className="w-10 h-10 text-orange-500" />
+				<GlassCard className="p-12 md:mt-12 flex flex-col items-center justify-center text-center space-y-6 border-brand-primary/10 bg-brand-primary/5 max-w-2xl mx-auto min-h-[50vh]">
+					<div className="w-20 h-20 rounded-3xl bg-brand-primary/10 flex items-center justify-center">
+						<CheckCircle2 className="w-10 h-10 text-brand-primary" />
 					</div>
 					<div className="space-y-2">
 						<h2 className="text-2xl font-black text-foreground uppercase tracking-widest">
@@ -286,7 +286,7 @@ export default function WorkoutSession({
 					</div>
 					<Link
 						href="/dashboard"
-						className="px-8 py-4 bg-orange-500 text-black rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-[0_10px_30px_rgba(249,115,22,0.3)] hover:scale-105 active:scale-95 transition-all mt-4 inline-flex items-center">
+						className="px-8 py-4 bg-brand-primary text-black rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-[0_10px_30px_rgba(249,115,22,0.3)] hover:scale-105 active:scale-95 transition-all mt-4 inline-flex items-center">
 						Back to Dashboard
 					</Link>
 				</GlassCard>
@@ -307,13 +307,13 @@ export default function WorkoutSession({
 						className={cn(
 							"w-10 h-6 rounded-full relative cursor-pointer transition-colors duration-300",
 							activeMode === "LIVE_SESSION"
-								? "bg-orange-500 border border-orange-500"
+								? "bg-brand-primary border border-brand-primary"
 								: "bg-foreground/10 border border-foreground/10",
 						)}>
 						<div
 							className={cn(
 								"absolute top-[3px]  w-4 h-4 bg-white rounded-full transition-all duration-300",
-								activeMode === "LIVE_SESSION" ? "right-1" : "left-1 bg-orange-500",
+								activeMode === "LIVE_SESSION" ? "right-1" : "left-1 bg-brand-primary",
 							)}
 						/>
 					</div>
@@ -334,7 +334,7 @@ export default function WorkoutSession({
 							sessionStats.startSession();
 						}
 					}}
-					className="w-full md:w-auto px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center bg-orange-500 text-black hover:scale-105 active:scale-95 shadow-[0_20px_40px_rgba(249,115,22,0.3)]">
+					className="w-full md:w-auto px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center bg-brand-primary text-black hover:scale-105 active:scale-95 shadow-[0_20px_40px_rgba(249,115,22,0.3)]">
 					Start Now <ArrowRight className="w-4 h-4 ml-2" />
 				</button>
 			</GlassCard>
@@ -353,11 +353,11 @@ export default function WorkoutSession({
 				mode={activeMode}
 				timer={activeMode === "LIVE_SESSION" ? timer : null}>
 				<div className="max-w-4xl mx-auto space-y-6">
-					<GlassCard className="p-6 border-orange-500/10 bg-orange-500/5">
+					<GlassCard className="p-6 border-brand-primary/10 bg-brand-primary/5">
 						<div className="flex items-center justify-between">
 							<div className="flex items-center space-x-3">
-								<div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center">
-									<Dumbbell className="w-5 h-5 text-orange-500" />
+								<div className="w-10 h-10 rounded-xl bg-brand-primary/20 flex items-center justify-center">
+									<Dumbbell className="w-5 h-5 text-brand-primary" />
 								</div>
 								<div>
 									<h3 className="text-xs font-black text-foreground uppercase tracking-widest">
@@ -384,7 +384,7 @@ export default function WorkoutSession({
 
 					<div className="space-y-3">
 						<div className="flex items-center space-x-2 ml-2 mb-2">
-							<Play className="w-3 h-3 text-orange-500" />
+							<Play className="w-3 h-3 text-brand-primary" />
 							<h3 className="text-[10px] font-black text-foreground uppercase tracking-widest">
 								Overview
 							</h3>
@@ -395,9 +395,9 @@ export default function WorkoutSession({
 								className="p-4 flex items-center justify-between group">
 								<div className="flex flex-col gap-3 w-full">
 									{ex.pr && ex.pr > 0 ? (
-										<div className="flex w-fit items-center space-x-1.5 px-2 py-1 rounded-lg bg-orange-500/5 border border-orange-500/10">
-											<Trophy className="w-3 h-3 text-orange-500" />
-											<span className="text-[8px] font-black text-orange-500 uppercase">
+										<div className="flex w-fit items-center space-x-1.5 px-2 py-1 rounded-lg bg-brand-primary/5 border border-brand-primary/10">
+											<Trophy className="w-3 h-3 text-brand-primary" />
+											<span className="text-[8px] font-black text-brand-primary uppercase">
 												{ex.pr} KG
 											</span>
 										</div>
@@ -441,7 +441,7 @@ export default function WorkoutSession({
 			<button
 				onClick={handleBodyWeightSubmit}
 				disabled={!bodyWeight || bodyWeight <= 0 || isSubmittingWeight}
-				className="max-w-3xl mx-auto w-[calc(100%-3rem)] md:w-full px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center bg-orange-500 text-black hover:scale-105 active:scale-95 shadow-[0_20px_40px_rgba(249,115,22,0.3)] backdrop-blur-xl">
+				className="max-w-3xl mx-auto w-[calc(100%-3rem)] md:w-full px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center bg-brand-primary text-black hover:scale-105 active:scale-95 shadow-[0_20px_40px_rgba(249,115,22,0.3)] backdrop-blur-xl">
 				{isSubmittingWeight ? (
 					<Loader2 className="w-5 h-5 animate-spin" />
 				) : (
@@ -482,7 +482,7 @@ export default function WorkoutSession({
 								value={bodyWeight || ""}
 								placeholder="0.0"
 								onChange={(e) => setBodyWeight(Number(e.target.value))}
-								className="w-32 bg-transparent text-5xl text-center font-black text-orange-500 outline-none border-b-2 border-foreground/10 focus:border-orange-500 transition-colors pb-2"
+								className="w-32 bg-transparent text-5xl text-center font-black text-brand-primary outline-none border-b-2 border-foreground/10 focus:border-brand-primary transition-colors pb-2"
 								autoFocus
 							/>
 							<span className="text-xl font-black text-foreground/20 uppercase mb-2">
@@ -504,13 +504,13 @@ export default function WorkoutSession({
 						className={cn(
 							"w-10 h-6 rounded-full relative cursor-pointer transition-colors duration-300",
 							updateTemplate
-								? "bg-orange-500 border border-orange-500"
+								? "bg-brand-primary border border-brand-primary"
 								: "bg-foreground/10 border border-foreground/10",
 						)}>
 						<div
 							className={cn(
 								"absolute top-[3px]  w-4 h-4 bg-white rounded-full transition-all duration-300",
-								updateTemplate ? "right-1" : "left-1 bg-orange-500",
+								updateTemplate ? "right-1" : "left-1 bg-brand-primary",
 							)}
 						/>
 					</div>
@@ -531,7 +531,7 @@ export default function WorkoutSession({
 						"w-full md:w-auto px-10 py-4 md:py-3 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center",
 						showSuccess
 							? "bg-emerald-500 text-white"
-							: "bg-orange-500 text-black hover:scale-105 active:scale-95 shadow-[0_20px_40px_rgba(249,115,22,0.3)]",
+							: "bg-brand-primary text-black hover:scale-105 active:scale-95 shadow-[0_20px_40px_rgba(249,115,22,0.3)]",
 					)}>
 					{isSubmitting ? (
 						<Loader2 className="w-5 h-5 animate-spin" />
@@ -603,19 +603,19 @@ export default function WorkoutSession({
 					mode={activeMode}
 					timer={activeMode === "LIVE_SESSION" ? timer : null}
 					stats={sessionStats.stats}>
-					<GlassCard className="flex items-center justify-between p-4 px-6 border-orange-500/10 bg-orange-500/5">
+					<GlassCard className="flex items-center justify-between p-4 px-6 border-brand-primary/10 bg-brand-primary/5">
 						<div className="flex items-center space-x-3">
 							<span className="text-sm font-bold text-foreground uppercase tracking-widest">
 								Body Weight
 							</span>
-							<span className="text-lg font-black text-orange-500">
+							<span className="text-lg font-black text-brand-primary">
 								{bodyWeight}{" "}
 								<span className="text-xs text-foreground/40">KG</span>
 							</span>
 						</div>
 						<button
 							onClick={() => setStep(1)}
-							className="p-2 text-foreground/40 hover:text-orange-500 transition-colors rounded-lg hover:bg-orange-500/10 flex items-center space-x-2">
+							className="p-2 text-foreground/40 hover:text-brand-primary transition-colors rounded-lg hover:bg-brand-primary/10 flex items-center space-x-2">
 							<Edit2 className="w-4 h-4" />
 							<span className="text-[10px] items-center font-bold uppercase tracking-wider hidden sm:inline-block">
 								Edit
@@ -625,7 +625,7 @@ export default function WorkoutSession({
 
 					<div className="space-y-4">
 						<div className="flex items-center space-x-2 ml-2 mb-2">
-							<Dumbbell className="w-4 h-4 text-orange-500" />
+							<Dumbbell className="w-4 h-4 text-brand-primary" />
 							<h3 className="text-xs font-black text-foreground uppercase tracking-widest">
 								Exercises
 							</h3>
@@ -645,7 +645,7 @@ export default function WorkoutSession({
 											"w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300",
 											(ex as any).isDone
 												? "bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]"
-												: "bg-foreground/5 text-foreground/20 group-hover:text-orange-500",
+												: "bg-foreground/5 text-foreground/20 group-hover:text-brand-primary",
 										)}>
 										{(ex as any).isDone ? (
 											<CheckCircle2 className="w-5 h-5" />
@@ -671,7 +671,7 @@ export default function WorkoutSession({
 										"flex items-center px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
 										(ex as any).isDone
 											? "bg-foreground/5 text-foreground/40 hover:bg-foreground/10"
-											: "bg-orange-500 text-black shadow-[0_0_15px_rgba(249,115,22,0.2)] hover:scale-105 active:scale-95",
+											: "bg-brand-primary text-black shadow-[0_0_15px_rgba(249,115,22,0.2)] hover:scale-105 active:scale-95",
 									)}>
 									{(ex as any).isDone ? "Log Again" : "Log"}
 									{(!ex as any).isDone ? null : (
@@ -691,8 +691,8 @@ export default function WorkoutSession({
 		const footer = (
 			<GlassCard className="max-w-3xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 py-4 md:py-3 shadow-[0_-20px_40px_rgba(0,0,0,0.2)] border-foreground/10 backdrop-blur-xl">
 				<div className="flex items-center space-x-3">
-					<div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
-						<Dumbbell className="w-5 h-5 text-orange-500" />
+					<div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center">
+						<Dumbbell className="w-5 h-5 text-brand-primary" />
 					</div>
 					<div className="flex flex-col text-left">
 						<span className="text-[10px] font-black text-foreground uppercase tracking-wider">
@@ -708,7 +708,7 @@ export default function WorkoutSession({
 				<button
 					onClick={handleSingleExerciseSubmit}
 					disabled={isSubmittingExercise}
-					className="w-full md:w-auto px-10 py-4 md:py-3 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center bg-orange-500 text-black hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(249,115,22,0.3)]">
+					className="w-full md:w-auto px-10 py-4 md:py-3 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center bg-brand-primary text-black hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(249,115,22,0.3)]">
 					{isSubmittingExercise ? (
 						<Loader2 className="w-5 h-5 animate-spin" />
 					) : (
@@ -746,9 +746,9 @@ export default function WorkoutSession({
 								</p>
 							</div>
 							{ex.pr && ex.pr > 0 ? (
-								<div className="flex items-center bg-orange-500/10 border border-orange-500/20 px-2 py-1 rounded-lg">
-									<Trophy className="w-3 h-3 text-orange-500 mr-1.5" />
-									<span className="text-[10px] font-black text-orange-500 uppercase tracking-tighter">
+								<div className="flex items-center bg-brand-primary/10 border border-brand-primary/20 px-2 py-1 rounded-lg">
+									<Trophy className="w-3 h-3 text-brand-primary mr-1.5" />
+									<span className="text-[10px] font-black text-brand-primary uppercase tracking-tighter">
 										PR: {ex.pr} KG
 									</span>
 								</div>
@@ -788,7 +788,7 @@ export default function WorkoutSession({
 													Number(e.target.value),
 												)
 											}
-											className="w-full bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-3 text-center font-bold text-foreground outline-none focus:bg-foreground/10 focus:border-orange-500/50 transition-all font-mono"
+											className="w-full bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-3 text-center font-bold text-foreground outline-none focus:bg-foreground/10 focus:border-brand-primary/50 transition-all font-mono"
 										/>
 									</div>
 									<div className="col-span-3">
@@ -803,7 +803,7 @@ export default function WorkoutSession({
 													Number(e.target.value),
 												)
 											}
-											className="w-full bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-3 text-center font-bold text-foreground outline-none focus:bg-foreground/10 focus:border-orange-500/50 transition-all font-mono"
+											className="w-full bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-3 text-center font-bold text-foreground outline-none focus:bg-foreground/10 focus:border-brand-primary/50 transition-all font-mono"
 										/>
 									</div>
 									<div className="col-span-4 flex items-center justify-end gap-2 pr-1">
@@ -819,8 +819,8 @@ export default function WorkoutSession({
 											className={cn(
 												"w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-all",
 												set.completed
-													? "bg-orange-500 border-orange-500 text-black shadow-[0_0_15px_rgba(249,115,22,0.4)]"
-													: "bg-orange-500/5 border-orange-500/20 text-orange-500/50 hover:border-orange-500/50 hover:bg-orange-500/10",
+													? "bg-brand-primary border-brand-primary text-black shadow-[0_0_15px_rgba(249,115,22,0.4)]"
+													: "bg-brand-primary/5 border-brand-primary/20 text-brand-primary/50 hover:border-brand-primary/50 hover:bg-brand-primary/10",
 											)}>
 											<CheckCircle2
 												className={cn(
@@ -853,7 +853,7 @@ export default function WorkoutSession({
 	return (
 		<div className="flex items-center justify-center min-h-[60vh]">
 			<div className="text-center space-y-4">
-				<Loader2 className="w-10 h-10 animate-spin text-orange-500 mx-auto" />
+				<Loader2 className="w-10 h-10 animate-spin text-brand-primary mx-auto" />
 				<p className="text-xs font-bold text-foreground/40 uppercase tracking-[0.2em]">
 					Loading Workout...
 				</p>
@@ -897,13 +897,13 @@ const SessionLayout = ({
 		{stats && <PRsFeedDisplay prsHit={stats.prsHit} variant="mobile-toast" />}
 		<div className="space-y-6">
 			{date && date !== format(new Date(), "yyyy-MM-dd") && (
-				<div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-4 flex items-center justify-between mb-2">
+				<div className="bg-brand-primary/10 border border-brand-primary/20 rounded-2xl p-4 flex items-center justify-between mb-2">
 					<div className="flex items-center space-x-3">
-						<div className="w-8 h-8 rounded-xl bg-orange-500/20 flex items-center justify-center">
-							<Save className="w-4 h-4 text-orange-500" />
+						<div className="w-8 h-8 rounded-xl bg-brand-primary/20 flex items-center justify-center">
+							<Save className="w-4 h-4 text-brand-primary" />
 						</div>
 						<div>
-							<p className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
+							<p className="text-[10px] font-black text-brand-primary uppercase tracking-widest">
 								Historical Logging
 							</p>
 							<p className="text-xs font-bold text-foreground/60 uppercase">
@@ -930,7 +930,7 @@ const SessionLayout = ({
 				)}
 				<div className="text-center w-full">
 					{subtitle && (
-						<p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em] mb-1">
+						<p className="text-[10px] font-black text-brand-primary uppercase tracking-[0.2em] mb-1">
 							{subtitle}
 						</p>
 					)}
@@ -951,7 +951,7 @@ const SessionLayout = ({
 				<div className="px-2 space-y-3">
 					<div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-foreground/40">
 						<span>Progress</span>
-						<span className="text-orange-500">
+						<span className="text-brand-primary">
 							{completedCount} / {totalCount} Exercises
 						</span>
 					</div>
@@ -962,7 +962,7 @@ const SessionLayout = ({
 								className={cn(
 									"h-full flex-1 rounded-full transition-all duration-500 ease-out",
 									(ex as any).isDone
-										? "bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.4)]"
+										? "bg-brand-primary shadow-[0_0_10px_rgba(249,115,22,0.4)]"
 										: "bg-foreground/5 border border-foreground/5",
 								)}
 							/>

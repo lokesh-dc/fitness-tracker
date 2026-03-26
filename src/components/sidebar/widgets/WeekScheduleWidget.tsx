@@ -56,7 +56,7 @@ export const WeekScheduleWidget: React.FC<WeekScheduleWidgetProps> = ({
                     <div className="flex items-center gap-3">
                       <span className={cn(
                         "text-[10px] font-black uppercase w-8",
-                        isHighlight ? "text-orange-500" : "text-foreground/40"
+                        isHighlight ? "text-brand-primary" : "text-foreground/40"
                       )}>
                         {day.dayLabel}
                       </span>

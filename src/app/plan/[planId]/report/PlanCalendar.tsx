@@ -63,7 +63,7 @@ export function PlanCalendar({
 				</h2>
 				<div className="flex items-center space-x-4">
 					<div className="flex items-center space-x-1.5">
-						<div className="w-2.5 h-2.5 rounded-sm bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]" />
+						<div className="w-2.5 h-2.5 rounded-sm bg-brand-primary shadow-[0_0_8px_rgba(249,115,22,0.4)]" />
 						<span className="text-[10px] font-black text-foreground/40 uppercase tracking-tight">
 							Logged
 						</span>

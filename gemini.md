@@ -20,7 +20,7 @@
 ## Design System
 
 - **Aesthetics**: Premium, dark-themed glassmorphism (ensure light mode compatibility by avoiding hardcoded `text-white`).
-- **Colors**: `orange-500` accents, theme-aware glass cards (`text-foreground` instead of `text-white`).
+- **Colors**: Use `brand-primary` and `brand-secondary` Tailwind classes for accents. These are controlled via the `--brand-accent` CSS variable in `globals.css`. Never use hardcoded Tailwind color names like `orange-500` for primary accents.
 - **Components**: Use `GlassCard` for all container elements.
 - **Animations**: Use `framer-motion` for transitions and the `WorkoutCelebration` component.
 

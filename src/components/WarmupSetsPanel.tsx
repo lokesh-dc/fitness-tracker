@@ -57,7 +57,7 @@ export function WarmupSetsPanel({
   if (result && result.workingWeight < 10) {
     return (
       <div className="p-4 rounded-xl border border-dashed border-foreground/10 flex items-center justify-center space-x-2">
-         <Info className="w-4 h-4 text-orange-500/40" />
+         <Info className="w-4 h-4 text-brand-primary/40" />
          <span className="text-[10px] font-bold text-foreground/20 uppercase tracking-widest">
            Weight too low for warm-up progression
          </span>
@@ -81,18 +81,18 @@ export function WarmupSetsPanel({
     <div className="w-full space-y-2">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-3 rounded-xl bg-orange-500/5 border border-orange-500/10 hover:bg-orange-500/10 transition-all group"
+        className="w-full flex items-center justify-between p-3 rounded-xl bg-brand-primary/5 border border-brand-primary/10 hover:bg-brand-primary/10 transition-all group"
       >
         <div className="flex items-center space-x-3">
-          <div className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
+          <div className="w-2 h-2 rounded-full bg-brand-primary shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
           <span className="text-[10px] font-black text-foreground uppercase tracking-widest">
             Warm-up Suggestions for {workingWeight}{unit} — {schemeLabels[result.scheme]}
           </span>
         </div>
         {isOpen ? (
-          <ChevronUp className="w-4 h-4 text-foreground/40 group-hover:text-orange-500" />
+          <ChevronUp className="w-4 h-4 text-foreground/40 group-hover:text-brand-primary" />
         ) : (
-          <ChevronDown className="w-4 h-4 text-foreground/40 group-hover:text-orange-500" />
+          <ChevronDown className="w-4 h-4 text-foreground/40 group-hover:text-brand-primary" />
         )}
       </button>
 
@@ -123,13 +123,13 @@ export function WarmupSetsPanel({
                           <div className={cn(
                             "w-5 h-5 rounded-md border flex items-center justify-center transition-all",
                             checkedSets[idx]
-                              ? "bg-orange-500 border-orange-500"
+                              ? "bg-brand-primary border-brand-primary"
                               : "border-foreground/10 bg-transparent"
                           )}>
                             {checkedSets[idx] && <Check className="w-3 h-3 text-black" />}
                           </div>
                         )}
-                        <span className="px-1.5 py-0.5 rounded bg-orange-500/20 text-[9px] font-black text-orange-500 uppercase tracking-tighter">
+                        <span className="px-1.5 py-0.5 rounded bg-brand-primary/20 text-[9px] font-black text-brand-primary uppercase tracking-tighter">
                           {set.percentage}%
                         </span>
                         <div className="flex flex-col">
@@ -140,7 +140,7 @@ export function WarmupSetsPanel({
                             {set.weight}{unit} × {set.reps} reps
                           </span>
                           {isVeryLight && (
-                            <span className="text-[8px] font-bold text-orange-500/60 uppercase">
+                            <span className="text-[8px] font-bold text-brand-primary/60 uppercase">
                               Consider skipping — very light
                             </span>
                           )}
@@ -156,7 +156,7 @@ export function WarmupSetsPanel({
                   {result.sets.length} sets · {result.scheme} scheme
                 </span>
                 {mode === 'PLAN_DESIGNER' && (
-                  <span className="text-[9px] font-black text-orange-500/60 uppercase tracking-widest">
+                  <span className="text-[9px] font-black text-brand-primary/60 uppercase tracking-widest">
                     Reference only
                   </span>
                 )}

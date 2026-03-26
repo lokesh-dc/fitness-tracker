@@ -34,7 +34,7 @@ export function ExerciseSelector({ exerciseNames, selectedExercise, onSelect }: 
     <div className="relative w-full max-w-md" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-14 bg-foreground/5 border border-foreground/10 rounded-2xl px-6 flex items-center justify-between group hover:border-orange-500/50 transition-all"
+        className="w-full h-14 bg-foreground/5 border border-foreground/10 rounded-2xl px-6 flex items-center justify-between group hover:border-brand-primary/50 transition-all"
       >
         <div className="flex flex-col items-start">
           <span className="text-[8px] font-black text-foreground/40 uppercase tracking-widest">Exercise</span>
@@ -44,7 +44,7 @@ export function ExerciseSelector({ exerciseNames, selectedExercise, onSelect }: 
       </button>
 
       {isOpen && (
-        <GlassCard className="absolute top-16 left-0 right-0 z-50 p-2 shadow-2xl border-orange-500/10 animate-in fade-in slide-in-from-top-2 duration-200">
+        <GlassCard className="absolute top-16 left-0 right-0 z-50 p-2 shadow-2xl border-brand-primary/10 animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="relative mb-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/20" />
             <input
@@ -52,7 +52,7 @@ export function ExerciseSelector({ exerciseNames, selectedExercise, onSelect }: 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search exercises..."
-              className="w-full bg-foreground/5 border border-foreground/5 rounded-xl pl-10 pr-4 py-2 text-sm outline-none focus:border-orange-500/30"
+              className="w-full bg-foreground/5 border border-foreground/5 rounded-xl pl-10 pr-4 py-2 text-sm outline-none focus:border-brand-primary/30"
             />
           </div>
           
@@ -70,7 +70,7 @@ export function ExerciseSelector({ exerciseNames, selectedExercise, onSelect }: 
                   }}
                   className={cn(
                     "w-full text-left px-4 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-between group",
-                    selectedExercise === name ? "bg-orange-500 text-black" : "hover:bg-foreground/5 text-foreground/60 hover:text-foreground"
+                    selectedExercise === name ? "bg-brand-primary text-black" : "hover:bg-foreground/5 text-foreground/60 hover:text-foreground"
                   )}
                 >
                   <span className="truncate">{name}</span>

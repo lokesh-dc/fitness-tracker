@@ -30,7 +30,7 @@ export function MostImprovedWidget({
 			) : (
 				<div className="space-y-4">
 					<div className="flex items-center gap-2">
-						<Rocket className="w-5 h-5 text-orange-500 shrink-0" />
+						<Rocket className="w-5 h-5 text-brand-primary shrink-0" />
 						<span className="text-lg font-bold text-foreground truncate">
 							{mostImproved.exerciseName}
 						</span>
@@ -41,13 +41,13 @@ export function MostImprovedWidget({
 							{mostImproved.startWeight}kg
 						</span>
 						<div className="flex-1 flex items-center justify-center px-2">
-							<div className="w-full h-px bg-orange-500/20 relative">
-								<div className="absolute -top-1.5 left-1/2 -translate-x-1/2 bg-transparent text-[10px] text-orange-500">
+							<div className="w-full h-px bg-brand-primary/20 relative">
+								<div className="absolute -top-1.5 left-1/2 -translate-x-1/2 bg-transparent text-[10px] text-brand-primary">
 									──→
 								</div>
 							</div>
 						</div>
-						<span className="text-lg font-bold text-orange-500">
+						<span className="text-lg font-bold text-brand-primary">
 							{mostImproved.endWeight}kg
 						</span>
 					</div>

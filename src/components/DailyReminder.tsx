@@ -91,11 +91,11 @@ export function DailyReminder() {
 					<div className="p-5">
 						<div className="flex justify-between items-center">
 							<div
-								className={`p-3 rounded-2xl ${isNight ? "bg-indigo-500/10" : "bg-orange-500/10"}`}>
+								className={`p-3 rounded-2xl ${isNight ? "bg-indigo-500/10" : "bg-brand-primary/10"}`}>
 								{isNight ? (
 									<Moon className="w-6 h-6 text-indigo-500" />
 								) : (
-									<Sun className="w-6 h-6 text-orange-500" />
+									<Sun className="w-6 h-6 text-brand-primary" />
 								)}
 							</div>
 						</div>
@@ -117,8 +117,8 @@ export function DailyReminder() {
 
 						<div className="glass-card bg-foreground/5 border-foreground/5 p-4 mb-8">
 							<div className="flex items-center space-x-3">
-								<div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center">
-									<Clock className="w-5 h-5 text-orange-500" />
+								<div className="w-10 h-10 rounded-xl bg-brand-primary/20 flex items-center justify-center">
+									<Clock className="w-5 h-5 text-brand-primary" />
 								</div>
 								<div>
 									<h3 className="text-sm font-bold text-foreground">
@@ -143,7 +143,7 @@ export function DailyReminder() {
 							<Link
 								href="/workout"
 								onClick={() => handleDismiss(true)}
-								className={`px-4 py-3 rounded-2xl text-sm font-bold text-white flex items-center justify-center space-x-2 transition-all shadow-lg ${isNight ? "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/20" : "bg-orange-500 hover:bg-orange-600 shadow-orange-500/20"}`}>
+								className={`px-4 py-3 rounded-2xl text-sm font-bold text-white flex items-center justify-center space-x-2 transition-all shadow-lg ${isNight ? "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/20" : "bg-brand-primary hover:bg-brand-secondary shadow-brand-primary/20"}`}>
 								<span>{isNight ? "Log Now" : "Take me there"}</span>
 								<ArrowRight className="w-4 h-4 ml-1" />
 							</Link>

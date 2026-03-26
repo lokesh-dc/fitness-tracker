@@ -37,7 +37,7 @@ export default function WeightTrendChart({ data }: WeightTrendChartProps) {
           <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">
             {format(parseISO(label), "d MMMM ''yy")}
           </p>
-          <p className="text-sm font-bold text-orange-500">
+          <p className="text-sm font-bold text-brand-primary">
             {payload[0].value} <span className="text-[10px] text-white/60">KG</span>
           </p>
         </div>
@@ -61,8 +61,8 @@ export default function WeightTrendChart({ data }: WeightTrendChartProps) {
           <AreaChart data={filteredData}>
             <defs>
               <linearGradient id="colorWeight" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--brand-accent)" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="var(--brand-accent)" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
@@ -81,7 +81,7 @@ export default function WeightTrendChart({ data }: WeightTrendChartProps) {
             <Area
               type="monotone"
               dataKey="bodyWeight"
-              stroke="#f97316"
+              stroke="var(--brand-accent)"
               strokeWidth={3}
               fillOpacity={1}
               fill="url(#colorWeight)"

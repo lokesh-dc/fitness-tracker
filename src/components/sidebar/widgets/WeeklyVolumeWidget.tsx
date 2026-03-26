@@ -74,7 +74,7 @@ export function WeeklyVolumeWidget({
 
 				<div className="pt-3 border-t border-foreground/5">
 					{isFirstWeek ? (
-						<p className="text-xs text-orange-500 font-bold uppercase tracking-wider">
+						<p className="text-xs text-brand-primary font-bold uppercase tracking-wider">
 							First week of training logged! 🚀
 						</p>
 					) : thisWeekVolume === 0 ? (

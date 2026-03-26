@@ -76,14 +76,14 @@ export default async function ProfilePage() {
 				<GlassCard className="flex items-center justify-between p-8 group">
 					<div className="flex items-center space-x-6">
 						<div className="relative">
-							<div className="w-20 h-20 rounded-3xl border-2 border-orange-500/50 p-1 group-hover:scale-105 transition-transform duration-500">
+							<div className="w-20 h-20 rounded-3xl border-2 border-brand-primary/50 p-1 group-hover:scale-105 transition-transform duration-500">
 								<img
 									src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${userName}`}
 									alt="Profile"
 									className="w-full h-full rounded-2xl object-cover"
 								/>
 							</div>
-							<div className="absolute -bottom-1 -right-1 w-6 h-6 bg-orange-500 rounded-full border-4 border-background flex items-center justify-center">
+							<div className="absolute -bottom-1 -right-1 w-6 h-6 bg-brand-primary rounded-full border-4 border-background flex items-center justify-center">
 								<div className="w-2 h-2 bg-white rounded-full animate-pulse" />
 							</div>
 						</div>
@@ -98,7 +98,7 @@ export default async function ProfilePage() {
 								Joined {format(joinedDate, "d MMMM ''yy")}
 							</p>
 							<div className="mt-3 flex items-center space-x-2">
-								<span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-600 dark:text-orange-500 uppercase tracking-widest border border-orange-500/30">
+								<span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-brand-primary/20 text-brand-secondary dark:text-brand-primary uppercase tracking-widest border border-brand-primary/30">
 									Level {level}
 								</span>
 								<span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-foreground/5 text-foreground/60 uppercase tracking-widest border border-foreground/10">
@@ -133,7 +133,7 @@ export default async function ProfilePage() {
 										key={itemIdx}
 										className="p-4 flex items-center justify-between group cursor-pointer hover:bg-foreground/5 transition-all">
 										<div className="flex items-center space-x-4">
-											<div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center text-foreground/60 group-hover:text-orange-500 group-hover:bg-orange-500/10 transition-colors">
+											<div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center text-foreground/60 group-hover:text-brand-primary group-hover:bg-brand-primary/10 transition-colors">
 												{item.icon}
 											</div>
 											<div>

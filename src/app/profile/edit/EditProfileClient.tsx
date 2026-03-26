@@ -97,7 +97,7 @@ export function EditProfileClient({
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-sm text-white outline-none focus:border-orange-500/50 transition-all focus:bg-white/[0.07]"
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-sm text-white outline-none focus:border-brand-primary/50 transition-all focus:bg-white/[0.07]"
                 placeholder="Your name"
               />
             </div>
@@ -110,11 +110,11 @@ export function EditProfileClient({
               <input
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-sm text-white outline-none focus:border-orange-500/50 transition-all focus:bg-white/[0.07]"
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-sm text-white outline-none focus:border-brand-primary/50 transition-all focus:bg-white/[0.07]"
                 placeholder="email@example.com"
               />
               {email !== initialEmail && (
-                <p className="text-[9px] text-orange-500/60 font-medium ml-1 flex items-center space-x-1">
+                <p className="text-[9px] text-brand-primary/60 font-medium ml-1 flex items-center space-x-1">
                   <RefreshCw className="w-2 h-2 animate-spin" />
                   <span>Changing email requires re-verification</span>
                 </p>
@@ -130,7 +130,7 @@ export function EditProfileClient({
                 <select
                   value={gender}
                   onChange={(e) => setGender(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-sm text-white outline-none focus:border-orange-500/50 transition-all focus:bg-white/[0.07] appearance-none cursor-pointer"
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-sm text-white outline-none focus:border-brand-primary/50 transition-all focus:bg-white/[0.07] appearance-none cursor-pointer"
                 >
                   <option value="" disabled className="bg-zinc-900">Select Gender</option>
                   <option value="male" className="bg-zinc-900">Male</option>
@@ -154,7 +154,7 @@ export function EditProfileClient({
                 step="0.1"
                 value={weight}
                 onChange={(e) => setWeight(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-sm text-white outline-none focus:border-orange-500/50 transition-all focus:bg-white/[0.07]"
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-sm text-white outline-none focus:border-brand-primary/50 transition-all focus:bg-white/[0.07]"
                 placeholder="0.0"
               />
             </div>

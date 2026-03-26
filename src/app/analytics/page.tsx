@@ -95,7 +95,7 @@ export default async function AnalyticsPage() {
 								</h2>
 								<Link
 									href="#"
-									className="text-xs font-bold text-orange-500 hover:underline">
+									className="text-xs font-bold text-brand-primary hover:underline">
 									View All
 								</Link>
 							</div>

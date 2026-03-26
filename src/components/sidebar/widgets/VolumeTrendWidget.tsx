@@ -29,14 +29,14 @@ export function VolumeTrendWidget({ volumeData }: { volumeData: MonthlyVolumeTre
           <AreaChart data={months} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
             <defs>
               <linearGradient id="volumeGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#f97316" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--brand-accent)" stopOpacity={0.4} />
+                <stop offset="95%" stopColor="var(--brand-accent)" stopOpacity={0} />
               </linearGradient>
             </defs>
             <Area
               type="monotone"
               dataKey="totalVolume"
-              stroke="#f97316"
+              stroke="var(--brand-accent)"
               strokeWidth={3}
               fill="url(#volumeGrad)"
               dot={false}

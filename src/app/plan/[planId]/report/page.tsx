@@ -59,7 +59,7 @@ export default async function PlanReportPage({
 						{/* Summary Stats */}
 						<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 							<GlassCard className="p-4 flex flex-col items-center justify-center text-center space-y-2">
-								<Activity className="w-5 h-5 text-orange-500" />
+								<Activity className="w-5 h-5 text-brand-primary" />
 								<p className="text-[10px] font-black uppercase text-foreground/40 tracking-widest">
 									Sessions
 								</p>
@@ -69,7 +69,7 @@ export default async function PlanReportPage({
 							</GlassCard>
 
 							<GlassCard className="p-4 flex flex-col items-center justify-center text-center space-y-2">
-								<Calendar className="w-5 h-5 text-orange-500" />
+								<Calendar className="w-5 h-5 text-brand-primary" />
 								<p className="text-[10px] font-black uppercase text-foreground/40 tracking-widest">
 									Weeks
 								</p>
@@ -79,7 +79,7 @@ export default async function PlanReportPage({
 							</GlassCard>
 
 							<GlassCard className="p-4 flex flex-col items-center justify-center text-center space-y-2">
-								<Dumbbell className="w-5 h-5 text-orange-500" />
+								<Dumbbell className="w-5 h-5 text-brand-primary" />
 								<p className="text-[10px] font-black uppercase text-foreground/40 tracking-widest">
 									Volume
 								</p>
@@ -92,7 +92,7 @@ export default async function PlanReportPage({
 								{report.weightChange >= 0 ? (
 									<TrendingUp className="w-5 h-5 text-emerald-500" />
 								) : (
-									<TrendingDown className="w-5 h-5 text-orange-500" />
+									<TrendingDown className="w-5 h-5 text-brand-primary" />
 								)}
 								<p className="text-[10px] font-black uppercase text-foreground/40 tracking-widest">
 									Weight Change
@@ -115,11 +115,11 @@ export default async function PlanReportPage({
 										key={idx}
 										className="p-4 flex items-center justify-between group overflow-hidden relative">
 										<div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-											<Trophy className="w-12 h-12 text-orange-500" />
+											<Trophy className="w-12 h-12 text-brand-primary" />
 										</div>
 										<div className="flex items-center space-x-4">
-											<div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
-												<Trophy className="w-5 h-5 text-orange-500" />
+											<div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center">
+												<Trophy className="w-5 h-5 text-brand-primary" />
 											</div>
 											<div>
 												<h4 className="text-sm font-bold text-foreground">
@@ -144,8 +144,8 @@ export default async function PlanReportPage({
 						</section>
 
 						{/* Closing card */}
-						<GlassCard className="p-8 text-center bg-gradient-to-br from-orange-500/10 to-transparent border-orange-500/20">
-							<Trophy className="w-12 h-12 text-orange-500 mx-auto mb-4" />
+						<GlassCard className="p-8 text-center bg-gradient-to-br from-brand-primary/10 to-transparent border-brand-primary/20">
+							<Trophy className="w-12 h-12 text-brand-primary mx-auto mb-4" />
 							<h3 className="text-xl font-black text-foreground uppercase tracking-tight mb-2">
 								Cycle Completed!
 							</h3>
@@ -155,7 +155,7 @@ export default async function PlanReportPage({
 							</p>
 							<Link
 								href="/plan/designer"
-								className="inline-flex items-center space-x-2 px-8 py-4 bg-orange-500 text-black rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-105 active:scale-95 transition-all shadow-[0_10px_20px_rgba(249,115,22,0.3)]">
+								className="inline-flex items-center space-x-2 px-8 py-4 bg-brand-primary text-black rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-105 active:scale-95 transition-all shadow-[0_10px_20px_rgba(249,115,22,0.3)]">
 								Start New Plan
 							</Link>
 						</GlassCard>

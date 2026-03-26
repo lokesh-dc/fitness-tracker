@@ -14,7 +14,7 @@ interface StatCardProps {
 
 export function StatCard({ label, value, unit, icon, status, color }: StatCardProps) {
   const statusColors = {
-    Good: "bg-orange-500/20 text-orange-600 dark:text-orange-400 border-orange-500/30",
+    Good: "bg-brand-primary/20 text-brand-secondary dark:text-brand-primary/80 border-brand-primary/30",
     Average: "bg-foreground/5 text-foreground/60 border-foreground/10",
     Poor: "bg-rose-500/20 text-rose-600 dark:text-rose-400 border-rose-500/30",
   };

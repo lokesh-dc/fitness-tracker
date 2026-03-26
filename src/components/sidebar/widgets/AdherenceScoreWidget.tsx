@@ -15,7 +15,7 @@ export const AdherenceScoreWidget: React.FC<AdherenceScoreWidgetProps> = ({
 
   const getPercentColor = (percent: number) => {
     if (percent >= 80) return 'text-emerald-500';
-    if (percent >= 50) return 'text-orange-500';
+    if (percent >= 50) return 'text-brand-primary';
     return 'text-rose-500';
   };
 

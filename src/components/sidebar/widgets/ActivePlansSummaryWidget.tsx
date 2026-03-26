@@ -15,7 +15,7 @@ export const ActivePlansSummaryWidget: React.FC<ActivePlansSummaryWidgetProps> =
 
   const getPercentColor = (percent: number) => {
     if (percent >= 80) return 'text-emerald-500';
-    if (percent >= 50) return 'text-orange-500';
+    if (percent >= 50) return 'text-brand-primary';
     return 'text-rose-500';
   };
 
@@ -52,7 +52,7 @@ export const ActivePlansSummaryWidget: React.FC<ActivePlansSummaryWidgetProps> =
                   <div className="flex items-center gap-3">
                     <div className="flex-1 h-1.5 bg-foreground/10 rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-orange-500 rounded-full transition-all duration-500"
+                        className="h-full bg-brand-primary rounded-full transition-all duration-500"
                         style={{ width: `${plan.progressPercent}%` }}
                       />
                     </div>
@@ -71,7 +71,7 @@ export const ActivePlansSummaryWidget: React.FC<ActivePlansSummaryWidgetProps> =
             )}
 
             {isWeekStarting && (
-              <p className="text-[10px] font-black text-orange-500/60 uppercase text-center pt-1 animate-pulse">
+              <p className="text-[10px] font-black text-brand-primary/60 uppercase text-center pt-1 animate-pulse">
                 Week starts Monday
               </p>
             )}

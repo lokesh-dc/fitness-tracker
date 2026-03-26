@@ -84,8 +84,8 @@ export function ExerciseTimeline({ exerciseNames, initialExercise }: ExerciseTim
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-4 flex-1">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-orange-500" />
+            <div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center">
+              <TrendingUp className="w-6 h-6 text-brand-primary" />
             </div>
             <div>
               <h2 className="text-2xl font-black text-foreground uppercase tracking-tight">Progress Timeline</h2>
@@ -111,7 +111,7 @@ export function ExerciseTimeline({ exerciseNames, initialExercise }: ExerciseTim
         <GlassCard className="p-8 space-y-8 min-h-[500px] relative overflow-hidden flex-[3]">
           {isLoading ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/50 backdrop-blur-sm z-10">
-              <Loader2 className="w-10 h-10 text-orange-500 animate-spin mb-4" />
+              <Loader2 className="w-10 h-10 text-brand-primary animate-spin mb-4" />
               <p className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Analyzing your data...</p>
             </div>
           ) : null}
@@ -121,7 +121,7 @@ export function ExerciseTimeline({ exerciseNames, initialExercise }: ExerciseTim
               <div className="flex flex-col">
                 <span className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Selected Period</span>
                 <span className="text-sm font-bold text-foreground flex items-center">
-                  <Calendar className="w-3 h-3 mr-2 text-orange-500/60" />
+                  <Calendar className="w-3 h-3 mr-2 text-brand-primary/60" />
                   {range === "All" ? "Full History" : range}
                 </span>
               </div>
@@ -136,7 +136,7 @@ export function ExerciseTimeline({ exerciseNames, initialExercise }: ExerciseTim
 
             <div className="flex items-center space-x-4">
                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-1 bg-orange-500 rounded-full" />
+                  <div className="w-3 h-1 bg-brand-primary rounded-full" />
                   <span className="text-[8px] font-black text-foreground/60 uppercase">Max Weight</span>
                </div>
                <div className="flex items-center space-x-2">
@@ -155,14 +155,14 @@ export function ExerciseTimeline({ exerciseNames, initialExercise }: ExerciseTim
       </div>
       
       {filteredData.length < 2 && !isLoading && (
-        <div className="p-12 rounded-3xl border-2 border-dashed border-orange-500/10 bg-orange-500/5 flex flex-col items-center justify-center text-center space-y-4">
-           <div className="w-16 h-16 bg-orange-500/10 rounded-full flex items-center justify-center">
-              <TrendingUp className="w-8 h-8 text-orange-500/40" />
+        <div className="p-12 rounded-3xl border-2 border-dashed border-brand-primary/10 bg-brand-primary/5 flex flex-col items-center justify-center text-center space-y-4">
+           <div className="w-16 h-16 bg-brand-primary/10 rounded-full flex items-center justify-center">
+              <TrendingUp className="w-8 h-8 text-brand-primary/40" />
            </div>
            <div className="max-w-xs space-y-1">
              <h3 className="text-lg font-black text-foreground uppercase tracking-tight">Need More Data</h3>
              <p className="text-xs font-bold text-foreground/40 uppercase tracking-widest">
-               Log at least 2 sessions for <span className="text-orange-500">{selectedExercise}</span> to see a clear trend.
+               Log at least 2 sessions for <span className="text-brand-primary">{selectedExercise}</span> to see a clear trend.
              </p>
            </div>
         </div>
