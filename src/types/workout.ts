@@ -161,3 +161,20 @@ export interface WeekScheduleDay {
     status: DayStatus;
   }[];
 }
+
+export interface MostImprovedExercise {
+  exerciseName: string;
+  startWeight: number;
+  endWeight: number;
+  improvementPercent: number;
+  improvementKg: number;
+  sessionCount: number;
+}
+
+export interface WeeklyVolumeComparison {
+  thisWeekVolume: number;
+  lastWeekVolume: number;
+  differenceKg: number;
+  differencePercent: number;
+  trendDirection: 'up' | 'down' | 'neutral';
+}

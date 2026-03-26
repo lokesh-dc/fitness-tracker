@@ -2,7 +2,7 @@
 
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/db-utils";
-import { WeightTrendData, SetLog, ExerciseTimelineEntry } from "@/types/workout";
+import { WeightTrendData, SetLog, ExerciseTimelineEntry, MostImprovedExercise, WeeklyVolumeComparison } from "@/types/workout";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
@@ -491,7 +491,7 @@ export async function getWeekSnapshot(): Promise<{
         for (let d = 0; d < 7; d++) {
           const hasSpecificWeek = allTemplates.some(t => t.dayOfWeek === d && t.weekNumber === weekIndex);
           const hasWeek1 = allTemplates.some(t => t.dayOfWeek === d && t.weekNumber === 1);
-          
+
           if (hasSpecificWeek || hasWeek1) {
             const normalizedDay = d === 0 ? 6 : d - 1;
             plannedDays.push(normalizedDay);
@@ -790,20 +790,20 @@ export async function getMissedWorkoutsThisMonth(userIdStr: string) {
     today.setHours(23, 59, 59, 999);
 
     const planStart = new Date(activePlan.startDate + "T00:00:00");
-    
+
     // Iterate from month start to today or month end
     const cursor = new Date(monthStart);
     while (cursor <= today && cursor <= monthEnd) {
       // Check if plan was active on this day
       if (cursor >= planStart) {
         const dayOfWeek = cursor.getDay();
-        
+
         // Calculate week index relative to plan start
         const diffInDays = Math.floor((cursor.getTime() - planStart.getTime()) / (1000 * 60 * 60 * 24));
         const weekIndex = Math.floor(diffInDays / 7) + 1;
-        
+
         if (weekIndex <= activePlan.numWeeks) {
-          const hasSession = templates.some(t => 
+          const hasSession = templates.some(t =>
             t.dayOfWeek === dayOfWeek && (t.weekNumber === weekIndex || t.weekNumber === 1)
           );
           if (hasSession) sessionsPlanned++;
@@ -821,17 +821,218 @@ export async function getMissedWorkoutsThisMonth(userIdStr: string) {
       sessionsLogged,
       sessionsPlanned,
       sessionsMissed,
-      completionPercent,
+      completionPercent: sessionsPlanned > 0 ? Math.round((sessionsLogged / sessionsPlanned) * 100) : 100,
       hasActivePlan: true,
     };
   } catch (err) {
     console.error("Error in getMissedWorkoutsThisMonth:", err);
+    return { sessionsLogged: 0, sessionsPlanned: 0, sessionsMissed: 0, completionPercent: 0, hasActivePlan: false };
+  }
+}
+
+export async function getMostImprovedExercise(
+  userId: string,
+  days: number = 30
+): Promise<MostImprovedExercise | null> {
+  try {
+    const db = await getDb();
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+
+    const pipeline = [
+      // Step 1: Match logs in last 30 days
+      {
+        $match: {
+          userId: new ObjectId(userId),
+          date: { $gte: since }
+        }
+      },
+
+      // Step 2: Unwind exercises
+      { $unwind: '$exercises' },
+
+      // Step 3: Only completed exercises
+      { $match: { 'exercises.isDone': true } },
+
+      // Step 4: Unwind sets
+      { $unwind: '$exercises.sets' },
+
+      // Step 5: Filter zero-weight sets
+      {
+        $match: {
+          'exercises.sets.weight': { $gt: 0 },
+          'exercises.sets.reps': { $gt: 0 },
+        }
+      },
+
+      // Step 6: Group by exercise name + date
+      // Get max weight per session per exercise
+      {
+        $group: {
+          _id: {
+            exerciseName: '$exercises.name',
+            date: { $dateToString: { format: "%Y-%m-%d", date: "$date" } }
+          },
+          maxWeight: { $max: '$exercises.sets.weight' }
+        }
+      },
+
+      // Step 7: Sort by date ascending within each exercise
+      { $sort: { '_id.date': 1 } },
+
+      // Step 8: Group by exercise name — collect all session weights
+      {
+        $group: {
+          _id: '$_id.exerciseName',
+          weights: { $push: '$maxWeight' },
+          sessionCount: { $sum: 1 }
+        }
+      },
+
+      // Step 9: Only consider exercises logged at least twice
+      { $match: { sessionCount: { $gte: 2 } } },
+
+      // Step 10: Compute improvement
+      {
+        $addFields: {
+          startWeight: { $arrayElemAt: ['$weights', 0] },
+          endWeight: { $arrayElemAt: ['$weights', -1] },
+        }
+      },
+      {
+        $addFields: {
+          improvementKg: { $subtract: ['$endWeight', '$startWeight'] },
+          improvementPercent: {
+            $multiply: [
+              {
+                $divide: [
+                  { $subtract: ['$endWeight', '$startWeight'] },
+                  { $arrayElemAt: ['$weights', 0] }
+                ]
+              },
+              100
+            ]
+          }
+        }
+      },
+
+      // Step 11: Only positive improvements
+      { $match: { improvementKg: { $gt: 0 } } },
+
+      // Step 12: Sort by improvement % descending, take top 1
+      { $sort: { improvementPercent: -1 } },
+      { $limit: 1 }
+    ];
+
+    const results = await db.collection('WorkoutLog').aggregate(pipeline).toArray();
+
+    if (!results.length) return null;
+
+    const r = results[0];
     return {
-      sessionsLogged: 0,
-      sessionsPlanned: 0,
-      sessionsMissed: 0,
-      completionPercent: 0,
-      hasActivePlan: false,
+      exerciseName: r._id,
+      startWeight: Math.round(r.startWeight * 10) / 10,
+      endWeight: Math.round(r.endWeight * 10) / 10,
+      improvementPercent: Math.round(r.improvementPercent),
+      improvementKg: Math.round(r.improvementKg * 10) / 10,
+      sessionCount: r.sessionCount,
+    };
+  } catch (error) {
+    console.error("Error in getMostImprovedExercise:", error);
+    return null;
+  }
+}
+
+export async function getWeeklyVolumeComparison(
+  userId: string
+): Promise<WeeklyVolumeComparison> {
+  try {
+    const db = await getDb();
+
+    // Get current week Mon 00:00 → Sun 23:59
+    function getCurrentWeekRange(): { start: Date; end: Date } {
+      const now = new Date();
+      const dayOfWeek = now.getDay();
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
+      monday.setHours(0, 0, 0, 0);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      sunday.setHours(23, 59, 59, 999);
+      return { start: monday, end: sunday };
+    }
+
+    const thisWeek = getCurrentWeekRange();
+    const lastWeekStart = new Date(thisWeek.start);
+    lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+    const lastWeekEnd = new Date(thisWeek.end);
+    lastWeekEnd.setDate(lastWeekEnd.getDate() - 7);
+
+    // Volume aggregation helper
+    async function getVolumeForRange(
+      uid: ObjectId,
+      start: Date,
+      end: Date
+    ): Promise<number> {
+      const pipeline = [
+        { $match: { userId: uid, date: { $gte: start, $lte: end } } },
+        { $unwind: '$exercises' },
+        { $match: { 'exercises.isDone': true } },
+        { $unwind: '$exercises.sets' },
+        {
+          $match: {
+            'exercises.sets.weight': { $gt: 0 },
+            'exercises.sets.reps': { $gt: 0 },
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalVolume: {
+              $sum: {
+                $multiply: [
+                  '$exercises.sets.weight',
+                  '$exercises.sets.reps'
+                ]
+              }
+            }
+          }
+        }
+      ];
+
+      const result = await db.collection('WorkoutLog').aggregate(pipeline).toArray();
+      return result[0]?.totalVolume ?? 0;
+    }
+
+    const uid = new ObjectId(userId);
+    // Run both in parallel
+    const [thisWeekVolume, lastWeekVolume] = await Promise.all([
+      getVolumeForRange(uid, thisWeek.start, thisWeek.end),
+      getVolumeForRange(uid, lastWeekStart, lastWeekEnd),
+    ]);
+
+    const differenceKg = thisWeekVolume - lastWeekVolume;
+    const differencePercent = lastWeekVolume > 0
+      ? Math.round((differenceKg / lastWeekVolume) * 100)
+      : 0;
+
+    return {
+      thisWeekVolume: Math.round(thisWeekVolume),
+      lastWeekVolume: Math.round(lastWeekVolume),
+      differenceKg: Math.round(differenceKg),
+      differencePercent,
+      trendDirection: differenceKg > 0
+        ? 'up'
+        : differenceKg < 0 ? 'down' : 'neutral',
+    };
+  } catch (error) {
+    console.error("Error in getWeeklyVolumeComparison:", error);
+    return {
+      thisWeekVolume: 0,
+      lastWeekVolume: 0,
+      differenceKg: 0,
+      differencePercent: 0,
+      trendDirection: 'neutral',
     };
   }
 }
