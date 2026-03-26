@@ -92,9 +92,9 @@ export default async function PlanDetailPage({
 				)}
 
 				{!isCompleted && now < start && (
-					<GlassCard className="border-orange-500/30 bg-orange-500/5 p-4 flex items-center space-x-4">
-						<div className="w-8 h-8 rounded-xl bg-orange-500/20 flex items-center justify-center">
-							<Calendar className="w-4 h-4 text-orange-500" />
+					<GlassCard className="border-brand-primary/30 bg-brand-primary/5 p-4 flex items-center space-x-4">
+						<div className="w-8 h-8 rounded-xl bg-brand-primary/20 flex items-center justify-center">
+							<Calendar className="w-4 h-4 text-brand-primary" />
 						</div>
 						<p className="text-xs font-bold text-foreground/60">
 							This plan is scheduled to start on{" "}
@@ -110,8 +110,8 @@ export default async function PlanDetailPage({
 				<section className="space-y-6">
 					<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-8 bg-foreground/[0.02] p-4 rounded-2xl">
 						<div className="flex items-center space-x-3">
-							<div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
-								<Calendar className="w-5 h-5 text-orange-500" />
+							<div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center">
+								<Calendar className="w-5 h-5 text-brand-primary" />
 							</div>
 							<div>
 								<p className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em]">
@@ -126,8 +126,8 @@ export default async function PlanDetailPage({
 						<div className="hidden md:block w-px h-8 bg-foreground/10" />
 
 						<div className="flex items-center space-x-3">
-							<div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
-								<Trophy className="w-5 h-5 text-orange-500" />
+							<div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center">
+								<Trophy className="w-5 h-5 text-brand-primary" />
 							</div>
 							<div>
 								<p className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em]">
@@ -142,7 +142,7 @@ export default async function PlanDetailPage({
 
 					<div className="space-y-3">
 						<div className="flex items-center space-x-2 ml-2">
-							<LayoutGrid className="w-4 h-4 text-orange-500" />
+							<LayoutGrid className="w-4 h-4 text-brand-primary" />
 							<h3 className="text-xs font-black text-foreground uppercase tracking-widest">
 								Weekly Schedule
 							</h3>

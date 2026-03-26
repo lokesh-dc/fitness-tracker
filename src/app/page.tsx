@@ -25,16 +25,16 @@ export default async function LandingPage() {
 		<div className="flex flex-col min-h-screen bg-[#050505] text-white">
 			{/* Hero Section */}
 			<section className="relative pt-20 pb-16 md:pt-32 md:pb-24 overflow-hidden">
-				<div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] bg-orange-500/10 blur-[120px] rounded-full -z-10" />
+				<div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] bg-brand-primary/10 blur-[120px] rounded-full -z-10" />
 
 				<div className="max-w-6xl mx-auto px-6 text-center space-y-8">
-					<div className="inline-flex items-center space-x-2 px-4 py-2 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-500 text-xs font-black uppercase tracking-widest animate-in fade-in slide-in-from-bottom-4 duration-1000">
+					<div className="inline-flex items-center space-x-2 px-4 py-2 rounded-full bg-brand-primary/10 border border-brand-primary/20 text-brand-primary text-xs font-black uppercase tracking-widest animate-in fade-in slide-in-from-bottom-4 duration-1000">
 						<Trophy className="w-4 h-4" />
 						<span>The Future of Strength Tracking</span>
 					</div>
 
 					<h1 className="text-5xl md:text-8xl font-black tracking-tight leading-tight animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-200">
-						Build Your <span className="text-orange-500">Peak</span>{" "}
+						Build Your <span className="text-brand-primary">Peak</span>{" "}
 						<br className="hidden md:block" /> Performance.
 					</h1>
 
@@ -47,7 +47,7 @@ export default async function LandingPage() {
 					<div className="flex flex-col md:flex-row items-center justify-center gap-4 pt-8 animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-500">
 						<Link
 							href="/auth/signup"
-							className="w-full md:w-auto px-10 py-5 bg-orange-500 text-black rounded-2xl font-black uppercase tracking-widest text-sm hover:scale-105 active:scale-95 transition-all shadow-[0_10px_30px_rgba(249,115,22,0.4)]">
+							className="w-full md:w-auto px-10 py-5 bg-brand-primary text-black rounded-2xl font-black uppercase tracking-widest text-sm hover:scale-105 active:scale-95 transition-all shadow-[0_10px_30px_rgba(249,115,22,0.4)]">
 							Start Your Journey
 						</Link>
 						<Link
@@ -117,8 +117,8 @@ export default async function LandingPage() {
 
 			{/* Footer / CTA */}
 			<section className="py-32 px-6">
-				<GlassCard className="max-w-4xl mx-auto p-12 text-center space-y-8 bg-gradient-to-br from-orange-500/10 to-transparent border-orange-500/20">
-					<Dumbbell className="w-16 h-16 text-orange-500 mx-auto" />
+				<GlassCard className="max-w-4xl mx-auto p-12 text-center space-y-8 bg-gradient-to-br from-brand-primary/10 to-transparent border-brand-primary/20">
+					<Dumbbell className="w-16 h-16 text-brand-primary mx-auto" />
 					<h2 className="text-4xl md:text-5xl font-black uppercase tracking-tight">
 						Ready to transcend?
 					</h2>
@@ -128,7 +128,7 @@ export default async function LandingPage() {
 					</p>
 					<Link
 						href="/auth/signup"
-						className="inline-flex items-center space-x-2 px-12 py-6 bg-orange-500 text-black rounded-2xl font-black uppercase tracking-widest text-sm hover:scale-105 active:scale-95 transition-all shadow-[0_15px_35px_rgba(249,115,22,0.5)]">
+						className="inline-flex items-center space-x-2 px-12 py-6 bg-brand-primary text-black rounded-2xl font-black uppercase tracking-widest text-sm hover:scale-105 active:scale-95 transition-all shadow-[0_15px_35px_rgba(249,115,22,0.5)]">
 						Get Started Now
 					</Link>
 				</GlassCard>
@@ -162,7 +162,7 @@ function FeatureSection({
 		<div
 			className={`max-w-6xl mx-auto px-6 flex flex-col ${reverse ? "md:flex-row-reverse" : "md:flex-row"} items-center gap-12 md:gap-24`}>
 			<div className="flex-1 space-y-6">
-				<p className="text-orange-500 text-[10px] font-black uppercase tracking-[0.3em]">
+				<p className="text-brand-primary text-[10px] font-black uppercase tracking-[0.3em]">
 					{subtitle}
 				</p>
 				<h2 className="text-4xl md:text-6xl font-black tracking-tight uppercase leading-none">
@@ -176,7 +176,7 @@ function FeatureSection({
 						<li
 							key={i}
 							className="flex items-center space-x-3 text-sm font-bold text-foreground/80">
-							<CheckCircle2 className="w-5 h-5 text-orange-500 flex-shrink-0" />
+							<CheckCircle2 className="w-5 h-5 text-brand-primary flex-shrink-0" />
 							<span>{feat}</span>
 						</li>
 					))}
@@ -184,7 +184,7 @@ function FeatureSection({
 			</div>
 			<div className="flex-1 w-full group">
 				<div className="relative rounded-[2rem] overflow-hidden border border-foreground/10 shadow-[0_20px_60px_rgba(0,0,0,0.5)] group-hover:scale-[1.02] transition-transform duration-500">
-					<div className="absolute inset-0 bg-gradient-to-tr from-orange-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+					<div className="absolute inset-0 bg-gradient-to-tr from-brand-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 					<img
 						src={image}
 						alt={title}
@@ -207,7 +207,7 @@ function StatBox({
 }) {
 	return (
 		<div className="flex flex-col items-center justify-center text-center space-y-4">
-			<div className="w-14 h-14 rounded-2xl bg-orange-500/10 flex items-center justify-center text-orange-500 border border-orange-500/10">
+			<div className="w-14 h-14 rounded-2xl bg-brand-primary/10 flex items-center justify-center text-brand-primary border border-brand-primary/10">
 				{icon}
 			</div>
 			<div>

@@ -25,11 +25,11 @@ interface TimelineChartProps {
 const CustomPRDot = (props: any) => {
   const { cx, cy, payload } = props;
   if (!payload.isPR) {
-    return <circle cx={cx} cy={cy} r={3} fill="#f97316" stroke="none" />;
+    return <circle cx={cx} cy={cy} r={3} fill="var(--brand-accent)" stroke="none" />;
   }
   return (
     <g>
-      <circle cx={cx} cy={cy} r={7} fill="#f97316" filter="drop-shadow(0 0 4px rgba(249,115,22,0.5))" />
+      <circle cx={cx} cy={cy} r={7} fill="var(--brand-accent)" filter="drop-shadow(0 0 4px rgba(249,115,22,0.5))" />
       <text x={cx} y={cy + 3.5} textAnchor="middle" fontSize={10}>🏆</text>
     </g>
   );
@@ -40,14 +40,14 @@ const CustomTooltip = ({ active, payload }: any) => {
   const d = payload[0].payload as ExerciseTimelineEntry;
 
   return (
-    <GlassCard className="p-3 text-[10px] space-y-1.5 min-w-[160px] border-orange-500/20 shadow-2xl backdrop-blur-xl">
+    <GlassCard className="p-3 text-[10px] space-y-1.5 min-w-[160px] border-brand-primary/20 shadow-2xl backdrop-blur-xl">
       <p className="font-black text-white uppercase tracking-widest pb-1 border-b border-white/5">
         {format(new Date(d.date), 'MMM d, yyyy')}
       </p>
       <div className="space-y-1">
         <p className="flex justify-between">
           <span className="text-foreground/40 uppercase font-bold">Max Weight:</span>
-          <span className="text-orange-500 font-black">{d.maxWeight}kg</span>
+          <span className="text-brand-primary font-black">{d.maxWeight}kg</span>
         </p>
         <p className="flex justify-between">
           <span className="text-foreground/40 uppercase font-bold">Est. 1RM:</span>
@@ -63,9 +63,9 @@ const CustomTooltip = ({ active, payload }: any) => {
         </p>
       </div>
       {d.isPR && (
-        <div className="pt-1 mt-1 border-t border-orange-500/20 flex items-center space-x-2">
+        <div className="pt-1 mt-1 border-t border-brand-primary/20 flex items-center space-x-2">
           <span className="text-xs">🏆</span>
-          <span className="text-orange-400 font-black uppercase tracking-tighter">Personal Record</span>
+          <span className="text-brand-primary/80 font-black uppercase tracking-tighter">Personal Record</span>
         </div>
       )}
     </GlassCard>
@@ -89,8 +89,8 @@ export function TimelineChart({ data }: TimelineChartProps) {
         <ComposedChart data={data} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
           <defs>
             <linearGradient id="volumeGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#f97316" stopOpacity={0.2}/>
-              <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
+              <stop offset="5%" stopColor="var(--brand-accent)" stopOpacity={0.2}/>
+              <stop offset="95%" stopColor="var(--brand-accent)" stopOpacity={0}/>
             </linearGradient>
           </defs>
           
@@ -124,10 +124,10 @@ export function TimelineChart({ data }: TimelineChartProps) {
               key={idx}
               x={date instanceof Date ? date.toISOString() : date}
               yAxisId="weight"
-              stroke="#f97316"
+              stroke="var(--brand-accent)"
               strokeDasharray="3 3"
               strokeOpacity={0.3}
-              label={{ position: 'top', value: 'PR', fill: '#f97316', fontSize: 9, fontWeight: 900 }}
+              label={{ position: 'top', value: 'PR', fill: 'var(--brand-accent)', fontSize: 9, fontWeight: 900 }}
             />
           ))}
 
@@ -143,10 +143,10 @@ export function TimelineChart({ data }: TimelineChartProps) {
             yAxisId="weight"
             type="monotone"
             dataKey="maxWeight"
-            stroke="#f97316"
+            stroke="var(--brand-accent)"
             strokeWidth={3}
             dot={<CustomPRDot />}
-            activeDot={{ r: 6, fill: '#f97316', stroke: '#000', strokeWidth: 2 }}
+            activeDot={{ r: 6, fill: 'var(--brand-accent)', stroke: '#000', strokeWidth: 2 }}
             animationDuration={1500}
           />
           

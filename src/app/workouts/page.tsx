@@ -93,7 +93,7 @@ export default async function WorkoutsPage({
 								action={
 									<Link
 										href={`/workout?date=${targetDateStr}&mode=MANUAL_LOG`}
-										className="flex items-center space-x-2 px-8 py-4 bg-orange-500 text-black rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-105 active:scale-95 transition-all shadow-[0_10px_20px_rgba(249,115,22,0.3)]">
+										className="flex items-center space-x-2 px-8 py-4 bg-brand-primary text-black rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-105 active:scale-95 transition-all shadow-[0_10px_20px_rgba(249,115,22,0.3)]">
 										<Plus className="w-4 h-4" />
 										<span>Log Workout</span>
 									</Link>
@@ -104,8 +104,8 @@ export default async function WorkoutsPage({
 								{/* Summary Details */}
 								<div className="grid grid-cols-2 gap-4">
 									<GlassCard className="p-4 flex items-center space-x-4 border-foreground/5 bg-foreground/[0.02]">
-										<div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center">
-											<Activity className="w-5 h-5 text-orange-500" />
+										<div className="w-10 h-10 rounded-xl bg-brand-primary/20 flex items-center justify-center">
+											<Activity className="w-5 h-5 text-brand-primary" />
 										</div>
 										<div>
 											<p className="text-[10px] uppercase tracking-widest font-black text-foreground/40">
@@ -118,8 +118,8 @@ export default async function WorkoutsPage({
 									</GlassCard>
 
 									<GlassCard className="p-4 flex items-center space-x-4 border-foreground/5 bg-foreground/[0.02]">
-										<div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center">
-											<Trophy className="w-5 h-5 text-orange-500" />
+										<div className="w-10 h-10 rounded-xl bg-brand-primary/20 flex items-center justify-center">
+											<Trophy className="w-5 h-5 text-brand-primary" />
 										</div>
 										<div>
 											<p className="text-[10px] uppercase tracking-widest font-black text-foreground/40">
@@ -150,12 +150,12 @@ export default async function WorkoutsPage({
 								<div className="space-y-4 pt-4 border-t border-foreground/10">
 									<div className="flex justify-between items-center mb-4">
 										<h3 className="text-xs font-black text-foreground uppercase tracking-widest flex items-center">
-											<Calendar className="w-4 h-4 text-orange-500 mr-2" />{" "}
+											<Calendar className="w-4 h-4 text-brand-primary mr-2" />{" "}
 											Session Breakdown
 										</h3>
 										<Link
 											href={`/workout?date=${targetDateStr}&mode=MANUAL_LOG`}
-											className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-foreground/5 hover:bg-orange-500/10 hover:text-orange-500 transition-all text-[10px] font-black uppercase tracking-widest text-foreground/40">
+											className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-foreground/5 hover:bg-brand-primary/10 hover:text-brand-primary transition-all text-[10px] font-black uppercase tracking-widest text-foreground/40">
 											<Edit2 className="w-3 h-3" />
 											<span>Edit Session</span>
 										</Link>
@@ -174,7 +174,7 @@ export default async function WorkoutsPage({
 												className="overflow-hidden border-foreground/5">
 												<div className="bg-foreground/[0.03] p-4 flex justify-between items-center border-b border-foreground/5">
 													<div className="flex items-center space-x-3">
-														<span className="text-sm font-black text-orange-500/50">
+														<span className="text-sm font-black text-brand-primary/50">
 															{(idx + 1).toString().padStart(2, "0")}
 														</span>
 														<h4 className="text-base font-bold text-foreground tracking-tight">
@@ -183,7 +183,7 @@ export default async function WorkoutsPage({
 													</div>
 													{(ex as { pr?: number }).pr &&
 													(ex as { pr?: number }).pr! > 0 ? (
-														<div className="flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-orange-500/10 border border-orange-500/20 text-[10px] font-black tracking-widest text-orange-500 uppercase">
+														<div className="flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-brand-primary/10 border border-brand-primary/20 text-[10px] font-black tracking-widest text-brand-primary uppercase">
 															<Trophy className="w-3 h-3" />
 															<span>PR {(ex as { pr?: number }).pr}</span>
 														</div>

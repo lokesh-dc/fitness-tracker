@@ -1,22 +1,23 @@
 @import "tailwindcss";
 
-@theme {
-  --color-brand-primary: #f97316;
-  --color-brand-secondary: #ea580c;
-  --color-brand-dark: #9a3412;
-
-  --radius-xl: 1rem;
-  --radius-2xl: 1.5rem;
-}
-
 :root,
 .light {
+  --brand-accent: #f97316;
   --background: #f8fafc;
   --foreground: #0f172a;
   --glass-bg: rgba(255, 255, 255, 0.85);
   --glass-border: rgba(15, 23, 42, 0.08);
-  --accent: #f97316;
+  --accent: var(--brand-accent);
   --shadow-glass: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+}
+
+@theme {
+  --color-brand-primary: var(--brand-accent);
+  --color-brand-secondary: color-mix(in srgb, var(--brand-accent), black 15%);
+  --color-brand-dark: color-mix(in srgb, var(--brand-accent), black 30%);
+
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
 }
 
 .dark {

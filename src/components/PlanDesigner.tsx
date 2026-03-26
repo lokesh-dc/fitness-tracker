@@ -210,8 +210,8 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
           
           <div className="max-w-xs mx-auto space-y-8">
             <div className="text-center space-y-2">
-              <div className="w-16 h-16 bg-orange-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Calendar className="w-8 h-8 text-orange-500" />
+              <div className="w-16 h-16 bg-brand-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Calendar className="w-8 h-8 text-brand-primary" />
               </div>
               <h2 className="text-xl font-black text-foreground uppercase tracking-tight">When do we start?</h2>
             </div>
@@ -220,7 +220,7 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full bg-foreground/5 border border-foreground/10 rounded-2xl px-6 py-5 text-center font-black text-xl text-foreground outline-none focus:border-orange-500 transition-colors"
+              className="w-full bg-foreground/5 border border-foreground/10 rounded-2xl px-6 py-5 text-center font-black text-xl text-foreground outline-none focus:border-brand-primary transition-colors"
             />
 
             <hr className="border-foreground/10" />
@@ -235,7 +235,7 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
                   onClick={() => setNumWeeks(prev => Math.max(1, prev - 1))}
                   className="glass-button w-12 h-12 rounded-xl text-2xl font-bold"
                 >-</button>
-                <div className="text-5xl font-black text-orange-500 tabular-nums">{numWeeks}</div>
+                <div className="text-5xl font-black text-brand-primary tabular-nums">{numWeeks}</div>
                 <button 
                   onClick={() => setNumWeeks(prev => Math.min(12, prev + 1))}
                   className="glass-button w-12 h-12 rounded-xl text-2xl font-bold"
@@ -244,7 +244,7 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
               <input 
                 type="range" min="1" max="12" value={numWeeks} 
                 onChange={(e) => setNumWeeks(parseInt(e.target.value))}
-                className="w-full h-2 bg-foreground/10 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                className="w-full h-2 bg-foreground/10 rounded-lg appearance-none cursor-pointer accent-brand-primary"
               />
             </div>
 
@@ -253,7 +253,7 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
                 if (!startDate) return alert("Please select a date.");
                 setStep("days");
               }}
-              className="w-full bg-orange-500 text-black py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(249,115,22,0.3)] hover:scale-105 active:scale-95 transition-all mt-8"
+              className="w-full bg-brand-primary text-black py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(249,115,22,0.3)] hover:scale-105 active:scale-95 transition-all mt-8"
             >
               Continue to Days
             </button>
@@ -265,8 +265,8 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
       {step === "days" && (
         <GlassCard className="space-y-8 py-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="text-center space-y-2">
-            <div className="w-16 h-16 bg-orange-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Settings2 className="w-8 h-8 text-orange-500" />
+            <div className="w-16 h-16 bg-brand-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Settings2 className="w-8 h-8 text-brand-primary" />
             </div>
             <h2 className="text-2xl font-black text-foreground uppercase tracking-tight">Weekly Split</h2>
             <p className="text-sm text-foreground/40 font-medium">Select your training days and rest days.</p>
@@ -280,27 +280,27 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
                 className={cn(
                   "p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between group",
                   trainingDays.includes(idx) 
-                    ? "border-orange-500 bg-orange-500/5" 
+                    ? "border-brand-primary bg-brand-primary/5" 
                     : "border-foreground/5 bg-foreground/5 opacity-50"
                 )}
               >
                 <div className="flex items-center space-x-4">
                   <div className={cn(
                     "w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs uppercase",
-                    trainingDays.includes(idx) ? "bg-orange-500 text-black" : "bg-foreground/10 text-foreground/40"
+                    trainingDays.includes(idx) ? "bg-brand-primary text-black" : "bg-foreground/10 text-foreground/40"
                   )}>
                     {day.substring(0, 3)}
                   </div>
                   <div>
                     <p className="font-bold text-foreground">{day}</p>
-                    <p className="text-[10px] uppercase font-black tracking-widest text-orange-500/60">
+                    <p className="text-[10px] uppercase font-black tracking-widest text-brand-primary/60">
                       {trainingDays.includes(idx) ? "Gym Day" : "Rest Day"}
                     </p>
                   </div>
                 </div>
                 <div className={cn(
                   "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",
-                  trainingDays.includes(idx) ? "border-orange-500 bg-orange-500" : "border-foreground/20"
+                  trainingDays.includes(idx) ? "border-brand-primary bg-brand-primary" : "border-foreground/20"
                 )}>
                   {trainingDays.includes(idx) && <CheckCircle2 className="w-4 h-4 text-black" />}
                 </div>
@@ -319,7 +319,7 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
                 setStep("exercises");
                 setCurrentDay(trainingDays[0]);
               }}
-              className="flex-[2] bg-orange-500 text-black py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(249,115,22,0.3)] hover:scale-105 active:scale-95 transition-all"
+              className="flex-[2] bg-brand-primary text-black py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(249,115,22,0.3)] hover:scale-105 active:scale-95 transition-all"
             >
               Set Exercises
             </button>
@@ -360,7 +360,7 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
               value={currentDayData.splitName}
               onChange={(e) => updateDayData(currentDay, { splitName: e.target.value })}
               placeholder="e.g. Upper Body, Pull, Heavy Squat Day..."
-              className="w-full bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-3 text-foreground font-bold outline-none focus:border-orange-500 transition-colors"
+              className="w-full bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-3 text-foreground font-bold outline-none focus:border-brand-primary transition-colors"
             />
           </GlassCard>
 
@@ -369,7 +369,7 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
               <h3 className="text-xs font-black text-foreground/40 uppercase tracking-[0.2em]">Workout List</h3>
               <button 
                 onClick={() => setShowExerciseSelector(true)}
-                className="text-orange-500 text-[10px] font-black uppercase tracking-widest flex items-center hover:underline bg-orange-500/10 px-4 py-2 rounded-xl"
+                className="text-brand-primary text-[10px] font-black uppercase tracking-widest flex items-center hover:underline bg-brand-primary/10 px-4 py-2 rounded-xl"
               >
                 <Plus className="w-4 h-4 mr-1" /> Add Exercise
               </button>
@@ -382,11 +382,11 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
               </div>
             ) : (
               currentDayData.exercises.map((ex, idx) => (
-                <GlassCard key={ex.exerciseId} className="space-y-4 relative border-l-4 border-l-orange-500">
+                <GlassCard key={ex.exerciseId} className="space-y-4 relative border-l-4 border-l-brand-primary">
                   <div className="flex justify-between items-start">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
-                        <Dumbbell className="w-5 h-5 text-orange-500" />
+                      <div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center">
+                        <Dumbbell className="w-5 h-5 text-brand-primary" />
                       </div>
                       <div>
                         <h4 className="font-black text-foreground uppercase tracking-tight">{ex.name}</h4>
@@ -414,7 +414,7 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
                           newExs[idx].targetSets = parseInt(e.target.value);
                           updateDayData(currentDay, { exercises: newExs });
                         }}
-                        className="w-full bg-foreground/5 border border-foreground/10 rounded-xl py-3 text-center font-bold text-foreground outline-none focus:border-orange-500"
+                        className="w-full bg-foreground/5 border border-foreground/10 rounded-xl py-3 text-center font-bold text-foreground outline-none focus:border-brand-primary"
                       />
                     </div>
                     <div className="space-y-1">
@@ -426,11 +426,11 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
                           newExs[idx].targetReps = parseInt(e.target.value);
                           updateDayData(currentDay, { exercises: newExs });
                         }}
-                        className="w-full bg-foreground/5 border border-foreground/10 rounded-xl py-3 text-center font-bold text-foreground outline-none focus:border-orange-500"
+                        className="w-full bg-foreground/5 border border-foreground/10 rounded-xl py-3 text-center font-bold text-foreground outline-none focus:border-brand-primary"
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[8px] font-black text-orange-500/60 uppercase text-center block">Target Weight</label>
+                      <label className="text-[8px] font-black text-brand-primary/60 uppercase text-center block">Target Weight</label>
                       <input 
                         type="number" value={ex.lastWeight} 
                         onChange={(e) => {
@@ -438,7 +438,7 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
                           newExs[idx].lastWeight = parseInt(e.target.value);
                           updateDayData(currentDay, { exercises: newExs });
                         }}
-                        className="w-full bg-foreground/5 border border-foreground/10 rounded-xl py-3 text-center font-bold text-orange-500 outline-none focus:border-orange-500"
+                        className="w-full bg-foreground/5 border border-foreground/10 rounded-xl py-3 text-center font-bold text-brand-primary outline-none focus:border-brand-primary"
                       />
                     </div>
                   </div>
@@ -458,7 +458,7 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
                           className={cn(
                             "px-3 py-1.5 rounded-lg border text-[10px] font-bold transition-all",
                             ex.restDuration === time 
-                              ? "bg-orange-500 border-orange-500 text-black" 
+                              ? "bg-brand-primary border-brand-primary text-black" 
                               : "border-foreground/10 text-foreground/40 hover:border-foreground/20"
                           )}
                         >
@@ -498,7 +498,7 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
             <button 
               onClick={handleSave} 
               disabled={isSaving}
-              className="flex-[2] bg-orange-500 text-black py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(249,115,22,0.3)] flex items-center justify-center"
+              className="flex-[2] bg-brand-primary text-black py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(249,115,22,0.3)] flex items-center justify-center"
             >
               {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : showSuccess ? <CheckCircle2 className="w-5 h-5" /> : "Finalize Plan"}
             </button>
@@ -510,7 +510,7 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
       {showExerciseSelector && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={closeExerciseSelector} />
-          <GlassCard className="w-full max-w-xl max-h-[85vh] overflow-hidden flex flex-col relative z-[101] border-orange-500/20 p-0">
+          <GlassCard className="w-full max-w-xl max-h-[85vh] overflow-hidden flex flex-col relative z-[101] border-brand-primary/20 p-0">
             {/* Header */}
             <div className="p-6 border-b border-foreground/10 flex justify-between items-center bg-background/50 backdrop-blur-md z-10 sticky top-0">
               <div className="flex items-center space-x-3">
@@ -542,14 +542,14 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
                         className={cn(
                           "py-5 px-4 rounded-2xl font-black text-sm uppercase tracking-wide border-2 transition-all group flex items-center justify-between",
                           isSelected 
-                            ? "bg-orange-500/10 border-orange-500 text-orange-500" 
+                            ? "bg-brand-primary/10 border-brand-primary text-brand-primary" 
                             : "bg-foreground/5 border-foreground/5 text-foreground/60 hover:border-foreground/20 hover:text-foreground hover:bg-foreground/10"
                         )}
                       >
                         {muscle}
                         <div className={cn(
                           "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
-                          isSelected ? "border-orange-500 bg-orange-500" : "border-foreground/20 group-hover:border-foreground/40"
+                          isSelected ? "border-brand-primary bg-brand-primary" : "border-foreground/20 group-hover:border-foreground/40"
                         )}>
                           {isSelected && <Check className="w-3 h-3 text-black" />}
                         </div>
@@ -568,7 +568,7 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
                     className={cn(
                       "w-full py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all",
                       selectedMuscles.length > 0
-                        ? "bg-orange-500 text-black shadow-[0_0_30px_rgba(249,115,22,0.3)] hover:scale-105 active:scale-95"
+                        ? "bg-brand-primary text-black shadow-[0_0_30px_rgba(249,115,22,0.3)] hover:scale-105 active:scale-95"
                         : "bg-foreground/10 text-foreground/40 cursor-not-allowed"
                     )}
                   >
@@ -589,12 +589,12 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
                       value={customExerciseInput}
                       onChange={(e) => setCustomExerciseInput(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleAddCustomExercise()}
-                      className="flex-1 bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-3 text-foreground font-bold outline-none focus:border-orange-500 placeholder:font-medium placeholder:opacity-50"
+                      className="flex-1 bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-3 text-foreground font-bold outline-none focus:border-brand-primary placeholder:font-medium placeholder:opacity-50"
                     />
                     <button 
                       onClick={handleAddCustomExercise}
                       disabled={!customExerciseInput.trim() || loadingHistory === "custom"}
-                      className="bg-foreground/10 text-foreground py-3 px-4 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 hover:text-black hover:shadow-[0_0_15px_rgba(249,115,22,0.3)] transition-all disabled:opacity-30 disabled:hover:bg-foreground/10 disabled:hover:text-foreground disabled:hover:shadow-none min-w-[100px] flex justify-center items-center"
+                      className="bg-foreground/10 text-foreground py-3 px-4 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-brand-primary hover:text-black hover:shadow-[0_0_15px_rgba(249,115,22,0.3)] transition-all disabled:opacity-30 disabled:hover:bg-foreground/10 disabled:hover:text-foreground disabled:hover:shadow-none min-w-[100px] flex justify-center items-center"
                     >
                       {loadingHistory === "custom" ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add Custom"}
                     </button>
@@ -607,7 +607,7 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
                       placeholder="Search for exercises..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full bg-foreground/5 border border-foreground/10 rounded-xl pl-11 pr-4 py-3 text-sm text-foreground outline-none focus:border-orange-500"
+                      className="w-full bg-foreground/5 border border-foreground/10 rounded-xl pl-11 pr-4 py-3 text-sm text-foreground outline-none focus:border-brand-primary"
                     />
                   </div>
                 </div>
@@ -622,7 +622,7 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
                     
                     return (
                       <div key={group} className="space-y-3">
-                        <h3 className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em] ml-1">{group}</h3>
+                        <h3 className="text-[10px] font-black text-brand-primary uppercase tracking-[0.2em] ml-1">{group}</h3>
                         <div className="grid grid-cols-1 gap-2">
                           {filtered.map(ex => {
                             const isSelected = draftSelectedExercises.includes(ex.name);
@@ -633,17 +633,17 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
                                 className={cn(
                                   "w-full text-left px-5 py-4 rounded-2xl border transition-all flex justify-between items-center group",
                                   isSelected
-                                    ? "bg-orange-500/10 border-orange-500"
-                                    : "bg-foreground/5 border-foreground/10 hover:border-orange-500 hover:bg-orange-500/5 text-foreground/80"
+                                    ? "bg-brand-primary/10 border-brand-primary"
+                                    : "bg-foreground/5 border-foreground/10 hover:border-brand-primary hover:bg-brand-primary/5 text-foreground/80"
                                 )}
                               >
-                                  <span className={cn("font-bold", isSelected ? "text-orange-500" : "group-hover:text-foreground")}>
+                                  <span className={cn("font-bold", isSelected ? "text-brand-primary" : "group-hover:text-foreground")}>
                                     {ex.name}
-                                    {ex.isCustom && <span className="ml-2 px-2 py-0.5 rounded-md bg-orange-500/10 text-[8px] uppercase tracking-wider text-orange-500 border border-orange-500/20">Custom</span>}
+                                    {ex.isCustom && <span className="ml-2 px-2 py-0.5 rounded-md bg-brand-primary/10 text-[8px] uppercase tracking-wider text-brand-primary border border-brand-primary/20">Custom</span>}
                                   </span>
                                 <div className={cn(
                                   "w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all",
-                                  isSelected ? "border-orange-500 bg-orange-500 text-black shadow-[0_0_10px_rgba(249,115,22,0.5)]" : "border-foreground/20 text-transparent group-hover:border-orange-500"
+                                  isSelected ? "border-brand-primary bg-brand-primary text-black shadow-[0_0_10px_rgba(249,115,22,0.5)]" : "border-foreground/20 text-transparent group-hover:border-brand-primary"
                                 )}>
                                   <Check className={cn("w-3 h-3 transition-opacity", isSelected ? "opacity-100" : "opacity-0")} />
                                 </div>
@@ -674,7 +674,7 @@ export function PlanDesigner({ initialData, editPlanId, initialExercises = [] }:
                   <button
                     onClick={handleAddSelected}
                     disabled={loadingHistory === "multiple"}
-                    className="w-full bg-orange-500 text-black py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(249,115,22,0.3)] hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
+                    className="w-full bg-brand-primary text-black py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(249,115,22,0.3)] hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
                   >
                     {loadingHistory === "multiple" ? (
                       <Loader2 className="w-5 h-5 animate-spin" />

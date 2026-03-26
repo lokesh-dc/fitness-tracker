@@ -32,9 +32,9 @@ export function WeekSnapshotWidget({ data }: WeekSnapshotWidgetProps) {
               <div className={cn(
                 "w-3 h-3 rounded-full transition-all duration-500",
                 isCompleted 
-                  ? "bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.5)]" 
+                  ? "bg-brand-primary shadow-[0_0_10px_rgba(249,115,22,0.5)]" 
                   : isPlanned 
-                    ? "border-2 border-orange-500/30" 
+                    ? "border-2 border-brand-primary/30" 
                     : "bg-foreground/5"
               )} />
               <span className="text-[8px] font-black text-foreground/20">{day}</span>

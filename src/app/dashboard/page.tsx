@@ -106,14 +106,14 @@ export default async function DashboardPage() {
 				>
 					<div className="space-y-8">
 						<section>
-							<GlassCard className="relative overflow-hidden p-6 border-foreground/5 bg-gradient-to-br from-orange-500/10 to-transparent">
-								<Quote className="absolute -bottom-4 -right-4 w-24 h-24 text-orange-500/10 -rotate-12" />
+							<GlassCard className="relative overflow-hidden p-6 border-foreground/5 bg-gradient-to-br from-brand-primary/10 to-transparent">
+								<Quote className="absolute -bottom-4 -right-4 w-24 h-24 text-brand-primary/10 -rotate-12" />
 								<div className="relative z-10">
 									<div className="flex items-center space-x-2 mb-3">
-										<div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
-											<Quote className="w-4 h-4 text-orange-500" />
+										<div className="w-8 h-8 rounded-full bg-brand-primary/20 flex items-center justify-center">
+											<Quote className="w-4 h-4 text-brand-primary" />
 										</div>
-										<h3 className="text-xs font-black uppercase tracking-widest text-orange-500">
+										<h3 className="text-xs font-black uppercase tracking-widest text-brand-primary">
 											Daily Motivation
 										</h3>
 									</div>
@@ -131,7 +131,7 @@ export default async function DashboardPage() {
 								</h2>
 								<Link
 									href="/plan"
-									className="text-xs font-bold text-orange-500 hover:underline">
+									className="text-xs font-bold text-brand-primary hover:underline">
 									View Plan
 								</Link>
 							</div>
@@ -204,8 +204,8 @@ export default async function DashboardPage() {
 						<section className="grid grid-cols-1 md:grid-cols-2 gap-4">
 							<GlassCard className="flex items-center justify-between group cursor-pointer">
 								<div className="flex items-center space-x-4">
-									<div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center group-hover:bg-orange-500/20 transition-colors">
-										<Plus className="w-5 h-5 text-orange-500" />
+									<div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center group-hover:bg-brand-primary/20 transition-colors">
+										<Plus className="w-5 h-5 text-brand-primary" />
 									</div>
 									<div>
 										<h3 className="text-sm font-bold text-foreground">
@@ -222,8 +222,8 @@ export default async function DashboardPage() {
 							<Link href="/analytics" className="contents">
 								<GlassCard className="flex items-center justify-between group cursor-pointer">
 									<div className="flex items-center space-x-4">
-										<div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center group-hover:bg-orange-500/20 transition-colors">
-											<BarChart2 className="w-5 h-5 text-orange-500" />
+										<div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center group-hover:bg-brand-primary/20 transition-colors">
+											<BarChart2 className="w-5 h-5 text-brand-primary" />
 										</div>
 										<div>
 											<h3 className="text-sm font-bold text-foreground">

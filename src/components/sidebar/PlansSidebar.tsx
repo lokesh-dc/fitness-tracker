@@ -43,7 +43,7 @@ export const PlansMobileWidgets: React.FC<PlansSidebarProps> = ({
           <span className="text-2xl font-black text-foreground">
             {totalCompleted}/{totalPlanned}
           </span>
-          <span className="text-[10px] font-black text-orange-500 mb-1 uppercase">
+          <span className="text-[10px] font-black text-brand-primary mb-1 uppercase">
             Sessions
           </span>
         </div>

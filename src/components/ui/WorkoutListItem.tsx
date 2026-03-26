@@ -26,7 +26,7 @@ export function WorkoutListItem({
       onClick={onClick}
       className={cn(
         "flex items-center space-x-4 p-4",
-        active && "border-orange-500/40 bg-orange-500/5 shadow-[0_0_20px_rgba(249,115,22,0.1)]"
+        active && "border-brand-primary/40 bg-brand-primary/5 shadow-[0_0_20px_rgba(249,115,22,0.1)]"
       )}
     >
       <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-foreground/10 flex-shrink-0 flex items-center justify-center border border-foreground/5">
@@ -62,7 +62,7 @@ export function WorkoutListItem({
 
       <div className="flex-shrink-0">
         <div className="glass-button w-10 h-10 rounded-full border-foreground/10">
-          <Play className="w-4 h-4 fill-orange-500 text-orange-500 ml-0.5" />
+          <Play className="w-4 h-4 fill-brand-primary text-brand-primary ml-0.5" />
         </div>
       </div>
     </GlassCard>

@@ -80,12 +80,12 @@ export function CalendarWidget({ initialDates }: CalendarWidgetProps) {
               className={cn(
                 "aspect-square rounded-lg flex items-center justify-center relative text-[10px] font-bold transition-all",
                 isFut ? "opacity-20" : "opacity-100",
-                isWorkout ? "bg-orange-500 text-black shadow-[0_0_10px_rgba(249,115,22,0.3)]" : "text-foreground/40 hover:bg-foreground/5"
+                isWorkout ? "bg-brand-primary text-black shadow-[0_0_10px_rgba(249,115,22,0.3)]" : "text-foreground/40 hover:bg-foreground/5"
               )}
             >
               {format(day, "d")}
               {isToday && !isWorkout && (
-                <div className="absolute inset-0 border border-orange-500/40 rounded-lg" />
+                <div className="absolute inset-0 border border-brand-primary/40 rounded-lg" />
               )}
             </div>
           );
@@ -94,7 +94,7 @@ export function CalendarWidget({ initialDates }: CalendarWidgetProps) {
 
       <div className="pt-2 border-t border-foreground/5">
         <p className="text-[9px] font-bold text-foreground/40 uppercase tracking-tight text-center">
-          <span className="text-orange-500">{workoutsThisMonth}</span> Workouts this month
+          <span className="text-brand-primary">{workoutsThisMonth}</span> Workouts this month
         </p>
       </div>
     </GlassCard>

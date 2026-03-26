@@ -34,7 +34,7 @@ export function PRsFeedDisplay({ prsHit, variant }: PRsFeedDisplayProps) {
             exit={{ y: 100, opacity: 0 }}
             className="fixed bottom-24 left-4 right-4 z-50"
           >
-            <div className="bg-orange-500 text-white px-4 py-3 rounded-2xl shadow-lg flex items-center space-x-3">
+            <div className="bg-brand-primary text-white px-4 py-3 rounded-2xl shadow-lg flex items-center space-x-3">
               <Trophy className="w-5 h-5" />
               <div className="flex-1">
                 <p className="text-[10px] font-black uppercase tracking-widest text-white/80">New PR!</p>
@@ -53,9 +53,9 @@ export function PRsFeedDisplay({ prsHit, variant }: PRsFeedDisplayProps) {
   if (variant === 'mobile-summary') {
     if (prsHit.length === 0) return null;
     return (
-      <div className="flex items-center space-x-1.5 px-3 py-1.5 bg-orange-500/20 border border-orange-500/30 rounded-full mb-3 w-fit mx-auto">
-        <Trophy className="w-3 h-3 text-orange-500" />
-        <span className="text-[10px] font-black text-orange-500 uppercase">
+      <div className="flex items-center space-x-1.5 px-3 py-1.5 bg-brand-primary/20 border border-brand-primary/30 rounded-full mb-3 w-fit mx-auto">
+        <Trophy className="w-3 h-3 text-brand-primary" />
+        <span className="text-[10px] font-black text-brand-primary uppercase">
           {prsHit.length} PR{prsHit.length > 1 ? 's' : ''} Hit
         </span>
       </div>
@@ -88,17 +88,17 @@ export function PRsFeedDisplay({ prsHit, variant }: PRsFeedDisplayProps) {
                 key={i}
                 initial={{ x: -20, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
-                className="flex items-start space-x-3 p-3 rounded-xl bg-orange-500/5 border border-orange-500/10"
+                className="flex items-start space-x-3 p-3 rounded-xl bg-brand-primary/5 border border-brand-primary/10"
               >
                 <div className="mt-0.5">
-                  <Trophy className="w-4 h-4 text-orange-500" />
+                  <Trophy className="w-4 h-4 text-brand-primary" />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-black text-foreground uppercase tracking-tight">
                       {pr.exerciseName}
                     </span>
-                    <span className="text-xs font-black text-orange-500">
+                    <span className="text-xs font-black text-brand-primary">
                       {pr.newPRWeight} kg
                     </span>
                   </div>

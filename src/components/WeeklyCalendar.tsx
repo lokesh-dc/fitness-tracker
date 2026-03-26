@@ -77,13 +77,13 @@ export function WeeklyCalendar({ selectedDateStr }: WeeklyCalendarProps) {
 				{/* Sticky Month Dropdown */}
 				<div
 					style={{
-						background: "#00000049",
+						background: `linear-gradient(to right, var(--background) 80%, transparent)`,
 					}}
-					className="sticky left-0 z-20 flex-shrink-0 bg-background py-1 pr-2 -ml-2 pl-2">
+					className="sticky left-0 z-20 flex-shrink-0 py-1 pr-6 -ml-2 pl-2">
 					<div
 						onClick={() => setIsDropdownOpen(!isDropdownOpen)}
 						className="flex flex-col items-center justify-center p-3 rounded-[1.25rem] min-w-[4rem] glass-card hover:bg-foreground/[0.03] transition-all cursor-pointer border border-foreground/5 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
-						<span className="text-[10px] uppercase font-black tracking-widest text-orange-500 mb-0.5">
+						<span className="text-[10px] uppercase font-black tracking-widest text-brand-primary mb-0.5">
 							{format(selectedDate, "MMM")}
 						</span>
 						<span className="text-sm font-black text-foreground">
@@ -114,7 +114,7 @@ export function WeeklyCalendar({ selectedDateStr }: WeeklyCalendarProps) {
 								"flex flex-col items-center justify-center p-3 rounded-[1.25rem] min-w-[3.5rem] transition-all duration-300 snap-end",
 								"border border-foreground/5 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex-shrink-0",
 								isSelected
-									? "bg-orange-500 text-black shadow-[0_10px_30px_-10px_rgba(249,115,22,0.4)] scale-105"
+									? "bg-brand-primary text-black shadow-[0_10px_30px_-10px_rgba(249,115,22,0.4)] scale-105"
 									: "glass-card hover:bg-foreground/[0.03] text-foreground/60 active:scale-95",
 							)}>
 							<span
@@ -139,7 +139,7 @@ export function WeeklyCalendar({ selectedDateStr }: WeeklyCalendarProps) {
 									isToday && isSelected
 										? "bg-black"
 										: isToday
-											? "bg-orange-500"
+											? "bg-brand-primary"
 											: "bg-transparent",
 								)}
 							/>
@@ -169,12 +169,12 @@ export function WeeklyCalendar({ selectedDateStr }: WeeklyCalendarProps) {
 										className={cn(
 											"w-full text-left px-5 py-3 text-sm font-bold transition-colors flex items-center justify-between",
 											isSelectedMonth
-												? "bg-orange-500/10 text-orange-500"
+												? "bg-brand-primary/10 text-brand-primary"
 												: "text-foreground hover:bg-foreground/5",
 										)}>
 										<span>{format(month, "MMMM ''yy")}</span>
 										{isSelectedMonth && (
-											<div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+											<div className="w-1.5 h-1.5 rounded-full bg-brand-primary" />
 										)}
 									</button>
 								);

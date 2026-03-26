@@ -16,13 +16,13 @@ interface NextWorkoutWidgetProps {
 export function NextWorkoutWidget({ data }: NextWorkoutWidgetProps) {
   if (!data) {
     return (
-      <GlassCard className="p-4 space-y-4 border-dashed border-orange-500/20 bg-orange-500/[0.02]">
+      <GlassCard className="p-4 space-y-4 border-dashed border-brand-primary/20 bg-brand-primary/[0.02]">
         <span className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Next Workout</span>
         <div className="flex flex-col items-center justify-center py-4 text-center space-y-3">
            <Dumbbell className="w-8 h-8 text-foreground/10" />
            <div className="space-y-1">
              <p className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest">No Active Plan</p>
-             <Link href="/plan" className="text-[10px] font-black text-orange-500 uppercase tracking-widest hover:underline">
+             <Link href="/plan" className="text-[10px] font-black text-brand-primary uppercase tracking-widest hover:underline">
                Setup your week →
              </Link>
            </div>
@@ -37,7 +37,7 @@ export function NextWorkoutWidget({ data }: NextWorkoutWidgetProps) {
     <GlassCard className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Next Workout</span>
-        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-500">
+        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-brand-primary/10 text-brand-primary">
            <Calendar className="w-2.5 h-2.5" />
            <span className="text-[8px] font-black uppercase tracking-widest">{scheduledDay}</span>
         </div>
@@ -51,7 +51,7 @@ export function NextWorkoutWidget({ data }: NextWorkoutWidgetProps) {
       <div className="py-3 px-3 rounded-xl bg-foreground/[0.02] glass-card space-y-2">
         {exercises.map((ex, i) => (
           <div key={i} className="flex items-center gap-2 text-[10px] font-bold text-foreground/60 uppercase tracking-tight">
-            <div className="w-1 h-1 rounded-full bg-orange-500/40" />
+            <div className="w-1 h-1 rounded-full bg-brand-primary/40" />
             <span className="truncate">{ex}</span>
           </div>
         ))}
@@ -63,7 +63,7 @@ export function NextWorkoutWidget({ data }: NextWorkoutWidgetProps) {
       </div>
 
       <Link href="/workout?mode=LIVE_SESSION" className="block">
-        <button className="w-full py-3 rounded-xl bg-orange-500 text-black text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_10px_20px_rgba(249,115,22,0.2)]">
+        <button className="w-full py-3 rounded-xl bg-brand-primary text-black text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_10px_20px_rgba(249,115,22,0.2)]">
           <Play className="w-3 h-3 fill-current" />
           Start Workout
         </button>

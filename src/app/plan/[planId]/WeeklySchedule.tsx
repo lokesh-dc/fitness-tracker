@@ -31,14 +31,14 @@ export function WeeklySchedule({ templates }: WeeklyScheduleProps) {
 						<GlassCard
 							className={cn(
 								"p-4 flex items-center justify-between group cursor-pointer transition-all duration-300",
-								isExpanded ? "border-orange-500/30 bg-orange-500/5 shadow-[0_0_20px_rgba(249,115,22,0.1)]" : "hover:bg-foreground/5"
+								isExpanded ? "border-brand-primary/30 bg-brand-primary/5 shadow-[0_0_20px_rgba(249,115,22,0.1)]" : "hover:bg-foreground/5"
 							)}
 							onClick={() => setExpandedDayId(isExpanded ? null : day.id)}
 						>
 							<div className="flex items-center space-x-4">
 								<div className={cn(
 									"w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
-									isExpanded ? "bg-orange-500 text-black" : "bg-foreground/5 text-foreground/40 group-hover:text-orange-500"
+									isExpanded ? "bg-brand-primary text-black" : "bg-foreground/5 text-foreground/40 group-hover:text-brand-primary"
 								)}>
 									<Dumbbell className="w-5 h-5" />
 								</div>
@@ -53,7 +53,7 @@ export function WeeklySchedule({ templates }: WeeklyScheduleProps) {
 							</div>
 							<div className="flex items-center space-x-4">
 								<div className="text-right">
-									<p className="text-[10px] font-black text-orange-500 uppercase">
+									<p className="text-[10px] font-black text-brand-primary uppercase">
 										{day.exercises.length} Exercises
 									</p>
 								</div>

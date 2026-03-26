@@ -26,14 +26,14 @@ export function MetricCards({ data }: MetricCardsProps) {
   return (
     <div className="grid grid-cols-1 gap-6">
       {/* Reps Card */}
-      <GlassCard className="p-6 space-y-4 bg-orange-500/[0.02]">
+      <GlassCard className="p-6 space-y-4 bg-brand-primary/[0.02]">
         <div className="flex justify-between items-end">
           <div className="space-y-1">
             <h4 className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em]">Avg Reps / Set</h4>
             <p className="text-2xl font-black text-foreground">{lastEntry.avgRepsPerSet}</p>
           </div>
           <div className="text-right">
-             <span className="text-[10px] font-bold text-orange-500/60 uppercase">Targeting Hyp.</span>
+             <span className="text-[10px] font-bold text-brand-primary/60 uppercase">Targeting Hyp.</span>
           </div>
         </div>
         
@@ -63,14 +63,14 @@ export function MetricCards({ data }: MetricCardsProps) {
       </GlassCard>
 
       {/* Volume Card */}
-      <GlassCard className="p-6 space-y-4 bg-orange-500/[0.02]">
+      <GlassCard className="p-6 space-y-4 bg-brand-primary/[0.02]">
         <div className="flex justify-between items-end">
           <div className="space-y-1">
             <h4 className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em]">Session Volume</h4>
             <p className="text-2xl font-black text-foreground">{lastEntry.totalVolume.toLocaleString()}kg</p>
           </div>
            <div className="text-right">
-             <span className="text-[10px] font-bold text-orange-500/60 uppercase">Tonnage Trend</span>
+             <span className="text-[10px] font-bold text-brand-primary/60 uppercase">Tonnage Trend</span>
           </div>
         </div>
 
@@ -79,14 +79,14 @@ export function MetricCards({ data }: MetricCardsProps) {
             <AreaChart data={data}>
               <defs>
                 <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#f97316" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="var(--brand-accent)" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="var(--brand-accent)" stopOpacity={0}/>
                 </linearGradient>
               </defs>
               <Area 
                 type="monotone" 
                 dataKey="totalVolume" 
-                stroke="#f97316" 
+                stroke="var(--brand-accent)" 
                 fill="url(#areaGrad)" 
                 strokeWidth={2}
               />

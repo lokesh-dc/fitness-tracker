@@ -50,7 +50,7 @@ export function RangeSelector({ selectedRange, onRangeChange, customFrom, custom
             className={cn(
               "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
               selectedRange === p
-                ? "bg-orange-500 text-black shadow-lg"
+                ? "bg-brand-primary text-black shadow-lg"
                 : "text-foreground/40 hover:text-foreground hover:bg-foreground/5"
             )}
           >
@@ -67,7 +67,7 @@ export function RangeSelector({ selectedRange, onRangeChange, customFrom, custom
               type="date"
               value={tempFrom}
               onChange={(e) => setTempFrom(e.target.value)}
-              className="bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-2 text-xs font-bold text-foreground outline-none focus:border-orange-500/50"
+              className="bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-2 text-xs font-bold text-foreground outline-none focus:border-brand-primary/50"
             />
           </div>
           <div className="flex flex-col space-y-1">
@@ -76,12 +76,12 @@ export function RangeSelector({ selectedRange, onRangeChange, customFrom, custom
               type="date"
               value={tempTo}
               onChange={(e) => setTempTo(e.target.value)}
-              className="bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-2 text-xs font-bold text-foreground outline-none focus:border-orange-500/50"
+              className="bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-2 text-xs font-bold text-foreground outline-none focus:border-brand-primary/50"
             />
           </div>
           <button
             onClick={handleCustomSubmit}
-            className="mt-5 px-4 py-2 bg-orange-500/10 text-orange-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-orange-500 hover:text-black transition-all"
+            className="mt-5 px-4 py-2 bg-brand-primary/10 text-brand-primary rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-primary hover:text-black transition-all"
           >
             Apply
           </button>

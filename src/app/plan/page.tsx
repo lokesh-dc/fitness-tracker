@@ -63,8 +63,8 @@ export default async function PlanPage() {
 			};
 		return {
 			label: "Running",
-			color: "text-orange-500",
-			bg: "bg-orange-500/10",
+			color: "text-brand-primary",
+			bg: "bg-brand-primary/10",
 		};
 	};
 
@@ -90,9 +90,9 @@ export default async function PlanPage() {
 					}>
 					{/* Call to action */}
 					<Link href="/plan/designer" className="block">
-						<GlassCard className="border-dashed border-orange-500/30 bg-orange-500/5 hover:bg-orange-500/10 transition-all group flex items-center justify-between py-8">
+						<GlassCard className="border-dashed border-brand-primary/30 bg-brand-primary/5 hover:bg-brand-primary/10 transition-all group flex items-center justify-between py-8">
 							<div className="flex items-center space-x-6">
-								<div className="w-14 h-14 rounded-2xl bg-orange-500 flex items-center justify-center shadow-[0_0_20px_rgba(249,115,22,0.3)] group-hover:scale-110 transition-transform">
+								<div className="w-14 h-14 rounded-2xl bg-brand-primary flex items-center justify-center shadow-[0_0_20px_rgba(249,115,22,0.3)] group-hover:scale-110 transition-transform">
 									<Plus className="w-8 h-8 text-black" />
 								</div>
 								<div>
@@ -104,7 +104,7 @@ export default async function PlanPage() {
 									</p>
 								</div>
 							</div>
-							<ChevronRight className="w-6 h-6 text-orange-500" />
+							<ChevronRight className="w-6 h-6 text-brand-primary" />
 						</GlassCard>
 					</Link>
 
@@ -132,13 +132,13 @@ export default async function PlanPage() {
 											key={plan.id}
 											href={`/plan/${plan.id}`}
 											className="block">
-											<GlassCard className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-orange-500/50 transition-colors">
+											<GlassCard className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-brand-primary/50 transition-colors">
 												<div className="flex items-start space-x-4">
-													<div className="w-12 h-12 rounded-2xl bg-foreground/5 flex items-center justify-center text-foreground/40 group-hover:text-orange-500 transition-colors flex-shrink-0">
+													<div className="w-12 h-12 rounded-2xl bg-foreground/5 flex items-center justify-center text-foreground/40 group-hover:text-brand-primary transition-colors flex-shrink-0">
 														<Calendar className="w-6 h-6" />
 													</div>
 													<div className="flex flex-col gap-3">
-														<h3 className="text-base font-black text-foreground uppercase tracking-tight group-hover:text-orange-500 transition-colors">
+														<h3 className="text-base font-black text-foreground uppercase tracking-tight group-hover:text-brand-primary transition-colors">
 															{plan.name?.startsWith("Plan starting ")
 																? `Plan starting (${format(new Date(plan.startDate + "T00:00:00"), "d MMMM ''yy")})`
 																: plan.name ||

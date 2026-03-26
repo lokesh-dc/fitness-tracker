@@ -46,7 +46,7 @@ export default function ExerciseProgressSection({ exercises }: ExerciseProgressS
         <div className="relative">
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="flex items-center space-x-2 px-3 py-1.5 glass-button rounded-xl text-[10px] font-black uppercase tracking-widest text-orange-500 hover:scale-105 active:scale-95 transition-all"
+            className="flex items-center space-x-2 px-3 py-1.5 glass-button rounded-xl text-[10px] font-black uppercase tracking-widest text-brand-primary hover:scale-105 active:scale-95 transition-all"
           >
             <span>{selectedExercise || "Select Exercise"}</span>
             <ChevronDown className={cn("w-3 h-3 transition-transform", isDropdownOpen && "rotate-180")} />
@@ -70,7 +70,7 @@ export default function ExerciseProgressSection({ exercises }: ExerciseProgressS
                       className={cn(
                         "w-full text-left px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-colors",
                         selectedExercise === ex 
-                          ? "bg-orange-500 text-black" 
+                          ? "bg-brand-primary text-black" 
                           : "text-foreground/60 hover:text-foreground hover:bg-white/5"
                       )}
                     >
@@ -87,7 +87,7 @@ export default function ExerciseProgressSection({ exercises }: ExerciseProgressS
       <GlassCard className="p-6 relative overflow-hidden">
         {loading ? (
           <div className="h-[300px] flex flex-col items-center justify-center space-y-4">
-            <div className="w-10 h-10 border-4 border-orange-500/20 border-t-orange-500 rounded-full animate-spin" />
+            <div className="w-10 h-10 border-4 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin" />
             <p className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em]">Analyzing Gains...</p>
           </div>
         ) : progressData.length > 0 ? (

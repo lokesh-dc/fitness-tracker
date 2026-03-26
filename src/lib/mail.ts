@@ -33,10 +33,10 @@ export async function sendVerificationEmail(email: string, token: string) {
     subject: 'Verify your TRAK.FIT account',
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #f97316;">Welcome to TRAK.FIT!</h2>
+        <h2 style="color: var(--brand-accent);">Welcome to TRAK.FIT!</h2>
         <p>You're almost ready to start tracking your peak performance. Please click the button below to verify your email address:</p>
         <div style="margin: 30px 0;">
-          <a href="${verifyUrl}" style="background-color: #f97316; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Verify Email Address</a>
+          <a href="${verifyUrl}" style="background-color: var(--brand-accent); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Verify Email Address</a>
         </div>
         <p style="color: #666; font-size: 14px;">If you didn't create an account, you can safely ignore this email.</p>
         <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />

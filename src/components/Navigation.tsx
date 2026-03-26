@@ -85,11 +85,11 @@ export function Navigation() {
 										href={item.href}
 										className="flex flex-col items-center -mt-5 group transition-all">
 										<div className="w-16 h-16 rounded-full bg-black flex items-center justify-center border-4 border-background-500 shadow-[0_10px_20px_rgba(0,0,0,0.2)] group-hover:scale-110 active:scale-95 transition-all">
-											<div className="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center">
+											<div className="w-12 h-12 rounded-full bg-brand-primary flex items-center justify-center">
 												<Play className="w-6 h-6 text-black fill-current ml-1" />
 											</div>
 										</div>
-										<span className="text-[9px] font-black mt-2 text-foreground/40 uppercase tracking-[0.2em] group-hover:text-orange-500 transition-colors">
+										<span className="text-[9px] font-black mt-2 text-foreground/40 uppercase tracking-[0.2em] group-hover:text-brand-primary transition-colors">
 											{item.label}
 										</span>
 									</Link>
@@ -103,7 +103,7 @@ export function Navigation() {
 									className={cn(
 										"flex flex-col items-center transition-all px-2",
 										pathname === item.href
-											? "text-orange-500"
+											? "text-brand-primary"
 											: "text-foreground/40 hover:text-foreground",
 									)}>
 									<item.icon
@@ -125,7 +125,7 @@ export function Navigation() {
 			<nav className="fixed left-0 top-0 bottom-0 w-20 glass border-r border-foreground/10 hidden md:flex flex-col items-center py-8 space-y-8 z-50">
 				<Link
 					href="/dashboard"
-					className="w-12 h-12 rounded-2xl bg-orange-500 flex items-center justify-center shadow-[0_0_20px_rgba(249,115,22,0.4)] mb-8 hover:scale-105 active:scale-95 transition-all cursor-pointer">
+					className="w-12 h-12 rounded-2xl bg-brand-primary flex items-center justify-center shadow-[0_0_20px_rgba(249,115,22,0.4)] mb-8 hover:scale-105 active:scale-95 transition-all cursor-pointer">
 					<Dumbbell className="w-6 h-6 text-black" />
 				</Link>
 
@@ -138,7 +138,7 @@ export function Navigation() {
 							className={cn(
 								"p-3 rounded-2xl transition-all relative group",
 								pathname === item.href
-									? "text-orange-500 bg-foreground/5 shadow-inner"
+									? "text-brand-primary bg-foreground/5 shadow-inner"
 									: "text-foreground/40 hover:text-foreground hover:bg-foreground/5",
 							)}>
 							<item.icon className="w-6 h-6" />
@@ -150,7 +150,7 @@ export function Navigation() {
 							</div>
 
 							{pathname === item.href && (
-								<div className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-orange-500 rounded-full" />
+								<div className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-brand-primary rounded-full" />
 							)}
 						</Link>
 					))}

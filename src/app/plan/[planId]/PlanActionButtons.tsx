@@ -69,7 +69,7 @@ export function PlanActionButtons({
           onClick={() => setShowExtendOptions(!showExtendOptions)}
           className={cn(
             "flex-1 glass-button py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center space-x-2 transition-all active:scale-95",
-            showExtendOptions ? "bg-orange-500 text-black border-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.3)]" : "text-foreground"
+            showExtendOptions ? "bg-brand-primary text-black border-brand-primary shadow-[0_0_20px_rgba(249,115,22,0.3)]" : "text-foreground"
           )}
         >
           <TrendingUp className="w-4 h-4" />
@@ -86,7 +86,7 @@ export function PlanActionButtons({
 
       {showExtendOptions && (
         <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-          <GlassCard className="p-4 border-orange-500/20 bg-orange-500/5">
+          <GlassCard className="p-4 border-brand-primary/20 bg-brand-primary/5">
             <p className="text-[10px] font-black uppercase tracking-widest text-foreground/40 mb-3 text-center">Add More Weeks to Cycle</p>
             <div className="flex space-x-2">
               {[1, 2, 4, 8].map((weeks) => (
@@ -94,7 +94,7 @@ export function PlanActionButtons({
                   key={weeks}
                   disabled={isExtending}
                   onClick={() => handleExtend(weeks)}
-                  className="flex-1 py-3 bg-foreground/5 hover:bg-orange-500 hover:text-black rounded-xl text-xs font-black transition-all disabled:opacity-50"
+                  className="flex-1 py-3 bg-foreground/5 hover:bg-brand-primary hover:text-black rounded-xl text-xs font-black transition-all disabled:opacity-50"
                 >
                   +{weeks} W
                 </button>
@@ -102,7 +102,7 @@ export function PlanActionButtons({
             </div>
             {isExtending && (
               <div className="flex justify-center mt-3">
-                <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
+                <Loader2 className="w-4 h-4 animate-spin text-brand-primary" />
               </div>
             )}
           </GlassCard>

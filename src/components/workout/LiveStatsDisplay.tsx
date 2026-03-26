@@ -55,7 +55,7 @@ export function LiveStatsDisplay({ stats, variant }: LiveStatsDisplayProps) {
     return (
       <div className="flex overflow-x-auto pb-4 pt-2 -mx-4 px-4 gap-3 no-scrollbar">
         {items.map((item, i) => (
-          <GlassCard key={i} className="flex-none min-w-[100px] border-orange-500/10 bg-orange-500/5 p-3 flex flex-col items-center">
+          <GlassCard key={i} className="flex-none min-w-[100px] border-brand-primary/10 bg-brand-primary/5 p-3 flex flex-col items-center">
             <span className="text-[8px] font-black text-foreground/40 uppercase tracking-widest mb-1">
               {item.label}
             </span>

@@ -29,7 +29,7 @@ export function MuscleGroupWidget({ muscleGroups }: { muscleGroups: MuscleGroupS
             </div>
             <div className="w-full h-1.5 rounded-full bg-foreground/5 overflow-hidden">
               <div 
-                className="h-full bg-orange-500 rounded-full"
+                className="h-full bg-brand-primary rounded-full"
                 style={{ width: `${group.percentageOfTotal}%` }}
               />
             </div>

@@ -41,7 +41,7 @@ function SignInForm() {
     <div className=" flex items-center justify-center px-6">
       <div className="w-full max-w-md space-y-8">
         <div className="flex flex-col items-center">
-          <div className="w-16 h-16 rounded-2xl bg-orange-500 flex items-center justify-center shadow-[0_0_30px_rgba(249,115,22,0.4)] mb-6">
+          <div className="w-16 h-16 rounded-2xl bg-brand-primary flex items-center justify-center shadow-[0_0_30px_rgba(249,115,22,0.4)] mb-6">
             <Dumbbell className="w-8 h-8 text-black" />
           </div>
           <h1 className="text-3xl font-black text-white tracking-tighter">Welcome Back</h1>
@@ -63,7 +63,7 @@ function SignInForm() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-orange-500 transition-colors"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-brand-primary transition-colors"
                 placeholder="you@example.com"
               />
             </div>
@@ -74,13 +74,13 @@ function SignInForm() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-orange-500 transition-colors"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-brand-primary transition-colors"
                 placeholder="••••••••"
               />
             </div>
             <button
               disabled={loading}
-              className="w-full bg-orange-500 text-black py-4 rounded-xl font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center hover:scale-[1.02] active:scale-95 transition-all shadow-[0_0_20px_rgba(249,115,22,0.3)] mt-8"
+              className="w-full bg-brand-primary text-black py-4 rounded-xl font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center hover:scale-[1.02] active:scale-95 transition-all shadow-[0_0_20px_rgba(249,115,22,0.3)] mt-8"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><span className="mr-2">Log In</span> <ArrowRight className="w-4 h-4" /></>}
             </button>
@@ -89,7 +89,7 @@ function SignInForm() {
 
         <p className="text-center text-white/40 text-xs font-bold">
           Don&apos;t have an account?{" "}
-          <Link href="/auth/signup" className="text-orange-500 hover:underline">Sign Up</Link>
+          <Link href="/auth/signup" className="text-brand-primary hover:underline">Sign Up</Link>
         </p>
       </div>
     </div>
@@ -100,7 +100,7 @@ export default function SignIn() {
   return (
     <Suspense fallback={
       <div className=" flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+        <Loader2 className="w-8 h-8 text-brand-primary animate-spin" />
       </div>
     }>
       <SignInForm />

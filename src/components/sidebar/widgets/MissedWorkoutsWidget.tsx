@@ -17,7 +17,7 @@ export function MissedWorkoutsWidget({ stats }: { stats: MissedWorkoutsStat }) {
   }
 
   let barColor = "bg-green-500";
-  if (stats.completionPercent < 80) barColor = "bg-orange-500";
+  if (stats.completionPercent < 80) barColor = "bg-brand-primary";
   if (stats.completionPercent < 50) barColor = "bg-red-500";
 
   return (
