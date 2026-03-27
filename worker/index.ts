@@ -1,28 +1,53 @@
-// Custom service worker for push notifications
+// Custom Service Worker for Rest Timer & Push Notifications
+// Built for @ducanh2912/next-pwa
+
+let restTimerTimeout: any = null;
+
+// Message listener for Rest Timer
+self.addEventListener('message', (event: any) => {
+  if (event.data?.type === 'SCHEDULE_REST_NOTIFICATION') {
+    // Clear any existing timeout
+    if (restTimerTimeout) {
+      clearTimeout(restTimerTimeout);
+    }
+
+    const { delay, title, body } = event.data;
+
+    restTimerTimeout = setTimeout(() => {
+      (self as any).registration.showNotification(title, {
+        body,
+        icon: '/icons/icon-192x192.png',
+        badge: '/icons/badge-72x72.png',
+        tag: 'rest-timer',
+        renotify: true,
+        vibrate: [200, 100, 200],
+        data: { url: '/workout' },
+      });
+      restTimerTimeout = null;
+    }, delay);
+  }
+
+  if (event.data?.type === 'CANCEL_REST_NOTIFICATION') {
+    if (restTimerTimeout) {
+      clearTimeout(restTimerTimeout);
+      restTimerTimeout = null;
+    }
+  }
+});
+
+// Push notification listener (merged from existing)
 self.addEventListener("push", (event: any) => {
   const data = event.data ? event.data.json() : { title: "New Notification", message: "You have a new update!" };
 
   const options = {
     body: data.message,
-    icon: "/icon-192x192.png",
-    badge: "/icon-192x192.png",
+    icon: "/icons/icon-192x192.png",
+    badge: "/icons/badge-72x72.png",
     vibrate: [100, 50, 100],
     data: {
       dateOfArrival: Date.now(),
       primaryKey: "1",
     },
-    actions: [
-      {
-        action: "explore",
-        title: "View Details",
-        icon: "/icon-192x192.png",
-      },
-      {
-        action: "close",
-        title: "Close",
-        icon: "/icon-192x192.png",
-      },
-    ],
   };
 
   event.waitUntil(
@@ -30,12 +55,22 @@ self.addEventListener("push", (event: any) => {
   );
 });
 
-self.addEventListener("notificationclick", (event: any) => {
-  console.log("[Service Worker] Notification click Received.");
-
+// Notification click listener
+self.addEventListener('notificationclick', (event: any) => {
   event.notification.close();
 
+  const urlToOpen = event.notification.data?.url || '/workout';
+
   event.waitUntil(
-    (self as any).clients.openWindow("/")
+    (self as any).clients.matchAll({ type: 'window' }).then((clientList: any[]) => {
+      for (const client of clientList) {
+        if (client.url.includes('/workout') && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if ((self as any).clients.openWindow) {
+        return (self as any).clients.openWindow(urlToOpen);
+      }
+    })
   );
 });

@@ -24,8 +24,9 @@ export const dynamic = "force-dynamic";
 export default async function WorkoutsPage({
 	searchParams,
 }: {
-	searchParams: { date?: string };
+	searchParams: Promise<{ date?: string }>;
 }) {
+
 	// Await the entire searchParams object to satisfy Next.js 16 requirements for dynamic resolution
 	const resolvedParams = await searchParams;
 

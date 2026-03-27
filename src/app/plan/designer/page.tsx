@@ -6,10 +6,10 @@ import { Header } from "@/components/Header";
 export default async function DesignerPage({
 	searchParams,
 }: {
-	searchParams: Promise<{ edit?: string }> | { edit?: string };
+	searchParams: Promise<{ edit?: string }>;
 }) {
-	const resolvedParams = await Promise.resolve(searchParams);
-	const editId = resolvedParams?.edit;
+	const { edit: editId } = await searchParams;
+
 
 	const [initialData, exercises] = await Promise.all([
 		editId ? getPlanDetails(editId) : null,
