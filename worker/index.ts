@@ -13,24 +13,41 @@ self.addEventListener('message', (event: any) => {
 
     const { delay, title, body } = event.data;
 
-    // Use event.waitUntil to keep the service worker alive during the rest period.
-    // This is more reliable for background execution on mobile browsers.
+    // Safety check for delay to avoid infinite loops or astronomical values
+    if (delay < 0 || delay > 600000) return; // Cap at 10 minutes
+
+    // Start a background task using event.waitUntil
+    // This tells the OS that the worker is busy and should not be killed.
     event.waitUntil(
-      new Promise<void>((resolve) => {
-        restTimerTimeout = setTimeout(() => {
-          (self as any).registration.showNotification(title, {
-            body,
-            icon: '/icons/icon-192x192.png',
-            badge: '/icons/badge-72x72.png',
-            tag: 'rest-timer',
-            renotify: true,
-            vibrate: [200, 100, 200],
-            data: { url: '/workout' },
-          });
-          restTimerTimeout = null;
-          resolve();
-        }, delay);
-      })
+      (async () => {
+        // Show an initial "Resting..." notification to let the OS know we are doing background work.
+        // Some mobile OSs are less likely to kill a service worker with an active notification.
+        await (self as any).registration.showNotification("Timer Active ⏳", {
+          body: "Rest period started...",
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/badge-72x72.png',
+          tag: 'rest-timer',
+          silent: true, // Don't buzz yet
+        });
+
+        // Use a promise-based delay that waits for the rest period.
+        await new Promise<void>((resolve) => {
+          restTimerTimeout = setTimeout(async () => {
+            // Re-fire a fresh, loud notification when the rest period ends.
+            await (self as any).registration.showNotification(title, {
+              body,
+              icon: '/icons/icon-192x192.png',
+              badge: '/icons/badge-72x72.png',
+              tag: 'rest-timer', // Same tag replaces the "Resting..." one
+              renotify: true,
+              vibrate: [300, 100, 300, 100, 500],
+              data: { url: '/workout' },
+            });
+            restTimerTimeout = null;
+            resolve();
+          }, delay);
+        });
+      })()
     );
   }
 
@@ -39,6 +56,12 @@ self.addEventListener('message', (event: any) => {
       clearTimeout(restTimerTimeout);
       restTimerTimeout = null;
     }
+    // Remove the notification if canceled
+    event.waitUntil(
+      (self as any).registration.getNotifications({ tag: 'rest-timer' }).then((notifications: any[]) => {
+        notifications.forEach(n => n.close());
+      })
+    );
   }
 });
 
