@@ -13,18 +13,25 @@ self.addEventListener('message', (event: any) => {
 
     const { delay, title, body } = event.data;
 
-    restTimerTimeout = setTimeout(() => {
-      (self as any).registration.showNotification(title, {
-        body,
-        icon: '/icons/icon-192x192.png',
-        badge: '/icons/badge-72x72.png',
-        tag: 'rest-timer',
-        renotify: true,
-        vibrate: [200, 100, 200],
-        data: { url: '/workout' },
-      });
-      restTimerTimeout = null;
-    }, delay);
+    // Use event.waitUntil to keep the service worker alive during the rest period.
+    // This is more reliable for background execution on mobile browsers.
+    event.waitUntil(
+      new Promise<void>((resolve) => {
+        restTimerTimeout = setTimeout(() => {
+          (self as any).registration.showNotification(title, {
+            body,
+            icon: '/icons/icon-192x192.png',
+            badge: '/icons/badge-72x72.png',
+            tag: 'rest-timer',
+            renotify: true,
+            vibrate: [200, 100, 200],
+            data: { url: '/workout' },
+          });
+          restTimerTimeout = null;
+          resolve();
+        }, delay);
+      })
+    );
   }
 
   if (event.data?.type === 'CANCEL_REST_NOTIFICATION') {
