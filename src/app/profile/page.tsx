@@ -26,6 +26,7 @@ import Link from "next/link";
 import { LogoutButton } from "@/components/LogoutButton";
 import PageWithSidebar from "@/components/layout/PageWithSidebar";
 import { ProfileSidebar, ProfileMobileStrip } from "@/components/sidebar/ProfileSidebar";
+import { PushNotificationManager } from "@/components/PushNotificationManager";
 
 export default async function ProfilePage() {
 	const session = await getServerSession(authOptions);
@@ -144,6 +145,13 @@ export default async function ProfilePage() {
 						</GlassCard>
 
 						<ProfileClient isVerified={isVerified} />
+
+						<section className="space-y-3">
+							<h3 className="text-xs font-bold text-foreground/40 uppercase tracking-[0.2em] ml-2">
+								Notifications
+							</h3>
+							<PushNotificationManager />
+						</section>
 
 						{sections.map((section, idx) => (
 							<section key={idx} className="space-y-3">
