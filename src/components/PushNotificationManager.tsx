@@ -30,10 +30,17 @@ export function PushNotificationManager() {
 	);
 	const [loading, setLoading] = useState(false);
 
-	console.log({ loading });
-
 	useEffect(() => {
-		if ("serviceWorker" in navigator && "PushManager" in window) {
+		const checkSupport = () => {
+			return (
+				"serviceWorker" in navigator &&
+				"PushManager" in window &&
+				"Notification" in window
+			);
+		};
+
+		console.log({ ch: checkSupport() });
+		if (checkSupport()) {
 			setIsSupported(true);
 			checkSubscription();
 		} else {
@@ -45,6 +52,7 @@ export function PushNotificationManager() {
 		try {
 			const registration = await navigator.serviceWorker.ready;
 			const sub = await registration.pushManager.getSubscription();
+			console.log([registration, sub]);
 			setSubscription(sub);
 		} catch (err) {
 			console.error("Error checking subscription:", err);
@@ -54,19 +62,19 @@ export function PushNotificationManager() {
 	}
 
 	async function subscribe() {
+		console.log({ isSupported });
+		if (!isSupported) return;
+
 		setLoading(true);
-		console.log("hi");
 		try {
 			const registration = await navigator.serviceWorker.ready;
-			console.log({ registration });
 			const sub = await registration.pushManager.subscribe({
 				userVisibleOnly: true,
 				applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
 			});
-			console.log({ sub });
 
+			console.log({ registration, sub });
 			const res = await savePushSubscription(JSON.parse(JSON.stringify(sub)));
-			console.log({ res });
 			if (res.success) {
 				setSubscription(sub);
 			} else {
