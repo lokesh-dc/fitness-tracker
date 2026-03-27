@@ -29,6 +29,7 @@ export function PushNotificationManager() {
 		null,
 	);
 	const [loading, setLoading] = useState(false);
+	const [hasError, setHasError] = useState(false);
 
 	useEffect(() => {
 		const checkSupport = () => {
@@ -43,32 +44,32 @@ export function PushNotificationManager() {
 		if (checkSupport()) {
 			setIsSupported(true);
 			checkSubscription();
-		} else {
-			setLoading(false);
 		}
+		// Don't set loading here — let checkSubscription handle it
 	}, []);
 
 	async function checkSubscription() {
-		// Promise that rejects after 5 seconds
-		const timeout = new Promise((_, reject) => 
-			setTimeout(() => reject(new Error("Timeout")), 5000)
-		);
+		setLoading(true);
+		setHasError(false);
 
 		try {
-			// Race the service worker ready against the timeout
-			const registration = await Promise.race([
+			// Check if service worker is ready with timeout
+			const timeout = new Promise<never>((_, reject) =>
+				setTimeout(() => reject(new Error("Service worker timeout")), 5000),
+			);
+
+			const registration = (await Promise.race([
 				navigator.serviceWorker.ready,
-				timeout
-			]) as ServiceWorkerRegistration;
+				timeout,
+			])) as ServiceWorkerRegistration;
 
 			const sub = await registration.pushManager.getSubscription();
 			setSubscription(sub);
 		} catch (err) {
 			console.error("Error checking subscription:", err);
-			// If it timed out, it's likely not a PWA yet or HW is disabled
-			if (err instanceof Error && err.message === "Timeout") {
-				setIsSupported(false); // Hide the toggle but could show a help message instead
-			}
+			setHasError(true);
+			// Service worker not ready — hide the component but don't crash
+			setIsSupported(false);
 		} finally {
 			setLoading(false);
 		}
@@ -79,6 +80,8 @@ export function PushNotificationManager() {
 		if (!isSupported) return;
 
 		setLoading(true);
+		setHasError(false);
+
 		try {
 			const registration = await navigator.serviceWorker.ready;
 			const sub = await registration.pushManager.subscribe({
@@ -92,9 +95,13 @@ export function PushNotificationManager() {
 				setSubscription(sub);
 			} else {
 				console.error("Failed to save subscription:", res.error);
+				setHasError(true);
+				// Unsubscribe from push if server save failed
+				await sub.unsubscribe();
 			}
 		} catch (err) {
 			console.error("Failed to subscribe:", err);
+			setHasError(true);
 		} finally {
 			setLoading(false);
 		}
@@ -102,14 +109,16 @@ export function PushNotificationManager() {
 
 	async function unsubscribe() {
 		setLoading(true);
+		setHasError(false);
+
 		try {
 			if (subscription) {
 				await subscription.unsubscribe();
 				setSubscription(null);
-				// Optionally notify server to delete subscription
 			}
 		} catch (err) {
 			console.error("Failed to unsubscribe:", err);
+			setHasError(true);
 		} finally {
 			setLoading(false);
 		}
@@ -117,10 +126,13 @@ export function PushNotificationManager() {
 
 	async function testNotification() {
 		setLoading(true);
+		setHasError(false);
+
 		try {
 			await triggerTestNotification();
 		} catch (err) {
 			console.error("Test failed:", err);
+			setHasError(true);
 		} finally {
 			setLoading(false);
 		}
@@ -133,7 +145,12 @@ export function PushNotificationManager() {
 					Push Notifications
 				</p>
 				<p className="text-xs text-foreground/60 leading-relaxed">
-					To receive alerts, please <span className="text-brand-primary font-bold">"Add to Home Screen"</span> first. iOS Safari requires the app to be installed as a PWA for push support.
+					To receive alerts, please{" "}
+					<span className="text-brand-primary font-bold">
+						"Add to Home Screen"
+					</span>{" "}
+					first. iOS Safari requires the app to be installed as a PWA for push
+					support.
 				</p>
 			</GlassCard>
 		);
@@ -162,7 +179,11 @@ export function PushNotificationManager() {
 							{subscription ? "Notifications Active" : "Push Notifications"}
 						</p>
 						<p className="text-[10px] text-foreground/40 font-medium uppercase tracking-widest">
-							{subscription ? "You're all set!" : "Get workout reminders"}
+							{subscription
+								? "You're all set!"
+								: hasError
+									? "Error — try again"
+									: "Get workout reminders"}
 						</p>
 					</div>
 				</div>
@@ -179,7 +200,9 @@ export function PushNotificationManager() {
 							subscription
 								? "bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
 								: "bg-foreground/10"
-						} ${loading ? "opacity-50 cursor-wait" : ""}`}>
+						} ${loading ? "opacity-50 cursor-wait" : ""} ${
+							hasError ? "opacity-75" : ""
+						}`}>
 						<div
 							className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ${
 								subscription ? "translate-x-6" : "translate-x-0"
@@ -199,7 +222,7 @@ export function PushNotificationManager() {
 				<button
 					onClick={testNotification}
 					disabled={loading}
-					className="w-full glass p-3 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40 hover:text-foreground transition-all border-dashed border-white/10 border">
+					className="w-full glass p-3 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40 hover:text-foreground transition-all border-dashed border-white/10 border disabled:opacity-50 disabled:cursor-wait">
 					<FlaskConical className="w-3 h-3 text-brand-primary" />
 					Send Test Notification
 				</button>
