@@ -49,13 +49,26 @@ export function PushNotificationManager() {
 	}, []);
 
 	async function checkSubscription() {
+		// Promise that rejects after 5 seconds
+		const timeout = new Promise((_, reject) => 
+			setTimeout(() => reject(new Error("Timeout")), 5000)
+		);
+
 		try {
-			const registration = await navigator.serviceWorker.ready;
+			// Race the service worker ready against the timeout
+			const registration = await Promise.race([
+				navigator.serviceWorker.ready,
+				timeout
+			]) as ServiceWorkerRegistration;
+
 			const sub = await registration.pushManager.getSubscription();
-			console.log([registration, sub]);
 			setSubscription(sub);
 		} catch (err) {
 			console.error("Error checking subscription:", err);
+			// If it timed out, it's likely not a PWA yet or HW is disabled
+			if (err instanceof Error && err.message === "Timeout") {
+				setIsSupported(false); // Hide the toggle but could show a help message instead
+			}
 		} finally {
 			setLoading(false);
 		}
@@ -111,6 +124,19 @@ export function PushNotificationManager() {
 		} finally {
 			setLoading(false);
 		}
+	}
+
+	if (!isSupported && !loading) {
+		return (
+			<GlassCard className="p-4 border-dashed border-foreground/10 bg-white/5">
+				<p className="text-[10px] text-foreground/40 font-bold uppercase tracking-widest mb-1">
+					Push Notifications
+				</p>
+				<p className="text-xs text-foreground/60 leading-relaxed">
+					To receive alerts, please <span className="text-brand-primary font-bold">"Add to Home Screen"</span> first. iOS Safari requires the app to be installed as a PWA for push support.
+				</p>
+			</GlassCard>
+		);
 	}
 
 	if (!isSupported) return null;
