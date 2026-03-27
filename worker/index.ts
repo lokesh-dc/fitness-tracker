@@ -3,7 +3,7 @@
 
 let restTimerTimeout: any = null;
 
-// Message listener for Rest Timer
+// Message listener for Rest Timer (Local SW Timeout)
 self.addEventListener('message', (event: any) => {
   if (event.data?.type === 'SCHEDULE_REST_NOTIFICATION') {
     // Clear any existing timeout
@@ -13,32 +13,26 @@ self.addEventListener('message', (event: any) => {
 
     const { delay, title, body } = event.data;
 
-    // Safety check for delay to avoid infinite loops or astronomical values
-    if (delay < 0 || delay > 600000) return; // Cap at 10 minutes
+    if (delay < 0 || delay > 600000) return;
 
-    // Start a background task using event.waitUntil
-    // This tells the OS that the worker is busy and should not be killed.
     event.waitUntil(
       (async () => {
-        // Show an initial "Resting..." notification to let the OS know we are doing background work.
-        // Some mobile OSs are less likely to kill a service worker with an active notification.
+        // Show an initial "Resting..." notification to encourage background keep-alive
         await (self as any).registration.showNotification("Timer Active ⏳", {
           body: "Rest period started...",
           icon: '/icons/icon-192x192.png',
           badge: '/icons/badge-72x72.png',
           tag: 'rest-timer',
-          silent: true, // Don't buzz yet
+          silent: true,
         });
 
-        // Use a promise-based delay that waits for the rest period.
         await new Promise<void>((resolve) => {
           restTimerTimeout = setTimeout(async () => {
-            // Re-fire a fresh, loud notification when the rest period ends.
             await (self as any).registration.showNotification(title, {
               body,
               icon: '/icons/icon-192x192.png',
               badge: '/icons/badge-72x72.png',
-              tag: 'rest-timer', // Same tag replaces the "Resting..." one
+              tag: 'rest-timer',
               renotify: true,
               vibrate: [300, 100, 300, 100, 500],
               data: { url: '/workout' },
@@ -56,7 +50,6 @@ self.addEventListener('message', (event: any) => {
       clearTimeout(restTimerTimeout);
       restTimerTimeout = null;
     }
-    // Remove the notification if canceled
     event.waitUntil(
       (self as any).registration.getNotifications({ tag: 'rest-timer' }).then((notifications: any[]) => {
         notifications.forEach(n => n.close());
@@ -65,18 +58,27 @@ self.addEventListener('message', (event: any) => {
   }
 });
 
-// Push notification listener (merged from existing)
+// Push notification listener (VAPID Remote Push)
 self.addEventListener("push", (event: any) => {
-  const data = event.data ? event.data.json() : { title: "New Notification", message: "You have a new update!" };
+  let data = { title: "Rest Complete 🔥", body: "Time to hit the next set!", url: "/workout" };
+  
+  try {
+    if (event.data) {
+      data = event.data.json();
+    }
+  } catch (e) {
+    console.warn("Push event data parse failed:", e);
+  }
 
   const options = {
-    body: data.message,
+    body: data.body,
     icon: "/icons/icon-192x192.png",
     badge: "/icons/badge-72x72.png",
-    vibrate: [100, 50, 100],
+    tag: 'rest-timer', // Same tag ensures it replaces the local 'Timer Active' notification
+    renotify: true,
+    vibrate: [300, 100, 300, 100, 500],
     data: {
-      dateOfArrival: Date.now(),
-      primaryKey: "1",
+      url: data.url || '/workout',
     },
   };
 
