@@ -19,11 +19,10 @@ import { WorkoutTemplate } from "@/types/workout";
 export default async function PlanDetailPage({
 	params,
 }: {
-	params: Promise<{ planId: string }> | { planId: string };
+	params: Promise<{ planId: string }>;
 }) {
-	// Await params in case Next.js 15 treats them as Promises in Server Components
-	const resolvedParams = await Promise.resolve(params);
-	const planId = resolvedParams.planId;
+	const { planId } = await params;
+
 
 	const data = await getPlanDetails(planId);
 

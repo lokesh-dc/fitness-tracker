@@ -39,6 +39,8 @@ import { LiveStatsDisplay } from "./workout/LiveStatsDisplay";
 import { PRsFeedDisplay } from "./workout/PRsFeedDisplay";
 import PageWithSidebar from "./layout/PageWithSidebar";
 import WorkoutSidebar from "./sidebar/WorkoutSidebar";
+import { requestNotificationPermission } from "@/lib/notifications";
+
 
 const DAYS = [
 	"Sunday",
@@ -328,7 +330,9 @@ export default function WorkoutSession({
 				</div>
 
 				<button
-					onClick={() => {
+					onClick={async () => {
+						// Request notification permission on user gesture
+						await requestNotificationPermission();
 						setStep(effectiveBodyWeight > 0 ? 2 : 1);
 						if (activeMode === "LIVE_SESSION") {
 							sessionStats.startSession();
@@ -337,6 +341,7 @@ export default function WorkoutSession({
 					className="w-full md:w-auto px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center bg-brand-primary text-black hover:scale-105 active:scale-95 shadow-[0_20px_40px_rgba(249,115,22,0.3)]">
 					Start Now <ArrowRight className="w-4 h-4 ml-2" />
 				</button>
+
 			</GlassCard>
 		);
 
@@ -985,11 +990,13 @@ const SessionLayout = ({
 
 		{timer && (
 			<RestTimerBar
-				timeLeft={timer.timeLeft}
+				secondsLeft={timer.secondsLeft}
 				totalDuration={timer.totalDuration}
+				isRunning={timer.isRunning}
 				onSkip={timer.skip}
 				onAdjust={timer.adjust}
 			/>
 		)}
+
 	</div>
 );
