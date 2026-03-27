@@ -84,3 +84,17 @@ export async function sendPushNotification(userId: string, title: string, messag
     return { error: "Failed to send notifications" };
   }
 }
+
+export async function triggerTestNotification() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return { error: "Not authenticated" };
+
+  const userId = (session.user as any).id;
+  const results = await sendPushNotification(
+    userId,
+    "Test Notification! 🏋️‍♀️",
+    "Great work! Your push notification system is working perfectly."
+  );
+
+  return { success: true, count: Array.isArray(results) ? results.length : 0 };
+}

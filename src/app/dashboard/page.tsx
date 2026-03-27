@@ -13,6 +13,7 @@ import { Header } from "@/components/Header";
 import PageWithSidebar from "@/components/layout/PageWithSidebar";
 import { HomeSidebar } from "@/components/sidebar/HomeSidebar";
 import { MobileWidgetStrip } from "@/components/sidebar/MobileWidgetStrip";
+import { NotificationPrompt } from "@/components/NotificationPrompt";
 import { 
   getStreakData, 
   getMonthWorkoutDates, 
@@ -105,6 +106,8 @@ export default async function DashboardPage() {
 					}
 				>
 					<div className="space-y-8">
+						<NotificationPrompt />
+						
 						<section>
 							<GlassCard className="relative overflow-hidden p-6 border-foreground/5 bg-gradient-to-br from-brand-primary/10 to-transparent">
 								<Quote className="absolute -bottom-4 -right-4 w-24 h-24 text-brand-primary/10 -rotate-12" />
