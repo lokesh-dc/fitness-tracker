@@ -5,7 +5,6 @@
 	"scripts": {
 		"dev": "next dev --webpack",
 		"build": "next build --webpack",
-
 		"start": "next start",
 		"lint": "eslint",
 		"seed": "tsx scripts/seed.ts"
@@ -13,7 +12,7 @@
 	"dependencies": {
 		"@auth/mongodb-adapter": "^3.11.1",
 		"@ducanh2912/next-pwa": "^10.2.9",
-		"@types/web-push": "^3.6.4",
+		"@upstash/qstash": "^2.10.1",
 		"bcryptjs": "^3.0.3",
 		"clsx": "^2.1.1",
 		"date-fns": "^4.1.0",
@@ -38,6 +37,7 @@
 		"@types/node": "^20",
 		"@types/react": "^19",
 		"@types/react-dom": "^19",
+		"@types/web-push": "^3.6.4",
 		"babel-plugin-react-compiler": "1.0.0",
 		"eslint": "^9",
 		"eslint-config-next": "16.1.6",

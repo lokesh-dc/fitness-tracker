@@ -26,7 +26,7 @@ export function useRestTimer(options?: UseRestTimerOptions) {
   }, []);
 
   const start = useCallback((duration: number) => {
-    if (duration <= 0) return;
+    if (duration < 60) return;
     
     // Clear existing timer if any
     if (timerRef.current) clearInterval(timerRef.current);

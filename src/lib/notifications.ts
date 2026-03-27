@@ -47,10 +47,16 @@ export async function scheduleRestNotification(seconds: number) {
   }
 
   // B) New VAPID push schedule
+  // Rest timer minimum is 60 seconds (60000ms)
+  if (delayMs < 60000) {
+    return;
+  }
+
   try {
     const subscription = await subscribeToPush();
     if (subscription) {
-      const response = await fetch('/api/push/schedule', {
+      // Fire and forget, but handle errors within the block
+      fetch('/api/push/schedule', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -61,12 +67,12 @@ export async function scheduleRestNotification(seconds: number) {
           title,
           body,
         }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        currentPushJobId = data.jobId;
-      }
+      }).then(async (response) => {
+        if (response.ok) {
+          const data = await response.json();
+          currentPushJobId = data.jobId;
+        }
+      }).catch(err => console.warn('Push schedule fetch failed:', err));
     }
   } catch (error) {
     // Fail silently, do not disrupt the timer
@@ -88,20 +94,22 @@ export async function cancelRestNotification() {
 
   // Cancel VAPID server-side push
   if (currentPushJobId) {
+    const jobId = currentPushJobId;
+    currentPushJobId = null; // Clear it immediately
+
     try {
-      await fetch('/api/push/schedule', {
+      // Fire and forget, do not await
+      fetch('/api/push/schedule', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          jobId: currentPushJobId,
-        }),
-      });
-      currentPushJobId = null;
+        body: JSON.stringify({ jobId }),
+      }).catch(err => console.warn('Push cancellation fetch failed:', err));
     } catch (error) {
       // Fail silently
       console.warn('VAPID push cancellation failed:', error);
     }
   }
 }
+
