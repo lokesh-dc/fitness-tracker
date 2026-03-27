@@ -2,7 +2,16 @@
 
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/db-utils";
-import { WeightTrendData, SetLog, ExerciseTimelineEntry, MostImprovedExercise, WeeklyVolumeComparison } from "@/types/workout";
+import { 
+  WeightTrendData, 
+  SetLog, 
+  ExerciseTimelineEntry, 
+  MostImprovedExercise, 
+  WeeklyVolumeComparison,
+  BodyWeightTrend,
+  AllTimeStats,
+  AccountSummary
+} from "@/types/workout";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
@@ -1033,6 +1042,190 @@ export async function getWeeklyVolumeComparison(
       differenceKg: 0,
       differencePercent: 0,
       trendDirection: 'neutral',
+    };
+  }
+}
+
+export async function getProfileBodyWeightTrend(
+  userId: string,
+  limit: number = 8
+): Promise<BodyWeightTrend> {
+  try {
+    const db = await getDb();
+    
+    // Fetch last N WorkoutLogs where bodyWeight exists and is > 0
+    const logs = await db.collection('WorkoutLog')
+      .find({
+        userId: new ObjectId(userId),
+        bodyWeight: { $exists: true, $gt: 0 }
+      })
+      .sort({ date: -1 })
+      .limit(limit)
+      .project({ date: 1, bodyWeight: 1 })
+      .toArray();
+
+    if (!logs.length) {
+      return {
+        entries: [],
+        currentWeight: null,
+        firstWeight: null,
+        changeKg: null,
+        changeDirection: null,
+      };
+    }
+
+    // Reverse to get ascending order for chart
+    const entries = logs
+      .reverse()
+      .map(l => ({
+        date: l.date,
+        weight: Math.round(l.bodyWeight * 10) / 10,
+      }));
+
+    const currentWeight = entries[entries.length - 1].weight;
+    const firstWeight = entries[0].weight;
+    const changeKg = Math.round((currentWeight - firstWeight) * 10) / 10;
+
+    return {
+      entries,
+      currentWeight,
+      firstWeight,
+      changeKg,
+      changeDirection: changeKg > 0.2
+        ? 'up'
+        : changeKg < -0.2 ? 'down' : 'neutral',
+    };
+  } catch (error) {
+    console.error("Error in getBodyWeightTrend:", error);
+    return {
+      entries: [],
+      currentWeight: null,
+      firstWeight: null,
+      changeKg: null,
+      changeDirection: null,
+    };
+  }
+}
+
+export async function getAllTimeStats(userId: string): Promise<AllTimeStats> {
+  try {
+    const db = await getDb();
+    
+    const [workoutStats, prStats, streakDataResult] = await Promise.all([
+      // Total workouts + total volume
+      db.collection('WorkoutLog').aggregate([
+        { $match: { userId: new ObjectId(userId) } },
+        { $unwind: '$exercises' },
+        { $match: { 'exercises.isDone': true } },
+        { $unwind: '$exercises.sets' },
+        {
+          $match: {
+            'exercises.sets.weight': { $gt: 0 },
+            'exercises.sets.reps': { $gt: 0 },
+          }
+        },
+        {
+          $group: {
+            _id: '$_id',   // group by workout first to count unique sessions
+            sessionVolume: {
+              $sum: {
+                $multiply: [
+                  '$exercises.sets.weight',
+                  '$exercises.sets.reps'
+                ]
+              }
+            }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalWorkouts: { $sum: 1 },
+            totalVolumeKg: { $sum: '$sessionVolume' }
+          }
+        }
+      ]).toArray(),
+
+      // Total PRs broken — count exercises where history has
+      // more than 1 entry (each new entry = a PR was broken)
+      db.collection('ExerciseRecords').aggregate([
+        { $match: { userId: new ObjectId(userId) } },
+        {
+          $project: {
+            prCount: {
+              $subtract: [{ $size: { $ifNull: ['$history', []] } }, 1]
+            }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalPRsBroken: {
+              $sum: {
+                $max: ['$prCount', 0] // never negative
+              }
+            }
+          }
+        }
+      ]).toArray(),
+
+      // Reuse existing streak logic
+      getStreakData(),
+    ]);
+
+    const stats = workoutStats[0];
+    const prs = prStats[0];
+
+    return {
+      totalWorkouts: stats?.totalWorkouts ?? 0,
+      totalVolumeKg: Math.round(stats?.totalVolumeKg ?? 0),
+      totalPRsBroken: prs?.totalPRsBroken ?? 0,
+      longestStreakDays: streakDataResult.longestStreak ?? 0,
+    };
+  } catch (error) {
+    console.error("Error in getAllTimeStats:", error);
+    return {
+      totalWorkouts: 0,
+      totalVolumeKg: 0,
+      totalPRsBroken: 0,
+      longestStreakDays: 0,
+    };
+  }
+}
+
+export async function getAccountSummary(userId: string): Promise<AccountSummary> {
+  try {
+    const db = await getDb();
+    const user = await db.collection('users').findOne(
+      { _id: new ObjectId(userId) },
+      { projection: { createdAt: 1 } }
+    );
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const memberSince = new Date(user.createdAt || user._id.getTimestamp());
+    const now = new Date();
+
+    const monthsTraining = Math.floor(
+      (now.getFullYear() - memberSince.getFullYear()) * 12 +
+      (now.getMonth() - memberSince.getMonth())
+    );
+
+    const memberSinceLabel = memberSince.toLocaleDateString('en-US', {
+      month: 'long',
+      year: 'numeric'
+    }); // e.g. "March 2025"
+
+    return { memberSince, monthsTraining, memberSinceLabel };
+  } catch (error) {
+    console.error("Error in getAccountSummary:", error);
+    const now = new Date();
+    return { 
+      memberSince: now, 
+      monthsTraining: 0, 
+      memberSinceLabel: now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) 
     };
   }
 }

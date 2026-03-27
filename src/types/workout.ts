@@ -178,3 +178,29 @@ export interface WeeklyVolumeComparison {
   differencePercent: number;
   trendDirection: 'up' | 'down' | 'neutral';
 }
+
+export interface BodyWeightEntry {
+  date: Date | string;
+  weight: number;
+}
+
+export interface BodyWeightTrend {
+  entries: BodyWeightEntry[];
+  currentWeight: number | null;
+  firstWeight: number | null;
+  changeKg: number | null;
+  changeDirection: 'up' | 'down' | 'neutral' | null;
+}
+
+export interface AllTimeStats {
+  totalWorkouts: number;
+  totalVolumeKg: number;
+  totalPRsBroken: number;
+  longestStreakDays: number;
+}
+
+export interface AccountSummary {
+  memberSince: Date;
+  monthsTraining: number;
+  memberSinceLabel: string;
+}
