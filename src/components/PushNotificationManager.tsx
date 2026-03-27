@@ -58,12 +58,15 @@ export function PushNotificationManager() {
 		console.log("hi");
 		try {
 			const registration = await navigator.serviceWorker.ready;
+			console.log({ registration });
 			const sub = await registration.pushManager.subscribe({
 				userVisibleOnly: true,
 				applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
 			});
+			console.log({ sub });
 
 			const res = await savePushSubscription(JSON.parse(JSON.stringify(sub)));
+			console.log({ res });
 			if (res.success) {
 				setSubscription(sub);
 			} else {

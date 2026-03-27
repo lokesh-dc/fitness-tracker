@@ -13,15 +13,9 @@ export function NotificationPrompt() {
 		console.log(
 			"Notification.permission",
 			Notification.permission,
-			"Notification" in window &&
-				"serviceWorker" in navigator &&
-				Notification.permission === "default",
+			"Notification" in window && "serviceWorker" in navigator,
 		);
-		if (
-			"Notification" in window &&
-			"serviceWorker" in navigator &&
-			Notification.permission === "default"
-		) {
+		if ("Notification" in window && "serviceWorker" in navigator) {
 			setShow(true);
 		}
 	}, []);
