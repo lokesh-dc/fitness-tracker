@@ -17,14 +17,7 @@ self.addEventListener('message', (event: any) => {
 
     event.waitUntil(
       (async () => {
-        // Show an initial "Resting..." notification to encourage background keep-alive
-        await (self as any).registration.showNotification("Timer Active ⏳", {
-          body: "Rest period started...",
-          icon: '/icons/icon-192x192.png',
-          badge: '/icons/badge-72x72.png',
-          tag: 'rest-timer',
-          silent: true,
-        });
+        // Wait for the delay specified in the message
 
         await new Promise<void>((resolve) => {
           restTimerTimeout = setTimeout(async () => {
@@ -61,7 +54,7 @@ self.addEventListener('message', (event: any) => {
 // Push notification listener (VAPID Remote Push)
 self.addEventListener("push", (event: any) => {
   let data = { title: "Rest Complete 🔥", body: "Time to hit the next set!", url: "/workout" };
-  
+
   try {
     if (event.data) {
       data = event.data.json();
