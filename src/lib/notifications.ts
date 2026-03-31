@@ -62,8 +62,8 @@ export async function scheduleRestNotification(seconds: number) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          subscription,
-          delay: delayMs,
+          subscription: subscription.toJSON(), // ← THIS is the common miss
+          delay: seconds * 1000,
           title,
           body,
         }),
