@@ -26,10 +26,19 @@ export const viewport: Viewport = {
 	userScalable: false,
 };
 
-export default function RootLayout({ children }: any) {
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { isDemoSession } from "@/lib/demo";
+import { DemoBanner } from "@/components/demo/DemoBanner";
+import { DemoExitModal } from "@/components/demo/DemoExitModal";
+
+export default async function RootLayout({ children }: any) {
+	const session = await getServerSession(authOptions);
+	const isDemo = isDemoSession(session);
+
 	return (
 		<html lang="en" suppressHydrationWarning>
-			<body>
+			<body className={isDemo ? "demo-active" : ""}>
 				<NextTopLoader
 					color="var(--brand-accent)"
 					height={3}
@@ -37,9 +46,13 @@ export default function RootLayout({ children }: any) {
 					shadow="0 0 10px var(--brand-accent), 0 0 5px var(--brand-accent)"
 				/>
 				<Providers>
+					{isDemo && <DemoBanner />}
 					<LayoutShell>{children}</LayoutShell>
+					{isDemo && <DemoExitModal />}
 				</Providers>
 			</body>
 		</html>
 	);
 }
+
+

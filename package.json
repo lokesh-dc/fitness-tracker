@@ -7,7 +7,8 @@
 		"build": "next build --webpack",
 		"start": "next start",
 		"lint": "eslint",
-		"seed": "tsx scripts/seed.ts"
+		"seed": "tsx scripts/seed.ts",
+		"seed-demo": "tsx --env-file=.env scripts/seed-demo.ts"
 	},
 	"dependencies": {
 		"@auth/mongodb-adapter": "^3.11.1",
@@ -26,6 +27,7 @@
 		"nextjs-toploader": "^3.9.17",
 		"react": "19.2.3",
 		"react-dom": "19.2.3",
+		"react-hot-toast": "^2.6.0",
 		"recharts": "^3.7.0",
 		"resend": "^6.9.3",
 		"tailwind-merge": "^3.5.0",

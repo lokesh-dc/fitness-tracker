@@ -2,11 +2,11 @@
 
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/db-utils";
-import { 
-  WeightTrendData, 
-  SetLog, 
-  ExerciseTimelineEntry, 
-  MostImprovedExercise, 
+import {
+  WeightTrendData,
+  SetLog,
+  ExerciseTimelineEntry,
+  MostImprovedExercise,
   WeeklyVolumeComparison,
   BodyWeightTrend,
   AllTimeStats,
@@ -202,79 +202,43 @@ export async function getExerciseTimeline(
 
     const db = await getDb();
 
-    const pipeline: any[] = [
-      {
-        $match: {
-          userId,
-          ...(from || to ? {
-            date: {
-              ...(from ? { $gte: from } : {}),
-              ...(to ? { $lte: to } : {}),
-            }
-          } : {})
-        }
-      },
-      { $unwind: '$exercises' },
-      {
-        $match: {
-          'exercises.name': exerciseName,
-          'exercises.isDone': true
-        }
-      },
-      { $unwind: '$exercises.sets' },
-      {
-        $match: {
-          'exercises.sets.weight': { $gt: 0 },
-          'exercises.sets.reps': { $gt: 0 }
-        }
-      },
-      {
-        $group: {
-          _id: '$date',
-          maxWeight: { $max: '$exercises.sets.weight' },
-          totalVolume: {
-            $sum: {
-              $multiply: ['$exercises.sets.weight', '$exercises.sets.reps']
-            }
-          },
-          totalReps: { $sum: '$exercises.sets.reps' },
-          totalSets: { $sum: 1 },
-        }
-      },
-      { $sort: { _id: 1 } },
-      { $limit: 200 }
-    ];
+    // Fetch the ExerciseRecord which contains the full history and PR date
+    const record = await db.collection("ExerciseRecords").findOne({ userId, exerciseName });
 
-    const results = await db.collection('WorkoutLog').aggregate(pipeline).toArray();
+    if (!record || !record.history) return [];
 
-    // Fetch prDate from ExerciseRecords for PR marker
-    const record = await db.collection('ExerciseRecords').findOne(
-      { userId, exerciseName },
-      { projection: { prDate: 1 } }
-    );
-
-    // Normalize prDate for string comparison
-    const prDateStr = record?.prDate
+    const prDateStr = record.prDate
       ? new Date(record.prDate).toISOString().split('T')[0]
       : null;
 
-    return results.map(r => {
-      const avgRepsPerSet = r.totalSets > 0
-        ? Math.round(r.totalReps / r.totalSets)
+    let history = record.history;
+
+    // Filter by date range if provided
+    if (from || to) {
+      history = history.filter((h: any) => {
+        const hDate = new Date(h.date);
+        if (from && hDate < from) return false;
+        if (to && hDate > to) return false;
+        return true;
+      });
+    }
+
+    return history.map((h: any) => {
+      const avgRepsPerSet = h.totalSets > 0
+        ? Math.round(h.totalReps / h.totalSets)
         : 1;
 
-      // Use maxWeight and avgReps for the 1RM estimation as per plan
-      const estimatedOneRM = calculateOneRM(r.maxWeight, avgRepsPerSet);
-
-      const currentEntryDate = new Date(r._id);
+      const maxWeight = h.maxWeight || 0;
+      const estimatedOneRM = calculateOneRM(maxWeight, avgRepsPerSet);
+      const currentEntryDate = new Date(h.date);
 
       return {
         date: currentEntryDate.toISOString(),
-        maxWeight: r.maxWeight,
+        maxWeight,
         estimatedOneRM,
-        totalVolume: r.totalVolume,
-        totalSets: r.totalSets,
-        totalReps: r.totalReps,
+        totalVolume: h.totalVolume || (maxWeight * h.totalReps), // Fallback if volume not stored
+        totalSets: h.totalSets,
+        totalReps: h.totalReps,
         avgRepsPerSet,
         isPR: currentEntryDate.toISOString().split('T')[0] === prDateStr,
       };
@@ -285,6 +249,7 @@ export async function getExerciseTimeline(
     return [];
   }
 }
+
 
 function calculateOneRM(weight: number, reps: number): number {
   if (reps <= 1) return weight;
@@ -1052,7 +1017,7 @@ export async function getProfileBodyWeightTrend(
 ): Promise<BodyWeightTrend> {
   try {
     const db = await getDb();
-    
+
     // Fetch last N WorkoutLogs where bodyWeight exists and is > 0
     const logs = await db.collection('WorkoutLog')
       .find({
@@ -1110,7 +1075,7 @@ export async function getProfileBodyWeightTrend(
 export async function getAllTimeStats(userId: string): Promise<AllTimeStats> {
   try {
     const db = await getDb();
-    
+
     const [workoutStats, prStats, streakDataResult] = await Promise.all([
       // Total workouts + total volume
       db.collection('WorkoutLog').aggregate([
@@ -1222,10 +1187,10 @@ export async function getAccountSummary(userId: string): Promise<AccountSummary>
   } catch (error) {
     console.error("Error in getAccountSummary:", error);
     const now = new Date();
-    return { 
-      memberSince: now, 
-      monthsTraining: 0, 
-      memberSinceLabel: now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) 
+    return {
+      memberSince: now,
+      monthsTraining: 0,
+      memberSinceLabel: now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
     };
   }
 }

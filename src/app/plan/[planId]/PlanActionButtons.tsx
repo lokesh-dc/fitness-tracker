@@ -8,6 +8,10 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { deletePlan, updatePlanWeeks } from "@/app/actions/plan";
 import { cn } from "@/lib/utils";
 
+import { useSession } from "next-auth/react";
+import { isDemoSession } from "@/lib/demo";
+import { demoActionGuard } from "@/lib/demo-guard";
+
 export function PlanActionButtons({ 
   planId, 
   currentWeeks 
@@ -15,6 +19,8 @@ export function PlanActionButtons({
   planId: string;
   currentWeeks: number;
 }) {
+  const { data: session } = useSession();
+  const isDemo = isDemoSession(session);
   const router = useRouter();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -22,38 +28,43 @@ export function PlanActionButtons({
   const [showExtendOptions, setShowExtendOptions] = useState(false);
 
   const handleDelete = async () => {
-    setIsDeleting(true);
-    try {
-      const res = await deletePlan(planId);
-      if (res.success) {
-        router.push("/plan");
-        router.refresh();
-      } else {
-        alert("Failed to delete plan");
+    demoActionGuard(isDemo, async () => {
+      setIsDeleting(true);
+      try {
+        const res = await deletePlan(planId);
+        if (res.success) {
+          router.push("/plan");
+          router.refresh();
+        } else {
+          alert("Failed to delete plan");
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsDeleting(false);
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsDeleting(false);
-    }
+    });
   };
 
   const handleExtend = async (additionalWeeks: number) => {
-    setIsExtending(true);
-    try {
-      const res = await updatePlanWeeks(planId, currentWeeks + additionalWeeks);
-      if (res.success) {
-        setShowExtendOptions(false);
-        router.refresh();
-      } else {
-        alert("Failed to extend plan");
+    demoActionGuard(isDemo, async () => {
+      setIsExtending(true);
+      try {
+        const res = await updatePlanWeeks(planId, currentWeeks + additionalWeeks);
+        if (res.success) {
+          setShowExtendOptions(false);
+          router.refresh();
+        } else {
+          alert("Failed to extend plan");
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsExtending(false);
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsExtending(false);
-    }
+    });
   };
+
 
   return (
     <>
