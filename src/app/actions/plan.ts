@@ -339,6 +339,43 @@ export async function getPlanDetails(planId: string) {
   }
 }
 
+export async function terminatePlan(planId: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) throw new Error("Unauthorized");
+    const userId = new ObjectId((session.user as any).id);
+
+    const db = await getDb();
+    const plan = await db.collection("PlanDocument").findOne({ _id: new ObjectId(planId), userId });
+    
+    if (!plan) throw new Error("Plan not found");
+
+    const startDate = new Date(plan.startDate + "T00:00:00");
+    const now = new Date();
+    
+    // Calculate how many weeks have passed (min 1)
+    const diffTime = now.getTime() - startDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    // Set numWeeks such that it is less than the current weekIndex to mark as completed immediately
+    // weekIndex = floor(diffDays / 7) + 1
+    // We want numWeeks < weekIndex, so numWeeks = floor(diffDays / 7)
+    const newNumWeeks = Math.max(0, Math.floor(diffDays / 7));
+
+    await db.collection("PlanDocument").updateOne(
+      { _id: new ObjectId(planId), userId },
+      { $set: { numWeeks: newNumWeeks, updatedAt: new Date() } }
+    );
+
+    revalidatePath("/plan");
+    revalidatePath(`/plan/${planId}`);
+    return { success: true };
+  } catch (err) {
+    console.error("Error terminating plan:", err);
+    return { success: false, error: "Failed to terminate plan" };
+  }
+}
+
 export async function deletePlan(planId: string) {
   try {
     const session = await getServerSession(authOptions);

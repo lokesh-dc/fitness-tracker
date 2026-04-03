@@ -102,12 +102,9 @@ export default async function PlanDetailPage({
 					</GlassCard>
 				)}
 
-				{/* Client side interactive buttons */}
-				<PlanActionButtons planId={plan.id} currentWeeks={plan.numWeeks} />
-
 				{/* Templates Tree */}
 				<section className="space-y-6">
-					<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-8 bg-foreground/[0.02] p-4 rounded-2xl">
+					<div className="flex md:items-center md:justify-between gap-6 mb-8 bg-foreground/[0.02] p-4 rounded-2xl">
 						<div className="flex items-center space-x-3">
 							<div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center">
 								<Calendar className="w-5 h-5 text-brand-primary" />
@@ -148,6 +145,11 @@ export default async function PlanDetailPage({
 						</div>
 
 						<WeeklySchedule templates={baseWeek} />
+					</div>
+
+					<div className="pt-8 flex flex-col gap-6">
+						<div className="w-full h-px bg-foreground/10" />
+						<PlanActionButtons planId={plan.id} currentWeeks={plan.numWeeks} />
 					</div>
 				</section>
 			</main>
