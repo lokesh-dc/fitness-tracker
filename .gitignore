@@ -48,3 +48,6 @@ public/sw.js*
 public/worker-*.js
 public/workbox-*.js
 
+
+.gemini/
+gha-creds-*.json
