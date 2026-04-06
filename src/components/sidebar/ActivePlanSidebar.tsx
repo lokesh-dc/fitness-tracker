@@ -11,7 +11,7 @@ import { StrengthProgressWidget } from "./widgets/StrengthProgressWidget";
 import { WeeklyVolumeWidget } from "./widgets/WeeklyVolumeWidget";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { AlertCircle } from "lucide-react";
-import BodyweightWidget from "./widgets/BodyweightWidget";
+import { BodyweightWidget } from "./widgets/BodyweightWidget";
 
 interface ActivePlanSidebarProps {
 	progressData: PlanProgressData | null;

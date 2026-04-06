@@ -1,10 +1,10 @@
 "use client";
 
 import { BodyWeightTrend, AllTimeStats, AccountSummary } from "@/types/workout";
-import AllTimeStatsWidget from "./widgets/AllTimeStatsWidget";
-import AccountSummaryWidget from "./widgets/AccountSummaryWidget";
+import { AllTimeStatsWidget } from "./widgets/AllTimeStatsWidget";
+import { AccountSummaryWidget } from "./widgets/AccountSummaryWidget";
 import { GlassCard } from "@/components/ui/GlassCard";
-import BodyweightWidget from "./widgets/BodyweightWidget";
+import { BodyweightWidget } from "./widgets/BodyweightWidget";
 
 interface ProfileSidebarProps {
 	bodyWeightTrend: BodyWeightTrend;

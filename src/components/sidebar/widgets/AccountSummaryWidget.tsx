@@ -7,7 +7,7 @@ interface AccountSummaryWidgetProps {
   data: AccountSummary;
 }
 
-export default function AccountSummaryWidget({ data }: AccountSummaryWidgetProps) {
+export function AccountSummaryWidget({ data }: AccountSummaryWidgetProps) {
   const { memberSinceLabel, monthsTraining } = data;
 
   const formatTrainingTime = (months: number) => {

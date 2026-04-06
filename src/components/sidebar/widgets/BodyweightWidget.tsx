@@ -11,7 +11,7 @@ interface BodyweightWidgetProps {
 	variant?: "sidebar" | "mobile";
 }
 
-export default function BodyweightWidget({
+export function BodyweightWidget({
 	data,
 	variant = "sidebar",
 }: BodyweightWidgetProps) {
