@@ -1,8 +1,7 @@
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "./auth"
+import { getToken } from "next-auth/jwt"
 import { NextResponse } from "next/server"
 
-export type AuthedRequest = Response & {
+export type AuthedRequest = Request & {
   user: {
     sub: string
     email: string
@@ -10,21 +9,25 @@ export type AuthedRequest = Response & {
   }
 }
 
-export function withAuth(handler: (req: any) => Promise<Response>) {
-  return async (req: Request) => {
-    const session = await getServerSession(authOptions)
-    if (!session || !session.user) {
+export function withAuth(handler: (req: AuthedRequest, context: any) => Promise<Response>) {
+  return async (req: Request, context: any) => {
+    const token = await getToken({
+      req: req as any,
+      secret: process.env.NEXTAUTH_SECRET || "development_secret_only_for_dev_mode"
+    })
+
+    if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Cast req as any to attach user object (common pattern for Next.js auth wrappers)
+    // Cast req as any to attach user object
     const authedReq = req as any
     authedReq.user = {
-      sub: (session.user as any).id,
-      email: session.user.email!,
-      name: session.user.name!,
+      sub: (token.id || token.sub) as string,
+      email: token.email as string,
+      name: token.name as string,
     }
 
-    return handler(authedReq)
+    return handler(authedReq, context)
   }
 }
