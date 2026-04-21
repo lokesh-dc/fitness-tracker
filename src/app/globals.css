@@ -66,6 +66,10 @@ body {
   justify-content: center;
 }
 
+@utility perspective-1000 {
+  perspective: 1000px;
+}
+
 .glass-button:hover {
   background-color: var(--glass-border);
   border-color: var(--accent);
