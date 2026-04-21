@@ -1,32 +1,64 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, Minus, Timer } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface RestTimerBarProps {
-  timeLeft: number;
+  secondsLeft: number;
   totalDuration: number;
+  isRunning: boolean;
   onSkip: () => void;
   onAdjust: (seconds: number) => void;
 }
 
-export function RestTimerBar({ timeLeft, totalDuration, onSkip, onAdjust }: RestTimerBarProps) {
+export function RestTimerBar({ 
+  secondsLeft, 
+  totalDuration, 
+  isRunning,
+  onSkip, 
+  onAdjust 
+}: RestTimerBarProps) {
+  const prevSecondsRef = useRef(secondsLeft);
+
+  useEffect(() => {
+    if (secondsLeft === 0 && prevSecondsRef.current > 0 && isRunning) {
+      // Haptics
+      if ('vibrate' in navigator) {
+        navigator.vibrate([300, 100, 300, 100, 500]);
+      }
+
+      // Audio beep
+      try {
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 880;
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.5);
+      } catch (e) {
+        console.warn("Rest timer beep failed:", e);
+      }
+    }
+    prevSecondsRef.current = secondsLeft;
+  }, [secondsLeft, isRunning]);
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const progress = totalDuration > 0 ? (timeLeft / totalDuration) : 0;
+  const progress = totalDuration > 0 ? (secondsLeft / totalDuration) : 0;
   const radius = 24;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - progress * circumference;
 
-  // Color logic based on time percentage
-  // 1.0 - 0.3: Green
-  // 0.3 - 0.1: Orange
-  // 0.1 - 0.0: Red
   const getColor = () => {
     if (progress > 0.3) return "stroke-emerald-500";
     if (progress > 0.1) return "stroke-brand-primary";
@@ -41,7 +73,7 @@ export function RestTimerBar({ timeLeft, totalDuration, onSkip, onAdjust }: Rest
 
   return (
     <AnimatePresence>
-      {timeLeft > 0 && (
+      {secondsLeft > 0 && (
         <motion.div
           initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -83,7 +115,7 @@ export function RestTimerBar({ timeLeft, totalDuration, onSkip, onAdjust }: Rest
               
               <div>
                 <p className={cn("text-2xl font-black tabular-nums transition-colors duration-500", getTextColor())}>
-                  {formatTime(timeLeft)}
+                  {formatTime(secondsLeft)}
                 </p>
                 <p className="text-[8px] font-black uppercase text-foreground/40 tracking-widest">
                   Resting
@@ -96,6 +128,7 @@ export function RestTimerBar({ timeLeft, totalDuration, onSkip, onAdjust }: Rest
               <button
                 onClick={() => onAdjust(-15)}
                 className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center hover:bg-foreground/10 transition-colors"
+                aria-label="Decrease rest by 15 seconds"
               >
                 <Minus className="w-4 h-4 text-foreground/60" />
               </button>
@@ -103,6 +136,7 @@ export function RestTimerBar({ timeLeft, totalDuration, onSkip, onAdjust }: Rest
               <button
                 onClick={() => onAdjust(15)}
                 className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center hover:bg-foreground/10 transition-colors"
+                aria-label="Increase rest by 15 seconds"
               >
                 <Plus className="w-4 h-4 text-foreground/60" />
               </button>

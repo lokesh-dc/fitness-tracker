@@ -34,11 +34,9 @@ import { useRestTimer } from "@/hooks/useRestTimer";
 import { RestTimerBar } from "./RestTimerBar";
 import { WarmupSetsPanel } from "./WarmupSetsPanel";
 import { useSessionStats } from "@/hooks/useSessionStats";
-import { SessionTimerDisplay } from "./workout/SessionTimerDisplay";
-import { LiveStatsDisplay } from "./workout/LiveStatsDisplay";
 import { PRsFeedDisplay } from "./workout/PRsFeedDisplay";
 import PageWithSidebar from "./layout/PageWithSidebar";
-import WorkoutSidebar from "./sidebar/WorkoutSidebar";
+import { requestNotificationPermission } from "@/lib/notifications";
 
 const DAYS = [
 	"Sunday",
@@ -324,7 +322,11 @@ export default function WorkoutSession({
 			<GlassCard className="max-w-3xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 py-4 md:py-3 shadow-[0_-20px_40px_rgba(0,0,0,0.2)] border-foreground/10 backdrop-blur-xl">
 				<div className="flex items-center space-x-3">
 					<div
-						onClick={() => setActiveMode(activeMode === "LIVE_SESSION" ? "MANUAL_LOG" : "LIVE_SESSION")}
+						onClick={() =>
+							setActiveMode(
+								activeMode === "LIVE_SESSION" ? "MANUAL_LOG" : "LIVE_SESSION",
+							)
+						}
 						className={cn(
 							"w-10 h-6 rounded-full relative cursor-pointer transition-colors duration-300",
 							activeMode === "LIVE_SESSION"
@@ -334,7 +336,9 @@ export default function WorkoutSession({
 						<div
 							className={cn(
 								"absolute top-[3px]  w-4 h-4 bg-white rounded-full transition-all duration-300",
-								activeMode === "LIVE_SESSION" ? "right-1" : "left-1 bg-brand-primary",
+								activeMode === "LIVE_SESSION"
+									? "right-1"
+									: "left-1 bg-brand-primary",
 							)}
 						/>
 					</div>
@@ -343,13 +347,17 @@ export default function WorkoutSession({
 							Currently Working Out?
 						</span>
 						<span className="text-[8px] font-bold text-foreground/40 uppercase">
-							{activeMode === "LIVE_SESSION" ? "Live Session + Timer" : "Manual History Log"}
+							{activeMode === "LIVE_SESSION"
+								? "Live Session + Timer"
+								: "Manual History Log"}
 						</span>
 					</div>
 				</div>
 
 				<button
-					onClick={() => {
+					onClick={async () => {
+						// Request notification permission on user gesture
+						await requestNotificationPermission();
 						setStep(effectiveBodyWeight > 0 ? 2 : 1);
 						if (activeMode === "LIVE_SESSION") {
 							sessionStats.startSession();
@@ -474,7 +482,7 @@ export default function WorkoutSession({
 		);
 
 		return (
-			<PageWithSidebar sidebar={activeMode !== "MANUAL_LOG" ? <WorkoutSidebar stats={sessionStats.stats} /> : null}>
+			<PageWithSidebar>
 				<SessionLayout
 					title="Step 1: Body Weight"
 					maxWidth="max-w-md"
@@ -603,7 +611,7 @@ export default function WorkoutSession({
 			}));
 
 		return (
-			<PageWithSidebar sidebar={activeMode !== "MANUAL_LOG" ? <WorkoutSidebar stats={sessionStats.stats} /> : null}>
+			<PageWithSidebar>
 				{showCelebration && (
 					<WorkoutCelebration
 						stats={celebrationStats}
@@ -764,7 +772,7 @@ export default function WorkoutSession({
 		);
 
 		return (
-			<PageWithSidebar sidebar={activeMode !== "MANUAL_LOG" ? <WorkoutSidebar stats={sessionStats.stats} /> : null}>
+			<PageWithSidebar>
 				<SessionLayout
 					timer={activeMode === "LIVE_SESSION" ? timer : null}
 					title={ex.name}
@@ -779,7 +787,15 @@ export default function WorkoutSession({
 					mode={activeMode}
 					stats={sessionStats.stats}>
 					<GlassCard className="space-y-6 p-6">
-						<div className="flex justify-between items-start border-b border-foreground/5 pb-4">
+						<div className="flex flex-col gap-3 justify-between items-start border-b border-foreground/5 pb-4">
+							{ex.pr && ex.pr > 0 ? (
+								<div className="flex items-center bg-brand-primary/10 border border-brand-primary/20 px-2 py-1 rounded-lg m-0">
+									<Trophy className="w-3 h-3 text-brand-primary mr-1.5" />
+									<span className="text-[10px] font-black text-brand-primary uppercase tracking-tighter">
+										PR: {ex.pr} KG
+									</span>
+								</div>
+							) : null}
 							<div>
 								<h2 className="text-lg font-black text-foreground tracking-tight">
 									{ex.name}
@@ -788,14 +804,6 @@ export default function WorkoutSession({
 									Target: {ex.targetSets} Sets • {ex.targetReps} Reps
 								</p>
 							</div>
-							{ex.pr && ex.pr > 0 ? (
-								<div className="flex items-center bg-brand-primary/10 border border-brand-primary/20 px-2 py-1 rounded-lg">
-									<Trophy className="w-3 h-3 text-brand-primary mr-1.5" />
-									<span className="text-[10px] font-black text-brand-primary uppercase tracking-tighter">
-										PR: {ex.pr} KG
-									</span>
-								</div>
-							) : null}
 						</div>
 
 						<WarmupSetsPanel
@@ -977,17 +985,11 @@ const SessionLayout = ({
 							{subtitle}
 						</p>
 					)}
-					<h1 className="text-xl text-center font-black text-foreground uppercase tracking-wider">
+					<h1 className="text-xl line-clamp-1 text-center font-black text-foreground uppercase tracking-wider">
 						{title}
 					</h1>
 				</div>
 			</div>
-
-			{stats && mode !== "MANUAL_LOG" && (
-				<div className="lg:hidden">
-					<LiveStatsDisplay stats={stats} variant="mobile" />
-				</div>
-			)}
 
 			{/* Segmented Progress Bar */}
 			{mode !== "MANUAL_LOG" && (
@@ -1028,8 +1030,9 @@ const SessionLayout = ({
 
 		{timer && (
 			<RestTimerBar
-				timeLeft={timer.timeLeft}
+				secondsLeft={timer.secondsLeft}
 				totalDuration={timer.totalDuration}
+				isRunning={timer.isRunning}
 				onSkip={timer.skip}
 				onAdjust={timer.adjust}
 			/>

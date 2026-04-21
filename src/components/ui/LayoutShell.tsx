@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Navigation } from "@/components/Navigation";
 import { DailyReminder } from "@/components/DailyReminder";
 import ScrollToTop from "@/components/ScrollToTop";
+import { useEffect } from "react";
 
 function cn(...inputs: any[]) {
 	return inputs.filter(Boolean).join(" ");
@@ -18,6 +19,15 @@ export default function LayoutShell({
 	const pathname = usePathname();
 	const isWorkoutPage = pathname === "/workout";
 	const isLandingPage = pathname === "/";
+
+	useEffect(() => {
+		if ("serviceWorker" in navigator) {
+			navigator.serviceWorker
+				.register("/sw.js")
+				.then((reg) => console.log("SW registered:", reg))
+				.catch((err) => console.error("SW registration failed:", err));
+		}
+	}, []);
 
 	return (
 		<div className="flex flex-col">

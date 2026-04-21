@@ -206,3 +206,41 @@ export interface AccountSummary {
   monthsTraining: number;
   memberSinceLabel: string;
 }
+
+export interface PlanProgressData {
+  currentWeek: number;
+  totalWeeks: number;
+  sessionsCompleted: number;
+  totalSessionsPlanned: number;
+  daysRemaining: number;
+  percentComplete: number;
+  weekStrip: WeekStripDay[];
+}
+
+export interface WeekStripDay {
+  dayOfWeek: number;
+  label: string;
+  status: 'done' | 'today' | 'upcoming' | 'missed' | 'rest';
+}
+
+export interface StrengthProgressItem {
+  exerciseName: string;
+  currentMaxWeight: number;
+  startMaxWeight: number;
+  delta: number;
+  unit: 'kg' | 'lbs';
+}
+
+export interface WeeklyVolumeData {
+  weeks: { weekNumber: number; totalVolume: number }[];
+  currentWeekVolume: number;
+  averageWeeklyVolume: number;
+  trend: 'increasing' | 'declining' | 'flat';
+}
+
+export interface BodyweightData {
+  currentWeight: number | null;
+  startWeight: number | null;
+  delta: number | null;
+  chartPoints: { date: string; weight: number }[];
+}

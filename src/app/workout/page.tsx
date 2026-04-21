@@ -12,8 +12,9 @@ export const dynamic = "force-dynamic";
 export default async function WorkoutPage({
 	searchParams,
 }: {
-	searchParams: { date?: string; mode?: WorkoutMode };
+	searchParams: Promise<{ date?: string; mode?: WorkoutMode }>;
 }) {
+
 	const resolvedParams = await searchParams;
 	const date = resolvedParams.date;
 

@@ -94,3 +94,26 @@ body {
 body.hide-mobile-nav #mobile-bottom-nav {
   display: none !important;
 }
+
+/* Demo Mode Global Offsets */
+body.demo-active {
+  padding-top: 44px;
+}
+
+.demo-banner {
+  top: 0 !important;
+}
+
+body.demo-active .fixed.top-0:not(.z-\[60\]):not(.z-50) {
+  top: 44px;
+}
+
+/* Specific cases for fixed navigation */
+body.demo-active nav.fixed.top-0 {
+  top: 44px;
+}
+
+body.demo-active .fixed.top-28,
+body.demo-active .fixed.pt-28 {
+  margin-top: 44px;
+}

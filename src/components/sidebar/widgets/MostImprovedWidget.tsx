@@ -6,9 +6,33 @@ import { Rocket, TrendingUp } from "lucide-react";
 
 export function MostImprovedWidget({
 	mostImproved,
+	variant = "sidebar",
 }: {
 	mostImproved: MostImprovedExercise | null;
+	variant?: "sidebar" | "mobile";
 }) {
+	if (variant === "mobile") {
+		return (
+			<GlassCard className="min-w-[200px] p-3 border-foreground/5 bg-foreground/[0.02]">
+				<p className="text-[10px] font-black tracking-widest text-foreground/40 uppercase">
+					Most Improved
+				</p>
+				{mostImproved ? (
+					<>
+						<p className="text-sm font-bold text-foreground mt-1 truncate">
+							{mostImproved.exerciseName}
+						</p>
+						<p className="text-xs font-bold text-green-400">
+							+{mostImproved.improvementPercent}% in 30 days
+						</p>
+					</>
+				) : (
+					<p className="text-xs text-foreground/30 mt-1 italic">No data yet</p>
+				)}
+			</GlassCard>
+		);
+	}
+
 	return (
 		<GlassCard className="p-4 border-foreground/5 bg-foreground/[0.02]">
 			<div className="mb-4">

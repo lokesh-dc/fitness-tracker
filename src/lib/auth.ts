@@ -8,7 +8,32 @@ export const authOptions: NextAuthOptions = {
   adapter: MongoDBAdapter(clientPromise),
   providers: [
     CredentialsProvider({
+      id: "demo",
+      name: "Demo Mode",
+      credentials: {
+        email: { label: "Email", type: "email" }
+      },
+      async authorize(credentials) {
+        if (credentials?.email !== "demo@fittrack.app") return null;
+
+        const client = await clientPromise;
+        const db = client.db();
+        const user = await db.collection("users").findOne({ email: credentials.email });
+
+        if (user) {
+          return {
+            id: user._id.toString(),
+            email: user.email,
+            name: user.name,
+            emailVerified: user.emailVerified,
+          };
+        }
+        return null;
+      }
+    }),
+    CredentialsProvider({
       name: "Credentials",
+
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" }

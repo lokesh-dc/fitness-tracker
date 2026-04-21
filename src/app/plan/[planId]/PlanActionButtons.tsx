@@ -5,8 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Edit2, Trash2, AlertTriangle, Loader2, TrendingUp } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
-import { deletePlan, updatePlanWeeks } from "@/app/actions/plan";
+import { deletePlan, updatePlanWeeks, terminatePlan } from "@/app/actions/plan";
 import { cn } from "@/lib/utils";
+import { PowerOff } from "lucide-react";
+
+import { useSession } from "next-auth/react";
+import { isDemoSession } from "@/lib/demo";
+import { demoActionGuard } from "@/lib/demo-guard";
 
 export function PlanActionButtons({ 
   planId, 
@@ -15,6 +20,8 @@ export function PlanActionButtons({
   planId: string;
   currentWeeks: number;
 }) {
+  const { data: session } = useSession();
+  const isDemo = isDemoSession(session);
   const router = useRouter();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -22,45 +29,67 @@ export function PlanActionButtons({
   const [showExtendOptions, setShowExtendOptions] = useState(false);
 
   const handleDelete = async () => {
-    setIsDeleting(true);
-    try {
-      const res = await deletePlan(planId);
-      if (res.success) {
-        router.push("/plan");
-        router.refresh();
-      } else {
-        alert("Failed to delete plan");
+    demoActionGuard(isDemo, async () => {
+      setIsDeleting(true);
+      try {
+        const res = await deletePlan(planId);
+        if (res.success) {
+          router.push("/plan");
+          router.refresh();
+        } else {
+          alert("Failed to delete plan");
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsDeleting(false);
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsDeleting(false);
-    }
+    });
   };
 
   const handleExtend = async (additionalWeeks: number) => {
-    setIsExtending(true);
-    try {
-      const res = await updatePlanWeeks(planId, currentWeeks + additionalWeeks);
-      if (res.success) {
-        setShowExtendOptions(false);
-        router.refresh();
-      } else {
-        alert("Failed to extend plan");
+    demoActionGuard(isDemo, async () => {
+      setIsExtending(true);
+      try {
+        const res = await updatePlanWeeks(planId, currentWeeks + additionalWeeks);
+        if (res.success) {
+          setShowExtendOptions(false);
+          router.refresh();
+        } else {
+          alert("Failed to extend plan");
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsExtending(false);
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsExtending(false);
-    }
+    });
   };
+  const handleTerminate = async () => {
+    demoActionGuard(isDemo, async () => {
+      setIsExtending(true); // Re-use extender state for simplicity (or add isTerminating)
+      try {
+        const res = await terminatePlan(planId);
+        if (res.success) {
+          router.refresh();
+        } else {
+          alert("Failed to terminate plan");
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsExtending(false);
+      }
+    });
+  };
+
 
   return (
     <>
-      <div className="flex space-x-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Link 
           href={`/plan/designer?edit=${planId}`}
-          className="flex-1 glass-button py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center space-x-2 text-foreground active:scale-95 transition-transform"
+          className="glass-button py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center space-x-2 text-foreground active:scale-95 transition-transform"
         >
           <Edit2 className="w-4 h-4" />
           <span>Edit Plan</span>
@@ -68,7 +97,7 @@ export function PlanActionButtons({
         <button 
           onClick={() => setShowExtendOptions(!showExtendOptions)}
           className={cn(
-            "flex-1 glass-button py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center space-x-2 transition-all active:scale-95",
+            "glass-button py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center space-x-2 transition-all active:scale-95",
             showExtendOptions ? "bg-brand-primary text-black border-brand-primary shadow-[0_0_20px_rgba(249,115,22,0.3)]" : "text-foreground"
           )}
         >
@@ -76,8 +105,15 @@ export function PlanActionButtons({
           <span>Extend</span>
         </button>
         <button 
+          onClick={handleTerminate}
+          className="glass-button py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center space-x-2 text-orange-500 hover:bg-orange-500/10 active:scale-95 transition-all outline-none"
+        >
+          <PowerOff className="w-4 h-4" />
+          <span>Terminate</span>
+        </button>
+        <button 
           onClick={() => setShowDeleteConfirm(true)}
-          className="flex-1 glass-button py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center space-x-2 text-red-500 hover:bg-red-500/10 active:scale-95 transition-all outline-none"
+          className="glass-button py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center space-x-2 text-red-500 hover:bg-red-500/10 active:scale-95 transition-all outline-none"
         >
           <Trash2 className="w-4 h-4" />
           <span>Delete</span>

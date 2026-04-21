@@ -8,7 +8,7 @@ interface AllTimeStatsWidgetProps {
   data: AllTimeStats;
 }
 
-export default function AllTimeStatsWidget({ data }: AllTimeStatsWidgetProps) {
+export function AllTimeStatsWidget({ data }: AllTimeStatsWidgetProps) {
   const { totalWorkouts, totalVolumeKg, totalPRsBroken, longestStreakDays } = data;
 
   if (totalWorkouts === 0) {

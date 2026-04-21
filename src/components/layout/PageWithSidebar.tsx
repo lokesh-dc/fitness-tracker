@@ -1,7 +1,6 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
 
 interface PageWithSidebarProps {
 	children: React.ReactNode;
@@ -22,7 +21,7 @@ export default function PageWithSidebar({
 			<div className="flex-1 min-w-0 space-y-8">
 				{/* Mobile Widget Strip (hidden on desktop) */}
 				{mobileWidgets && (
-					<div className="lg:hidden flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-none snap-x h-[120px] mb-0">
+					<div className="lg:hidden flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-none snap-x h-auto mb-0">
 						{mobileWidgets}
 					</div>
 				)}
