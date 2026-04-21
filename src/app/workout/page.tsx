@@ -18,16 +18,19 @@ export default async function WorkoutPage({
 	const resolvedParams = await searchParams;
 	const date = resolvedParams.date;
 
-	const plan = await getPlanByDate(date);
-	const initialBodyWeight = await getTodayBodyWeight(date);
-	const initialWorkoutLog = await getTodayWorkoutLog(date);
-	const userSettings = await getUserSettings();
+	// Fetch base data in parallel
+	const [plan, initialBodyWeight, initialWorkoutLog, userSettings] = await Promise.all([
+		getPlanByDate(date),
+		getTodayBodyWeight(date),
+		getTodayWorkoutLog(date),
+		getUserSettings()
+	]);
 
 	const today = format(new Date(), "yyyy-MM-dd");
 	const explicitMode = resolvedParams.mode || (date && date !== today ? 'MANUAL_LOG' : 'LIVE_SESSION');
 
 	let initialPRs: Record<string, number> = {};
-	if (plan) {
+	if (plan && plan.exercises) {
 		const exerciseIds = plan.exercises
 			.map((ex) => ex.exerciseId)
 			.filter(Boolean);

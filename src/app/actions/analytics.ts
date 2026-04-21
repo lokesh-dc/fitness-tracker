@@ -2,11 +2,11 @@
 
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/db-utils";
-import {
-  WeightTrendData,
-  SetLog,
-  ExerciseTimelineEntry,
-  MostImprovedExercise,
+import { 
+  WeightTrendData, 
+  SetLog, 
+  ExerciseTimelineEntry, 
+  MostImprovedExercise, 
   WeeklyVolumeComparison,
   BodyWeightTrend,
   AllTimeStats,
@@ -202,43 +202,79 @@ export async function getExerciseTimeline(
 
     const db = await getDb();
 
-    // Fetch the ExerciseRecord which contains the full history and PR date
-    const record = await db.collection("ExerciseRecords").findOne({ userId, exerciseName });
+    const pipeline: any[] = [
+      {
+        $match: {
+          userId,
+          ...(from || to ? {
+            date: {
+              ...(from ? { $gte: from } : {}),
+              ...(to ? { $lte: to } : {}),
+            }
+          } : {})
+        }
+      },
+      { $unwind: '$exercises' },
+      {
+        $match: {
+          'exercises.name': exerciseName,
+          'exercises.isSkipped': { $ne: true }
+        }
+      },
+      { $unwind: '$exercises.sets' },
+      {
+        $match: {
+          'exercises.sets.weight': { $gt: 0 },
+          'exercises.sets.reps': { $gt: 0 }
+        }
+      },
+      {
+        $group: {
+          _id: '$date',
+          maxWeight: { $max: '$exercises.sets.weight' },
+          totalVolume: {
+            $sum: {
+              $multiply: ['$exercises.sets.weight', '$exercises.sets.reps']
+            }
+          },
+          totalReps: { $sum: '$exercises.sets.reps' },
+          totalSets: { $sum: 1 },
+        }
+      },
+      { $sort: { _id: 1 } },
+      { $limit: 200 }
+    ];
 
-    if (!record || !record.history) return [];
+    const results = await db.collection('WorkoutLog').aggregate(pipeline).toArray();
 
-    const prDateStr = record.prDate
+    // Fetch prDate from ExerciseRecords for PR marker
+    const record = await db.collection('ExerciseRecords').findOne(
+      { userId, exerciseName },
+      { projection: { prDate: 1 } }
+    );
+
+    // Normalize prDate for string comparison
+    const prDateStr = record?.prDate
       ? new Date(record.prDate).toISOString().split('T')[0]
       : null;
 
-    let history = record.history;
-
-    // Filter by date range if provided
-    if (from || to) {
-      history = history.filter((h: any) => {
-        const hDate = new Date(h.date);
-        if (from && hDate < from) return false;
-        if (to && hDate > to) return false;
-        return true;
-      });
-    }
-
-    return history.map((h: any) => {
-      const avgRepsPerSet = h.totalSets > 0
-        ? Math.round(h.totalReps / h.totalSets)
+    return results.map(r => {
+      const avgRepsPerSet = r.totalSets > 0
+        ? Math.round(r.totalReps / r.totalSets)
         : 1;
 
-      const maxWeight = h.maxWeight || 0;
-      const estimatedOneRM = calculateOneRM(maxWeight, avgRepsPerSet);
-      const currentEntryDate = new Date(h.date);
+      // Use maxWeight and avgReps for the 1RM estimation as per plan
+      const estimatedOneRM = calculateOneRM(r.maxWeight, avgRepsPerSet);
+
+      const currentEntryDate = new Date(r._id);
 
       return {
         date: currentEntryDate.toISOString(),
-        maxWeight,
+        maxWeight: r.maxWeight,
         estimatedOneRM,
-        totalVolume: h.totalVolume || (maxWeight * h.totalReps), // Fallback if volume not stored
-        totalSets: h.totalSets,
-        totalReps: h.totalReps,
+        totalVolume: r.totalVolume,
+        totalSets: r.totalSets,
+        totalReps: r.totalReps,
         avgRepsPerSet,
         isPR: currentEntryDate.toISOString().split('T')[0] === prDateStr,
       };
@@ -249,7 +285,6 @@ export async function getExerciseTimeline(
     return [];
   }
 }
-
 
 function calculateOneRM(weight: number, reps: number): number {
   if (reps <= 1) return weight;
@@ -290,10 +325,12 @@ export async function getStreakData(): Promise<{
       .project({ date: 1, exercises: 1 })
       .toArray();
 
-    const validLogs = logs.filter(l => l.exercises && l.exercises.length > 0);
+    // Only count logs that have at least one non-skipped exercise
+    const validLogs = logs.filter(l => l.exercises && l.exercises.some((ex: any) => !ex.isSkipped));
     const uniqueDates = Array.from(new Set(
       validLogs.map(l => getLocalDayString(new Date(l.date)))
     ));
+    const logSet = new Set(uniqueDates);
 
     const todayDate = new Date();
     todayDate.setHours(0, 0, 0, 0);
@@ -307,7 +344,7 @@ export async function getStreakData(): Promise<{
     const allPlans = await db.collection("PlanDocument").find({ userId }).toArray();
     for (const plan of allPlans) {
       const [y, m, d] = plan.startDate.split('-').map(Number);
-      const pStart = new Date(y, m - 1, d); // robust local parser for YYYY-MM-DD
+      const pStart = new Date(y, m - 1, d);
       if (pStart < earliestDate) earliestDate = pStart;
     }
 
@@ -321,7 +358,34 @@ export async function getStreakData(): Promise<{
     const diffTime = todayDate.getTime() - earliestDate.getTime();
     const totalDays = Math.round(diffTime / 86400000) + 1;
 
-    const logSet = new Set(uniqueDates);
+    // Pre-calculate all planned dates for efficient lookup
+    const plannedDatesSet = new Set<string>();
+    for (const plan of allPlans) {
+      const [py, pm, pd] = plan.startDate.split('-').map(Number);
+      const planStart = new Date(py, pm - 1, pd);
+      const planEnd = new Date(planStart.getTime());
+      planEnd.setDate(planEnd.getDate() + plan.numWeeks * 7 - 1);
+
+      // Only iterate days where this plan is active
+      const pStartCursor = new Date(Math.max(planStart.getTime(), earliestDate.getTime()));
+      const pEndCursor = new Date(Math.min(planEnd.getTime(), todayDate.getTime()));
+      
+      const cursor = new Date(pStartCursor);
+      while (cursor <= pEndCursor) {
+        const dStr = getLocalDayString(cursor);
+        const systemDay = cursor.getDay();
+        const diffInDays = Math.round((cursor.getTime() - planStart.getTime()) / 86400000);
+        const currentWeekIndex = Math.floor(diffInDays / 7) + 1;
+
+        const hasSpecificWeekTemplates = templates.some(t => t.planId === plan._id.toString() && t.dayOfWeek === systemDay && t.weekNumber === currentWeekIndex);
+        const hasWeek1Templates = templates.some(t => t.planId === plan._id.toString() && t.dayOfWeek === systemDay && t.weekNumber === 1);
+
+        if (hasSpecificWeekTemplates || hasWeek1Templates) {
+          plannedDatesSet.add(dStr);
+        }
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    }
 
     let tempStreak = 0;
     let longestStreak = 0;
@@ -332,27 +396,7 @@ export async function getStreakData(): Promise<{
       const dStr = getLocalDayString(dDate);
 
       const isLogged = logSet.has(dStr);
-      let isPlannedDay = false;
-      const systemDay = dDate.getDay();
-
-      for (const plan of allPlans) {
-        const [py, pm, pd] = plan.startDate.split('-').map(Number);
-        const planStart = new Date(py, pm - 1, pd);
-        const planEnd = new Date(planStart.getTime());
-        planEnd.setDate(planEnd.getDate() + plan.numWeeks * 7 - 1);
-
-        if (dDate >= planStart && dDate <= planEnd) {
-          const diffInDays = Math.round((dDate.getTime() - planStart.getTime()) / 86400000);
-          const currentWeekIndex = Math.floor(diffInDays / 7) + 1;
-          const hasSpecificWeekTemplates = templates.some(t => t.planId === plan._id.toString() && t.dayOfWeek === systemDay && t.weekNumber === currentWeekIndex);
-          const hasWeek1Templates = templates.some(t => t.planId === plan._id.toString() && t.dayOfWeek === systemDay && t.weekNumber === 1);
-
-          if (hasSpecificWeekTemplates || hasWeek1Templates) {
-            isPlannedDay = true;
-            break;
-          }
-        }
-      }
+      const isPlannedDay = plannedDatesSet.has(dStr);
 
       if (isLogged) {
         tempStreak++;
@@ -433,10 +477,13 @@ export async function getWeekSnapshot(): Promise<{
     const logs = await db.collection("WorkoutLog").find({
       userId,
       date: { $gte: startOfWeek, $lte: endOfWeek }
-    }).project({ date: 1 }).toArray();
+    }).project({ date: 1, exercises: 1 }).toArray();
+
+    // Only count as completed if at least one exercise was not skipped
+    const validLogs = logs.filter(l => l.exercises && l.exercises.some((ex: any) => !ex.isSkipped));
 
     const completedDays = Array.from(new Set(
-      logs.map(l => {
+      validLogs.map(l => {
         const d = new Date(l.date);
         return d.getDay() === 0 ? 6 : d.getDay() - 1; // 0=Mon, 6=Sun
       })
@@ -547,7 +594,7 @@ export async function getNextPlannedWorkout(): Promise<{
             userId,
             date: { $gte: startOfToday }
           });
-          if (todayLog && todayLog.exercises?.length > 0) continue;
+          if (todayLog && todayLog.exercises?.some((ex: any) => !ex.isSkipped)) continue;
         }
         nextTemplate = t;
         daysDiff = i;
@@ -582,7 +629,7 @@ export async function getMostTrainedMuscleGroups(userIdStr: string, limit: numbe
     const pipeline = [
       { $match: { userId } },
       { $unwind: '$exercises' },
-      // { $match: { 'exercises.isDone': true } },
+      { $match: { 'exercises.isSkipped': { $ne: true } } },
       { $unwind: '$exercises.sets' },
       {
         $match: {
@@ -651,7 +698,7 @@ export async function getMonthlyVolumeTrend(userIdStr: string, months: number = 
         }
       },
       { $unwind: '$exercises' },
-      // { $match: { 'exercises.isDone': true } },
+      { $match: { 'exercises.isSkipped': { $ne: true } } },
       { $unwind: '$exercises.sets' },
       {
         $match: {
@@ -721,8 +768,8 @@ export async function getMissedWorkoutsThisMonth(userIdStr: string) {
       date: { $gte: monthStart, $lte: monthEnd }
     }).project({ date: 1, exercises: 1 }).toArray();
 
-    // Only count logs that have at least one exercise
-    const validLogs = loggedDocs.filter(l => l.exercises && l.exercises.length > 0);
+    // Only count logs that have at least one non-skipped exercise
+    const validLogs = loggedDocs.filter(l => l.exercises && l.exercises.some((ex: any) => !ex.isSkipped));
     const loggedDates = new Set(validLogs.map(l => new Date(l.date).toDateString()));
     const sessionsLogged = loggedDates.size;
 
@@ -825,8 +872,8 @@ export async function getMostImprovedExercise(
       // Step 2: Unwind exercises
       { $unwind: '$exercises' },
 
-      // Step 3: Only completed exercises
-      { $match: { 'exercises.isDone': true } },
+      // Step 3: Only completed and NOT skipped exercises
+      { $match: { 'exercises.isDone': true, 'exercises.isSkipped': { $ne: true } } },
 
       // Step 4: Unwind sets
       { $unwind: '$exercises.sets' },
@@ -951,7 +998,7 @@ export async function getWeeklyVolumeComparison(
       const pipeline = [
         { $match: { userId: uid, date: { $gte: start, $lte: end } } },
         { $unwind: '$exercises' },
-        { $match: { 'exercises.isDone': true } },
+        { $match: { 'exercises.isSkipped': { $ne: true } } },
         { $unwind: '$exercises.sets' },
         {
           $match: {
@@ -997,7 +1044,7 @@ export async function getWeeklyVolumeComparison(
       differencePercent,
       trendDirection: differenceKg > 0
         ? 'up'
-        : differenceKg < 0 ? 'down' : 'neutral',
+        : differenceKg < -2 ? 'down' : 'neutral',
     };
   } catch (error) {
     console.error("Error in getWeeklyVolumeComparison:", error);
@@ -1017,7 +1064,7 @@ export async function getProfileBodyWeightTrend(
 ): Promise<BodyWeightTrend> {
   try {
     const db = await getDb();
-
+    
     // Fetch last N WorkoutLogs where bodyWeight exists and is > 0
     const logs = await db.collection('WorkoutLog')
       .find({
@@ -1075,13 +1122,13 @@ export async function getProfileBodyWeightTrend(
 export async function getAllTimeStats(userId: string): Promise<AllTimeStats> {
   try {
     const db = await getDb();
-
+    
     const [workoutStats, prStats, streakDataResult] = await Promise.all([
       // Total workouts + total volume
       db.collection('WorkoutLog').aggregate([
         { $match: { userId: new ObjectId(userId) } },
         { $unwind: '$exercises' },
-        { $match: { 'exercises.isDone': true } },
+        { $match: { 'exercises.isSkipped': { $ne: true } } },
         { $unwind: '$exercises.sets' },
         {
           $match: {
@@ -1187,10 +1234,10 @@ export async function getAccountSummary(userId: string): Promise<AccountSummary>
   } catch (error) {
     console.error("Error in getAccountSummary:", error);
     const now = new Date();
-    return {
-      memberSince: now,
-      monthsTraining: 0,
-      memberSinceLabel: now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    return { 
+      memberSince: now, 
+      monthsTraining: 0, 
+      memberSinceLabel: now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) 
     };
   }
 }

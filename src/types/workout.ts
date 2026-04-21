@@ -25,6 +25,7 @@ export interface Exercise {
   pr?: number;
   restDuration?: number;
   isDone?: boolean;
+  isSkipped?: boolean;
 }
 
 export interface PlanDocument {
@@ -58,6 +59,7 @@ export interface WorkoutLog {
     name: string;
     sets: SetLog[];
     pr?: number; // PR at time of logging
+    isSkipped?: boolean;
   }[];
   startedAt?: string | Date;    // NEW
   completedAt?: string | Date;  // NEW
