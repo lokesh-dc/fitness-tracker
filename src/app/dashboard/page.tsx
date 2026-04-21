@@ -65,7 +65,8 @@ export default async function DashboardPage() {
 		streakData,
 		monthDates,
 		weekSnapshot,
-		nextWorkout
+		nextWorkout,
+		randomQuote
 	] = await Promise.all([
 		getPlanByDate().catch(() => null),
 		getActivePlanInfo().catch(() => null),
@@ -73,11 +74,11 @@ export default async function DashboardPage() {
 		getStreakData().catch(() => ({ currentStreak: 0, longestStreak: 0, lastWorkoutDate: null })),
 		getMonthWorkoutDates(new Date().getFullYear(), new Date().getMonth()).catch(() => []),
 		getWeekSnapshot().catch(() => ({ sessionsCompleted: 0, sessionsPlanned: 0, completedDays: [], plannedDays: [] })),
-		getNextPlannedWorkout().catch(() => null)
+		getNextPlannedWorkout().catch(() => null),
+		getDailyQuote()
 	]);
 
 	const today = new Date();
-	const randomQuote = await getDailyQuote();
 
 	// Check if today's workout is done (has at least one exercise)
 	const isTodayDone = todayWorkoutLog && todayWorkoutLog.exercises && todayWorkoutLog.exercises.length > 0;

@@ -675,7 +675,8 @@ export async function updateExerciseRecords(
   const sessionDate = date instanceof Date ? date : new Date(date);
 
   for (const exercise of exercises) {
-    if (!exercise.sets || exercise.sets.length === 0) continue;
+    // Skip exercises marked as skipped OR with no sets
+    if (exercise.isSkipped || !exercise.sets || exercise.sets.length === 0) continue;
 
     const maxWeight = Math.max(...exercise.sets.map((s: SetLog) => s.weight || 0));
     const maxReps = Math.max(...exercise.sets

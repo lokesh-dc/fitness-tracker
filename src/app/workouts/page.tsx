@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import { Trophy, Activity, Calendar, Info, Plus, Edit2 } from "lucide-react";
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { cn } from "@/lib/utils";
 import {
 	HistoryMobileStrip,
 	HistorySidebar,
@@ -56,7 +57,7 @@ export default async function WorkoutsPage({
 		log?.exercises?.reduce((acc, ex) => {
 			return (
 				acc +
-				((ex as { pr?: number }).pr && (ex as { pr?: number }).pr! > 0 ? 1 : 0)
+				(!(ex as any).isSkipped && (ex as { pr?: number }).pr && (ex as { pr?: number }).pr! > 0 ? 1 : 0)
 			);
 		}, 0) || 0;
 
@@ -168,10 +169,13 @@ export default async function WorkoutsPage({
 											</p>
 										</div>
 									) : (
-										log.exercises?.map((ex, idx) => (
+										log.exercises?.map((ex: any, idx: number) => (
 											<GlassCard
 												key={idx}
-												className="overflow-hidden border-foreground/5">
+												className={cn(
+													"overflow-hidden border-foreground/5",
+													ex.isSkipped && "opacity-60 bg-foreground/[0.02]"
+												)}>
 												<div className="bg-foreground/[0.03] p-4 flex justify-between items-center border-b border-foreground/5">
 													<div className="flex items-center space-x-3">
 														<span className="text-sm font-black text-brand-primary/50">
@@ -179,9 +183,14 @@ export default async function WorkoutsPage({
 														</span>
 														<h4 className="text-base font-bold text-foreground tracking-tight">
 															{ex.name}
+															{ex.isSkipped && (
+																<span className="ml-2 text-[8px] px-1.5 py-0.5 rounded-md bg-foreground/10 text-foreground/60 uppercase tracking-widest font-black">
+																	Skipped
+																</span>
+															)}
 														</h4>
 													</div>
-													{(ex as { pr?: number }).pr &&
+													{!ex.isSkipped && (ex as { pr?: number }).pr &&
 													(ex as { pr?: number }).pr! > 0 ? (
 														<div className="flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-brand-primary/10 border border-brand-primary/20 text-[10px] font-black tracking-widest text-brand-primary uppercase">
 															<Trophy className="w-3 h-3" />
@@ -190,37 +199,39 @@ export default async function WorkoutsPage({
 													) : null}
 												</div>
 
-												<div className="p-4">
-													<div className="grid grid-cols-12 gap-2 text-[10px] font-black text-foreground/30 uppercase tracking-[0.2em] px-2 mb-3">
-														<div className="col-span-2">Set</div>
-														<div className="col-span-5 text-center">Weight</div>
-														<div className="col-span-5 text-center">Reps</div>
-													</div>
+												{!ex.isSkipped && (
+													<div className="p-4">
+														<div className="grid grid-cols-12 gap-2 text-[10px] font-black text-foreground/30 uppercase tracking-[0.2em] px-2 mb-3">
+															<div className="col-span-2">Set</div>
+															<div className="col-span-5 text-center">Weight</div>
+															<div className="col-span-5 text-center">Reps</div>
+														</div>
 
-													<div className="space-y-2">
-														{ex.sets?.map((set, setIdx) => (
-															<div
-																key={setIdx}
-																className="grid grid-cols-12 gap-2 items-center bg-background/30 rounded-xl p-3 transition-colors glass-card">
-																<div className="col-span-2 text-xs font-bold text-foreground/50">
-																	{setIdx + 1}
+														<div className="space-y-2">
+															{ex.sets?.map((set: any, setIdx: number) => (
+																<div
+																	key={setIdx}
+																	className="grid grid-cols-12 gap-2 items-center bg-background/30 rounded-xl p-3 transition-colors glass-card">
+																	<div className="col-span-2 text-xs font-bold text-foreground/50">
+																		{setIdx + 1}
+																	</div>
+																	<div className="col-span-5 text-center text-sm font-black text-foreground font-mono">
+																		{set.weight}{" "}
+																		<span className="text-[10px] text-foreground/30 uppercase tracking-widest pl-1">
+																			kg
+																		</span>
+																	</div>
+																	<div className="col-span-5 text-center text-sm font-black text-foreground font-mono">
+																		{set.reps}{" "}
+																		<span className="text-[10px] text-foreground/30 uppercase tracking-widest pl-1">
+																			reps
+																		</span>
+																	</div>
 																</div>
-																<div className="col-span-5 text-center text-sm font-black text-foreground font-mono">
-																	{set.weight}{" "}
-																	<span className="text-[10px] text-foreground/30 uppercase tracking-widest pl-1">
-																		kg
-																	</span>
-																</div>
-																<div className="col-span-5 text-center text-sm font-black text-foreground font-mono">
-																	{set.reps}{" "}
-																	<span className="text-[10px] text-foreground/30 uppercase tracking-widest pl-1">
-																		reps
-																	</span>
-																</div>
-															</div>
-														))}
+															))}
+														</div>
 													</div>
-												</div>
+												)}
 											</GlassCard>
 										))
 									)}

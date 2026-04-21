@@ -1,0 +1,291 @@
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-sans); color: var(--color-text-primary); }
+
+  .lp { background: #0d0d0d; color: #f0f0f0; font-family: var(--font-sans); border-radius: var(--border-radius-lg); overflow: hidden; }
+
+  .nav { display: flex; align-items: center; justify-content: space-between; padding: 18px 32px; border-bottom: 0.5px solid rgba(255,255,255,0.08); }
+  .nav-logo { font-size: 18px; font-weight: 500; color: #f97316; letter-spacing: -0.3px; }
+  .nav-links { display: flex; gap: 24px; font-size: 13px; color: rgba(255,255,255,0.5); }
+  .nav-cta { background: #f97316; color: #fff; font-size: 13px; font-weight: 500; border: none; border-radius: 6px; padding: 7px 16px; cursor: pointer; }
+
+  .hero { padding: 80px 32px 64px; text-align: center; position: relative; }
+  .hero-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(249,115,22,0.12); border: 0.5px solid rgba(249,115,22,0.3); color: #f97316; font-size: 12px; padding: 5px 12px; border-radius: 20px; margin-bottom: 28px; }
+  .hero-dot { width: 6px; height: 6px; background: #f97316; border-radius: 50%; }
+  .hero h1 { font-size: 48px; font-weight: 500; line-height: 1.15; color: #fff; margin-bottom: 20px; letter-spacing: -1px; }
+  .hero h1 span { color: #f97316; }
+  .hero p { font-size: 17px; color: rgba(255,255,255,0.5); max-width: 480px; margin: 0 auto 36px; line-height: 1.6; }
+  .hero-actions { display: flex; gap: 12px; justify-content: center; align-items: center; }
+  .btn-primary { background: #f97316; color: #fff; font-size: 14px; font-weight: 500; border: none; border-radius: 8px; padding: 11px 24px; cursor: pointer; }
+  .btn-ghost { background: transparent; color: rgba(255,255,255,0.6); font-size: 14px; border: 0.5px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 11px 24px; cursor: pointer; }
+  
+  .hero-preview { margin: 56px 32px 0; background: rgba(255,255,255,0.03); border: 0.5px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 20px; }
+  .preview-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+  .preview-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.15); }
+  .preview-screen { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .preview-card { background: rgba(255,255,255,0.05); border: 0.5px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 14px; }
+  .preview-label { font-size: 10px; color: rgba(255,255,255,0.35); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .preview-val { font-size: 22px; font-weight: 500; color: #fff; }
+  .preview-val.orange { color: #f97316; }
+  .preview-sub { font-size: 11px; color: rgba(255,255,255,0.3); margin-top: 3px; }
+  .preview-chart { grid-column: 1 / -1; background: rgba(255,255,255,0.03); border: 0.5px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 14px; }
+  .chart-title { font-size: 11px; color: rgba(255,255,255,0.35); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .chart-bars { display: flex; align-items: flex-end; gap: 6px; height: 60px; }
+  .bar { flex: 1; border-radius: 3px 3px 0 0; }
+  .chart-line-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .chart-line { height: 2px; flex: 1; background: linear-gradient(90deg, #f97316 0%, #fb923c 100%); border-radius: 1px; }
+  .chart-pr-dot { width: 8px; height: 8px; background: #f97316; border-radius: 50%; border: 2px solid #0d0d0d; }
+
+  .section { padding: 64px 32px; }
+  .section-label { font-size: 12px; color: #f97316; text-transform: uppercase; letter-spacing: 1px; font-weight: 500; margin-bottom: 12px; }
+  .section-title { font-size: 30px; font-weight: 500; color: #fff; line-height: 1.2; margin-bottom: 12px; letter-spacing: -0.5px; }
+  .section-sub { font-size: 15px; color: rgba(255,255,255,0.45); max-width: 440px; line-height: 1.6; margin-bottom: 40px; }
+
+  .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+  .feat-card { background: rgba(255,255,255,0.03); border: 0.5px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 20px; }
+  .feat-icon { width: 36px; height: 36px; background: rgba(249,115,22,0.12); border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+  .feat-icon svg { width: 18px; height: 18px; stroke: #f97316; fill: none; stroke-width: 1.5; }
+  .feat-title { font-size: 14px; font-weight: 500; color: #fff; margin-bottom: 6px; }
+  .feat-desc { font-size: 13px; color: rgba(255,255,255,0.4); line-height: 1.5; }
+
+  .divider { height: 0.5px; background: rgba(255,255,255,0.06); margin: 0 32px; }
+
+  .how-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; }
+  .how-step { padding: 28px; border-right: 0.5px solid rgba(255,255,255,0.06); }
+  .how-step:last-child { border-right: none; }
+  .step-num { font-size: 36px; font-weight: 500; color: rgba(249,115,22,0.2); margin-bottom: 10px; }
+  .step-title { font-size: 16px; font-weight: 500; color: #fff; margin-bottom: 8px; }
+  .step-desc { font-size: 13px; color: rgba(255,255,255,0.4); line-height: 1.5; }
+
+  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border: 0.5px solid rgba(255,255,255,0.07); border-radius: 12px; overflow: hidden; }
+  .stat-cell { padding: 28px 24px; border-right: 0.5px solid rgba(255,255,255,0.07); text-align: center; }
+  .stat-cell:last-child { border-right: none; }
+  .stat-num { font-size: 32px; font-weight: 500; color: #f97316; }
+  .stat-label { font-size: 12px; color: rgba(255,255,255,0.35); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .ai-banner { background: rgba(249,115,22,0.06); border: 0.5px solid rgba(249,115,22,0.15); border-radius: 12px; padding: 28px 28px; display: flex; align-items: center; gap: 24px; }
+  .ai-left { flex: 1; }
+  .ai-tag { display: inline-flex; background: rgba(249,115,22,0.15); color: #f97316; font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 20px; margin-bottom: 10px; }
+  .ai-title { font-size: 18px; font-weight: 500; color: #fff; margin-bottom: 6px; }
+  .ai-desc { font-size: 13px; color: rgba(255,255,255,0.4); line-height: 1.5; }
+  .ai-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+  .chip { font-size: 12px; color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.05); border: 0.5px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 4px 12px; }
+
+  .cta-section { padding: 64px 32px; text-align: center; border-top: 0.5px solid rgba(255,255,255,0.06); }
+  .cta-title { font-size: 34px; font-weight: 500; color: #fff; margin-bottom: 14px; letter-spacing: -0.5px; }
+  .cta-sub { font-size: 15px; color: rgba(255,255,255,0.4); margin-bottom: 32px; }
+  .cta-note { font-size: 12px; color: rgba(255,255,255,0.25); margin-top: 14px; }
+
+  .footer { display: flex; align-items: center; justify-content: space-between; padding: 18px 32px; border-top: 0.5px solid rgba(255,255,255,0.06); }
+  .footer-logo { font-size: 14px; color: rgba(255,255,255,0.3); }
+  .footer-links { display: flex; gap: 20px; font-size: 12px; color: rgba(255,255,255,0.25); }
+</style>
+
+<div class="lp">
+
+  <nav class="nav">
+    <div class="nav-logo">FitTrack</div>
+    <div class="nav-links">
+      <span>Features</span>
+      <span>How it works</span>
+      <span>Analytics</span>
+    </div>
+    <button class="nav-cta">Start for free</button>
+  </nav>
+
+  <div class="hero">
+    <div class="hero-badge"><div class="hero-dot"></div> Built for the gym floor</div>
+    <h1>Track lifts.<br><span>Break PRs.</span><br>Not your flow.</h1>
+    <p>A serious training log for serious lifters. Plan your sessions, track every set, and watch your strength grow — all without breaking a sweat on the UX.</p>
+    <div class="hero-actions">
+      <button class="btn-primary">Start tracking free</button>
+      <button class="btn-ghost">See a demo</button>
+    </div>
+  </div>
+
+  <div class="hero-preview">
+    <div class="preview-bar">
+      <div class="preview-dot"></div>
+      <div class="preview-dot"></div>
+      <div class="preview-dot"></div>
+    </div>
+    <div class="preview-screen">
+      <div class="preview-card">
+        <div class="preview-label">Session volume</div>
+        <div class="preview-val orange">8,420</div>
+        <div class="preview-sub">kg moved today</div>
+      </div>
+      <div class="preview-card">
+        <div class="preview-label">Rest timer</div>
+        <div class="preview-val">2:30</div>
+        <div class="preview-sub">auto-started</div>
+      </div>
+      <div class="preview-card">
+        <div class="preview-label">PRs today</div>
+        <div class="preview-val orange">3</div>
+        <div class="preview-sub">Bench / Squat / OHP</div>
+      </div>
+      <div class="preview-chart">
+        <div class="chart-title">Bench press — max weight (6 months)</div>
+        <div class="chart-bars">
+          <div class="bar" style="height:35%;background:rgba(249,115,22,0.15)"></div>
+          <div class="bar" style="height:45%;background:rgba(249,115,22,0.15)"></div>
+          <div class="bar" style="height:40%;background:rgba(249,115,22,0.15)"></div>
+          <div class="bar" style="height:55%;background:rgba(249,115,22,0.15)"></div>
+          <div class="bar" style="height:60%;background:rgba(249,115,22,0.2)"></div>
+          <div class="bar" style="height:50%;background:rgba(249,115,22,0.15)"></div>
+          <div class="bar" style="height:65%;background:rgba(249,115,22,0.15)"></div>
+          <div class="bar" style="height:70%;background:rgba(249,115,22,0.15)"></div>
+          <div class="bar" style="height:75%;background:rgba(249,115,22,0.2)"></div>
+          <div class="bar" style="height:68%;background:rgba(249,115,22,0.15)"></div>
+          <div class="bar" style="height:80%;background:rgba(249,115,22,0.15)"></div>
+          <div class="bar" style="height:90%;background:rgba(249,115,22,0.3)"></div>
+        </div>
+        <div class="chart-line-row">
+          <div class="chart-pr-dot"></div>
+          <div class="chart-line"></div>
+          <div class="chart-pr-dot"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider" style="margin-top: 0;"></div>
+
+  <div class="section">
+    <div class="section-label">Core features</div>
+    <div class="section-title">Everything a serious<br>lifter actually needs</div>
+    <div class="features-grid">
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+        </div>
+        <div class="feat-title">Auto rest timer</div>
+        <div class="feat-desc">Starts automatically after every set. No tapping around between heavy sets.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <div class="feat-title">Live PR detection</div>
+        <div class="feat-desc">Instant notification the moment you break a personal record, mid-session.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </div>
+        <div class="feat-title">Warm-up generator</div>
+        <div class="feat-desc">Rep-aware warm-up sets auto-calculated from your working weight.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        </div>
+        <div class="feat-title">Plan designer</div>
+        <div class="feat-desc">Build multi-week training plans with custom exercises per day.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <div class="feat-title">PR timeline</div>
+        <div class="feat-desc">Per-exercise progress charts with max weight, estimated 1RM, and volume.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div class="feat-title">Quick log</div>
+        <div class="feat-desc">One tap to repeat your last session as a starting template.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-label">How it works</div>
+    <div class="section-title">Plan. Train. Grow.</div>
+    <div style="border: 0.5px solid rgba(255,255,255,0.07); border-radius: 12px; overflow: hidden;">
+      <div class="how-steps">
+        <div class="how-step">
+          <div class="step-num">01</div>
+          <div class="step-title">Design your program</div>
+          <div class="step-desc">Build a multi-week plan with specific exercises, sets, and target reps for each training day.</div>
+        </div>
+        <div class="how-step">
+          <div class="step-num">02</div>
+          <div class="step-title">Execute in the gym</div>
+          <div class="step-desc">Log sets as you go. Rest timer auto-runs. PRs get flagged the second you hit them.</div>
+        </div>
+        <div class="how-step" style="border-right:none">
+          <div class="step-num">03</div>
+          <div class="step-title">Track your progress</div>
+          <div class="step-desc">Watch your strength curve climb over weeks. Spot plateaus. Know what's actually working.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="stats-row">
+      <div class="stat-cell">
+        <div class="stat-num">100K+</div>
+        <div class="stat-label">Sets logged</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-num">8,400+</div>
+        <div class="stat-label">PRs tracked</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-num">2,100+</div>
+        <div class="stat-label">Sessions completed</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="ai-banner">
+      <div class="ai-left">
+        <div class="ai-tag">Coming soon</div>
+        <div class="ai-title">Your AI training coach</div>
+        <div class="ai-desc">After every session, get a debrief on what went well, what PRs you hit, and what to focus on next time. Based on your actual data — not generic advice.</div>
+        <div class="ai-chips">
+          <div class="chip">Session debrief</div>
+          <div class="chip">Program generator</div>
+          <div class="chip">Weekly check-in</div>
+        </div>
+      </div>
+      <div style="width: 120px; flex-shrink: 0;">
+        <div style="background: rgba(249,115,22,0.08); border: 0.5px solid rgba(249,115,22,0.15); border-radius: 10px; padding: 16px; text-align: center;">
+          <div style="font-size: 11px; color: rgba(255,255,255,0.3); margin-bottom: 8px;">Session debrief</div>
+          <div style="font-size: 12px; color: rgba(255,255,255,0.6); line-height: 1.5;">"Great bench session. 3 PRs hit. Push volume is up 12% this week."</div>
+          <div style="margin-top: 10px; height: 1px; background: rgba(249,115,22,0.2);"></div>
+          <div style="font-size: 11px; color: #f97316; margin-top: 8px;">Powered by Claude</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta-section">
+    <div class="cta-title">Ready to actually<br>track your progress?</div>
+    <div class="cta-sub">Free to use. No fluff. Built for lifters who are serious about getting stronger.</div>
+    <button class="btn-primary" style="font-size: 15px; padding: 13px 32px;">Create your account</button>
+    <div class="cta-note">No credit card required</div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-logo">FitTrack</div>
+    <div class="footer-links">
+      <span>Privacy</span>
+      <span>Terms</span>
+      <span>GitHub</span>
+    </div>
+  </div>
+
+</div>

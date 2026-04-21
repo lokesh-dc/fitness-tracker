@@ -56,11 +56,11 @@ export function LandingContent() {
 				</div>
 
 				<nav className="hidden md:flex items-center gap-8 text-[11px] font-black uppercase tracking-[0.2em] text-white/50">
-					<Link href="#" className="hover:text-brand-primary transition-colors text-white">Home</Link>
-					<Link href="#" className="hover:text-brand-primary transition-colors">About</Link>
-					<Link href="#" className="hover:text-brand-primary transition-colors">Feature</Link>
-					<Link href="#" className="hover:text-brand-primary transition-colors">Blog</Link>
-					<Link href="#" className="hover:text-brand-primary transition-colors">Contact</Link>
+					{/* <Link href="#" className="hover:text-brand-primary transition-colors text-white">Home</Link> */}
+					{/* <Link href="#" className="hover:text-brand-primary transition-colors">About</Link> */}
+					{/* <Link href="#" className="hover:text-brand-primary transition-colors">Feature</Link> */}
+					{/* <Link href="#" className="hover:text-brand-primary transition-colors">Blog</Link> */}
+					{/* <Link href="#" className="hover:text-brand-primary transition-colors">Contact</Link> */}
 				</nav>
 
 				<div className="flex items-center gap-4">

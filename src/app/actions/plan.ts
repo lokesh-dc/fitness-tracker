@@ -419,10 +419,18 @@ export async function getActivePlansSummary(userId: string): Promise<ActivePlanP
 
     if (activePlans.length === 0) return [];
 
-    const logsThisWeek = await db.collection("WorkoutLog").find({
-      userId: new ObjectId(userId),
-      date: { $gte: weekStart, $lte: weekEnd }
-    }).project({ date: 1, exercises: 1 }).toArray();
+    const planIds = activePlans.map(p => p._id.toString());
+    const [logsThisWeek, allTemplates] = await Promise.all([
+      db.collection("WorkoutLog").find({
+        userId: new ObjectId(userId),
+        date: { $gte: weekStart, $lte: weekEnd }
+      }).project({ date: 1, exercises: 1 }).toArray(),
+      db.collection("WorkoutTemplate").find({
+        planId: { $in: planIds },
+        userId: new ObjectId(userId),
+        "exercises.0": { $exists: true }
+      }).toArray()
+    ]);
 
     const loggedDates = new Set(
       logsThisWeek
@@ -430,13 +438,9 @@ export async function getActivePlansSummary(userId: string): Promise<ActivePlanP
         .map(l => new Date(l.date).toISOString().split('T')[0])
     );
 
-    const summaries = await Promise.all(activePlans.map(async (plan) => {
-      const templates = await db.collection("WorkoutTemplate").find({
-        planId: plan._id.toString(),
-        userId: new ObjectId(userId),
-        "exercises.0": { $exists: true }
-      }).toArray();
-
+    const summaries = activePlans.map((plan) => {
+      const planId = plan._id.toString();
+      const planTemplates = allTemplates.filter(t => t.planId === planId);
       const planStart = parseISO(plan.startDate);
       const planEnd = addDays(planStart, plan.numWeeks * 7 - 1);
 
@@ -453,8 +457,8 @@ export async function getActivePlansSummary(userId: string): Promise<ActivePlanP
           const currentWeekIndex = Math.floor(diffInDays / 7) + 1;
 
           // Find templates for THIS week or fall back to week 1 if none for this week
-          const hasSpecificWeekTemplates = templates.some(t => t.dayOfWeek === systemDay && t.weekNumber === currentWeekIndex);
-          const hasWeek1Templates = templates.some(t => t.dayOfWeek === systemDay && t.weekNumber === 1);
+          const hasSpecificWeekTemplates = planTemplates.some(t => t.dayOfWeek === systemDay && t.weekNumber === currentWeekIndex);
+          const hasWeek1Templates = planTemplates.some(t => t.dayOfWeek === systemDay && t.weekNumber === 1);
           
           if (hasSpecificWeekTemplates || hasWeek1Templates) {
             plannedCount++;
@@ -464,13 +468,13 @@ export async function getActivePlansSummary(userId: string): Promise<ActivePlanP
       }
 
       return {
-        planId: plan._id.toString(),
+        planId,
         planName: plan.name || "Untitled Plan",
         sessionsCompletedThisWeek: completedCount,
         sessionsPlannedThisWeek: plannedCount,
         progressPercent: plannedCount > 0 ? Math.round((completedCount / plannedCount) * 100) : 0
       };
-    }));
+    });
 
     return summaries;
   } catch (error) {
@@ -503,8 +507,9 @@ export async function getPlanAdherenceScore(userId: string): Promise<AdherenceSc
     }
 
     const fourWeeksAgo = subWeeks(now, 4);
+    const planIds = plansWithHistory.map(p => p._id.toString());
 
-    const [currentLogs, previousLogs] = await Promise.all([
+    const [currentLogs, previousLogs, allTemplates] = await Promise.all([
       db.collection("WorkoutLog").find({
         userId: new ObjectId(userId),
         date: { $gte: fourWeeksAgo, $lte: now }
@@ -512,21 +517,22 @@ export async function getPlanAdherenceScore(userId: string): Promise<AdherenceSc
       db.collection("WorkoutLog").find({
         userId: new ObjectId(userId),
         date: { $gte: eightWeeksAgo, $lt: fourWeeksAgo }
-      }).project({ date: 1, exercises: 1 }).toArray()
+      }).project({ date: 1, exercises: 1 }).toArray(),
+      db.collection("WorkoutTemplate").find({
+        planId: { $in: planIds },
+        userId: new ObjectId(userId),
+        "exercises.0": { $exists: true }
+      }).toArray()
     ]);
 
     const currentLogged = new Set(currentLogs.filter(l => l.exercises && l.exercises.length > 0).map(l => new Date(l.date).toISOString().split('T')[0])).size;
     const previousLogged = new Set(previousLogs.filter(l => l.exercises && l.exercises.length > 0).map(l => new Date(l.date).toISOString().split('T')[0])).size;
 
-    const countPlannedInWindow = async (start: Date, end: Date) => {
+    const countPlannedInWindow = (start: Date, end: Date) => {
       let total = 0;
       for (const plan of plansWithHistory) {
-        const templates = await db.collection("WorkoutTemplate").find({
-          planId: plan._id.toString(),
-          userId: new ObjectId(userId),
-          "exercises.0": { $exists: true }
-        }).toArray();
-
+        const planId = plan._id.toString();
+        const planTemplates = allTemplates.filter(t => t.planId === planId);
         const planStart = parseISO(plan.startDate);
         const planEnd = addDays(planStart, plan.numWeeks * 7 - 1);
 
@@ -541,8 +547,8 @@ export async function getPlanAdherenceScore(userId: string): Promise<AdherenceSc
             const diffInDays = Math.floor((d.getTime() - planStart.getTime()) / (1000 * 60 * 60 * 24));
             const currentWeekIndex = Math.floor(diffInDays / 7) + 1;
 
-            const hasSpecificWeekTemplates = templates.some(t => t.dayOfWeek === systemDay && t.weekNumber === currentWeekIndex);
-            const hasWeek1Templates = templates.some(t => t.dayOfWeek === systemDay && t.weekNumber === 1);
+            const hasSpecificWeekTemplates = planTemplates.some(t => t.dayOfWeek === systemDay && t.weekNumber === currentWeekIndex);
+            const hasWeek1Templates = planTemplates.some(t => t.dayOfWeek === systemDay && t.weekNumber === 1);
 
             if (hasSpecificWeekTemplates || hasWeek1Templates) {
               total++;
@@ -553,10 +559,8 @@ export async function getPlanAdherenceScore(userId: string): Promise<AdherenceSc
       return total;
     };
 
-    const [currentPlanned, previousPlanned] = await Promise.all([
-      countPlannedInWindow(fourWeeksAgo, now),
-      countPlannedInWindow(eightWeeksAgo, fourWeeksAgo)
-    ]);
+    const currentPlanned = countPlannedInWindow(fourWeeksAgo, now);
+    const previousPlanned = countPlannedInWindow(eightWeeksAgo, fourWeeksAgo);
 
     const currentPercent = currentPlanned > 0 ? Math.round((currentLogged / currentPlanned) * 100) : 0;
     const previousPercent = previousPlanned > 0 ? Math.round((previousLogged / previousPlanned) * 100) : 0;
@@ -592,10 +596,18 @@ export async function getWeekPlanSchedule(userId: string): Promise<WeekScheduleD
       return planStart <= weekEnd && planEnd >= weekStart;
     });
 
-    const logsThisWeek = await db.collection("WorkoutLog").find({
-      userId: new ObjectId(userId),
-      date: { $gte: weekStart, $lte: weekEnd }
-    }).project({ date: 1, exercises: 1 }).toArray();
+    const planIds = activePlans.map(p => p._id.toString());
+    const [logsThisWeek, allTemplates] = await Promise.all([
+      db.collection("WorkoutLog").find({
+        userId: new ObjectId(userId),
+        date: { $gte: weekStart, $lte: weekEnd }
+      }).project({ date: 1, exercises: 1 }).toArray(),
+      db.collection("WorkoutTemplate").find({
+        planId: { $in: planIds },
+        userId: new ObjectId(userId),
+        "exercises.0": { $exists: true }
+      }).toArray()
+    ]);
 
     const loggedDates = new Set(
       logsThisWeek
@@ -603,7 +615,7 @@ export async function getWeekPlanSchedule(userId: string): Promise<WeekScheduleD
         .map(l => new Date(l.date).toISOString().split('T')[0])
     );
 
-    const schedule = await Promise.all([0, 1, 2, 3, 4, 5, 6].map(async (dayIndex) => {
+    const schedule = [0, 1, 2, 3, 4, 5, 6].map((dayIndex) => {
       const dayDate = addDays(weekStart, dayIndex);
       const dayDateStr = dayDate.toISOString().split('T')[0];
       const dayLabel = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][dayIndex];
@@ -615,6 +627,7 @@ export async function getWeekPlanSchedule(userId: string): Promise<WeekScheduleD
       const sessions: any[] = [];
 
       for (const plan of activePlans) {
+        const planId = plan._id.toString();
         const planStart = parseISO(plan.startDate);
         const planEnd = addDays(planStart, plan.numWeeks * 7 - 1);
 
@@ -622,38 +635,30 @@ export async function getWeekPlanSchedule(userId: string): Promise<WeekScheduleD
           const diffInDays = Math.floor((dayDate.getTime() - planStart.getTime()) / (1000 * 60 * 60 * 24));
           const currentWeekIndex = Math.floor(diffInDays / 7) + 1;
 
-          // Fetch templates for current week first
-          let templates = await db.collection("WorkoutTemplate").find({
-            planId: plan._id.toString(),
-            userId: new ObjectId(userId),
-            dayOfWeek: systemDay,
-            weekNumber: currentWeekIndex,
-            "exercises.0": { $exists: true }
-          }).toArray();
+          const planTemplates = allTemplates.filter(t => 
+            t.planId === planId && 
+            t.dayOfWeek === systemDay &&
+            (t.weekNumber === currentWeekIndex || t.weekNumber === 1)
+          );
 
-          // Fallback to week 1 if no templates for current week (and it's not week 1)
-          if (templates.length === 0 && currentWeekIndex !== 1) {
-            templates = await db.collection("WorkoutTemplate").find({
-              planId: plan._id.toString(),
-              userId: new ObjectId(userId),
-              dayOfWeek: systemDay,
-              weekNumber: 1,
-              "exercises.0": { $exists: true }
-            }).toArray();
+          // Priority: specific week, then week 1
+          let templateToUse = planTemplates.find(t => t.weekNumber === currentWeekIndex);
+          if (!templateToUse) {
+            templateToUse = planTemplates.find(t => t.weekNumber === 1);
           }
 
-          templates.forEach(t => {
+          if (templateToUse) {
             sessions.push({
               planName: plan.name || "Plan",
-              workoutName: t.splitName || "Workout",
+              workoutName: templateToUse.splitName || "Workout",
               status: isLogged ? 'completed' : (isPast ? 'missed' : 'planned')
             });
-          });
+          }
         }
       }
 
       return { dayOfWeek: dayIndex, dayLabel, sessions };
-    }));
+    });
 
     return schedule.sort((a, b) => a.dayOfWeek - b.dayOfWeek);
   } catch (error) {

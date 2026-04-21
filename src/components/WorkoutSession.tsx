@@ -235,17 +235,19 @@ export default function WorkoutSession({
 			const exercise = exercises[activeExerciseIndex];
 			await saveSingleExerciseLog(exercise, updateTemplate, date);
 
-			// PR Detection
-			const maxWeightThisSession = Math.max(
-				...exercise.sets.map((s) => s.weight),
-			);
-			if (maxWeightThisSession > (exercise.pr || 0)) {
-				sessionStats.registerPR({
-					exerciseName: exercise.name,
-					newPRWeight: maxWeightThisSession,
-					previousPRWeight: exercise.pr || null,
-					timestamp: new Date(),
-				});
+			// PR Detection - Only if NOT skipped
+			if (!exercise.isSkipped) {
+				const maxWeightThisSession = Math.max(
+					...exercise.sets.map((s) => s.weight),
+				);
+				if (maxWeightThisSession > (exercise.pr || 0)) {
+					sessionStats.registerPR({
+						exerciseName: exercise.name,
+						newPRWeight: maxWeightThisSession,
+						previousPRWeight: exercise.pr || null,
+						timestamp: new Date(),
+					});
+				}
 			}
 
 			// Mark as done locally
@@ -263,6 +265,25 @@ export default function WorkoutSession({
 		} catch (error) {
 			console.error(error);
 			alert("Failed to save exercise.");
+		} finally {
+			setIsSubmittingExercise(false);
+		}
+	};
+
+	const handleSkipExercise = async (idx: number) => {
+		setIsSubmittingExercise(true);
+		try {
+			const targetEx = { ...exercises[idx], isSkipped: true, isDone: true };
+			await saveSingleExerciseLog(targetEx, false, date);
+
+			setExercises((prev) => {
+				const newExs = [...prev];
+				newExs[idx] = targetEx;
+				return newExs;
+			});
+		} catch (error) {
+			console.error(error);
+			alert("Failed to skip exercise.");
 		} finally {
 			setIsSubmittingExercise(false);
 		}
@@ -635,19 +656,25 @@ export default function WorkoutSession({
 								key={ex.exerciseId}
 								className={cn(
 									"p-4 flex items-center justify-between group transition-all duration-300",
-									(ex as any).isDone
-										? "border-emerald-500/20 bg-emerald-500/5 shadow-none"
-										: "hover:bg-foreground/5 shadow-xl",
+									ex.isSkipped
+										? "border-foreground/10 bg-foreground/5 opacity-60"
+										: (ex as any).isDone
+											? "border-emerald-500/20 bg-emerald-500/5 shadow-none"
+											: "hover:bg-foreground/5 shadow-xl",
 								)}>
 								<div className="flex items-center space-x-4">
 									<div
 										className={cn(
 											"w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300",
-											(ex as any).isDone
-												? "bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]"
-												: "bg-foreground/5 text-foreground/20 group-hover:text-brand-primary",
+											ex.isSkipped
+												? "bg-foreground/10 text-foreground/40"
+												: (ex as any).isDone
+													? "bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+													: "bg-foreground/5 text-foreground/20 group-hover:text-brand-primary",
 										)}>
-										{(ex as any).isDone ? (
+										{ex.isSkipped ? (
+											<Plus className="w-5 h-5 rotate-45" />
+										) : (ex as any).isDone ? (
 											<CheckCircle2 className="w-5 h-5" />
 										) : (
 											<Play className="w-4 h-4" />
@@ -656,28 +683,44 @@ export default function WorkoutSession({
 									<div>
 										<h4 className="text-sm font-black text-foreground">
 											{ex.name}
+											{ex.isSkipped && (
+												<span className="ml-2 text-[8px] px-1.5 py-0.5 rounded-md bg-foreground/10 text-foreground/60 uppercase tracking-widest">
+													Skipped
+												</span>
+											)}
 										</h4>
 										<p className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest">
 											{ex.targetSets} Sets • {ex.targetReps} Reps
 										</p>
 									</div>
 								</div>
-								<button
-									onClick={() => {
-										setActiveExerciseIndex(exIndex);
-										setStep(3);
-									}}
-									className={cn(
-										"flex items-center px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-										(ex as any).isDone
-											? "bg-foreground/5 text-foreground/40 hover:bg-foreground/10"
-											: "bg-brand-primary text-black shadow-[0_0_15px_rgba(249,115,22,0.2)] hover:scale-105 active:scale-95",
-									)}>
-									{(ex as any).isDone ? "Log Again" : "Log"}
-									{(!ex as any).isDone ? null : (
-										<ArrowRight className="w-3 h-3 ml-2" />
+								<div className="flex items-center space-x-2">
+									{!ex.isDone && (
+										<button
+											onClick={() => handleSkipExercise(exIndex)}
+											disabled={isSubmittingExercise}
+											className="p-2 text-foreground/20 hover:text-rose-500 transition-colors rounded-lg hover:bg-rose-500/10"
+											title="Skip Exercise">
+											<Trash2 className="w-4 h-4" />
+										</button>
 									)}
-								</button>
+									<button
+										onClick={() => {
+											setActiveExerciseIndex(exIndex);
+											setStep(3);
+										}}
+										className={cn(
+											"flex items-center px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+											(ex as any).isDone
+												? "bg-foreground/5 text-foreground/40 hover:bg-foreground/10"
+												: "bg-brand-primary text-black shadow-[0_0_15px_rgba(249,115,22,0.2)] hover:scale-105 active:scale-95",
+										)}>
+										{(ex as any).isDone ? "Log Again" : "Log"}
+										{(!ex as any).isDone ? null : (
+											<ArrowRight className="w-3 h-3 ml-2" />
+										)}
+									</button>
+								</div>
 							</GlassCard>
 						))}
 					</div>
