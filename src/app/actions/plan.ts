@@ -358,6 +358,190 @@ export async function deletePlan(planId: string) {
   }
 }
 
+export async function terminatePlan(planId: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) throw new Error("Unauthorized");
+    const userId = new ObjectId((session.user as any).id);
+
+    const db = await getDb();
+    const plan = await db.collection("PlanDocument").findOne({ _id: new ObjectId(planId), userId });
+    if (!plan) throw new Error("Plan not found");
+
+    const start = new Date(plan.startDate + "T00:00:00");
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - start.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const currentWeek = Math.max(1, Math.floor(diffDays / 7) + 1);
+
+    await db.collection("PlanDocument").updateOne(
+      { _id: new ObjectId(planId), userId },
+      { $set: { numWeeks: currentWeek, updatedAt: new Date() } }
+    );
+
+    revalidatePath("/plan");
+    revalidatePath(`/plan/${planId}`);
+    return { success: true };
+  } catch (error) {
+    console.error("Error terminating plan:", error);
+    return { success: false };
+  }
+}
+
+export async function getPlanSidebarData(planId: string, userId: string) {
+  try {
+    const db = await getDb();
+    const plan = await db.collection("PlanDocument").findOne({
+      _id: new ObjectId(planId),
+      userId: new ObjectId(userId)
+    }) as any;
+
+    if (!plan) return null;
+
+    const start = new Date(plan.startDate + "T00:00:00");
+    const end = new Date(start);
+    end.setDate(end.getDate() + plan.numWeeks * 7);
+    const now = new Date();
+    
+    const diffTime = Math.abs(now.getTime() - start.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const currentWeek = Math.max(1, Math.floor(diffDays / 7) + 1);
+
+    const logs = await db.collection("WorkoutLog")
+      .find({ userId: new ObjectId(userId), date: { $gte: start, $lte: end } })
+      .sort({ date: 1 })
+      .toArray();
+
+    const templates = await db.collection("WorkoutTemplate")
+      .find({ planId, userId: new ObjectId(userId) })
+      .toArray();
+
+    // 1. Progress Data
+    const plannedTemplatesCount = templates.filter(t => t.exercises?.length > 0).length;
+    const totalSessionsPlanned = plannedTemplatesCount * plan.numWeeks;
+    const sessionsCompleted = logs.length;
+    const daysRemaining = Math.max(0, Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+
+    const weekStrip: any[] = [];
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const currentWeekStart = startOfWeek(now, { weekStartsOn: 1 });
+    
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(currentWeekStart, i);
+      const dStr = d.toISOString().split('T')[0];
+      const systemDay = d.getDay();
+      
+      const isPlanned = templates.some(t => t.dayOfWeek === systemDay && (t.weekNumber === currentWeek || t.weekNumber === 1));
+      const isLogged = logs.some(l => new Date(l.date).toISOString().split('T')[0] === dStr);
+      
+      let status: 'done' | 'today' | 'upcoming' | 'missed' | 'rest' = 'rest';
+      if (isLogged) status = 'done';
+      else if (d.getTime() === today.getTime() && isPlanned) status = 'today';
+      else if (d > today && isPlanned) status = 'upcoming';
+      else if (d < today && isPlanned) status = 'missed';
+      
+      weekStrip.push({
+        dayOfWeek: i,
+        label: ['M', 'T', 'W', 'T', 'F', 'S', 'S'][i],
+        status
+      });
+    }
+
+    const progressData = {
+      currentWeek: Math.min(currentWeek, plan.numWeeks),
+      totalWeeks: plan.numWeeks,
+      sessionsCompleted,
+      totalSessionsPlanned,
+      daysRemaining,
+      percentComplete: Math.round((sessionsCompleted / totalSessionsPlanned) * 100) || 0,
+      weekStrip
+    };
+
+    // 2. Strength Data
+    const strengthData: any[] = [];
+    if (logs.length > 0) {
+      const exerciseMaxes: Record<string, { start: number, current: number }> = {};
+      
+      logs.forEach(log => {
+        log.exercises?.forEach((ex: any) => {
+          const max = Math.max(...ex.sets.map((s: any) => s.weight || 0));
+          if (!exerciseMaxes[ex.name]) {
+            exerciseMaxes[ex.name] = { start: max, current: max };
+          } else {
+            exerciseMaxes[ex.name].current = max;
+          }
+        });
+      });
+      
+      Object.entries(exerciseMaxes).slice(0, 3).forEach(([name, vals]) => {
+        strengthData.push({
+          exerciseName: name,
+          currentMaxWeight: vals.current,
+          startMaxWeight: vals.start,
+          delta: vals.current - vals.start,
+          unit: 'kg'
+        });
+      });
+    }
+
+    // 3. Volume Data
+    const weeklyVolumes: any[] = [];
+    for (let w = 0; w < plan.numWeeks; w++) {
+      const wStart = addDays(start, w * 7);
+      const wEnd = addDays(wStart, 6);
+      wEnd.setHours(23,59,59,999);
+      
+      const wLogs = logs.filter(l => {
+        const d = new Date(l.date);
+        return d >= wStart && d <= wEnd;
+      });
+      
+      let vol = 0;
+      wLogs.forEach(l => {
+        l.exercises?.forEach((ex: any) => {
+          ex.sets?.forEach((s: any) => vol += (s.weight || 0) * (s.reps || 0));
+        });
+      });
+      
+      weeklyVolumes.push({ weekNumber: w + 1, totalVolume: vol });
+    }
+    
+    const currentWeekVol = weeklyVolumes[currentWeek - 1]?.totalVolume || 0;
+    const avgVol = weeklyVolumes.reduce((a, b) => a + b.totalVolume, 0) / Math.max(1, weeklyVolumes.filter(v => v.totalVolume > 0).length);
+
+    const volumeData = {
+      weeks: weeklyVolumes,
+      currentWeekVolume: currentWeekVol,
+      averageWeeklyVolume: Math.round(avgVol),
+      trend: 'flat' as const
+    };
+
+    // 4. Bodyweight Data
+    const bwLogs = logs.filter(l => l.bodyWeight > 0);
+    const bodyweightData = {
+      currentWeight: bwLogs.length > 0 ? bwLogs[bwLogs.length - 1].bodyWeight : null,
+      startWeight: bwLogs.length > 0 ? bwLogs[0].bodyWeight : null,
+      delta: bwLogs.length > 1 ? (bwLogs[bwLogs.length - 1].bodyWeight - bwLogs[0].bodyWeight) : 0,
+      chartPoints: bwLogs.map(l => ({
+        date: new Date(l.date).toISOString().split('T')[0],
+        weight: l.bodyWeight
+      }))
+    };
+
+    return {
+      progressData,
+      strengthData,
+      volumeData,
+      bodyweightData
+    };
+
+  } catch (error) {
+    console.error("Error getting plan sidebar data:", error);
+    return null;
+  }
+}
+
 export async function getReminderData() {
   try {
     const session = await getServerSession(authOptions);
