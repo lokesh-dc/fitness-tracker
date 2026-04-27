@@ -2,96 +2,52 @@
 
 import { GlassCard } from "@/components/ui/GlassCard";
 import { MostImprovedExercise } from "@/types/workout";
-import { Rocket, TrendingUp } from "lucide-react";
+import { TrendingUp, ArrowUp } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-export function MostImprovedWidget({
-	mostImproved,
-	variant = "sidebar",
-}: {
-	mostImproved: MostImprovedExercise | null;
-	variant?: "sidebar" | "mobile";
-}) {
-	if (variant === "mobile") {
-		return (
-			<GlassCard className="min-w-[200px] p-3 border-foreground/5 bg-foreground/[0.02]">
-				<p className="text-[10px] font-black tracking-widest text-foreground/40 uppercase">
-					Most Improved
-				</p>
-				{mostImproved ? (
-					<>
-						<p className="text-sm font-bold text-foreground mt-1 truncate">
-							{mostImproved.exerciseName}
-						</p>
-						<p className="text-xs font-bold text-green-400">
-							+{mostImproved.improvementPercent}% in 30 days
-						</p>
-					</>
-				) : (
-					<p className="text-xs text-foreground/30 mt-1 italic">No data yet</p>
-				)}
-			</GlassCard>
-		);
-	}
+interface MostImprovedWidgetProps {
+  mostImproved: MostImprovedExercise | null;
+  variant?: 'sidebar' | 'mobile';
+}
 
-	return (
-		<GlassCard className="p-4 border-foreground/5 bg-foreground/[0.02]">
-			<div className="mb-4">
-				<h3 className="text-[10px] font-black tracking-widest text-foreground/60 uppercase">
-					MOST IMPROVED
-				</h3>
-				<p className="text-[10px] text-foreground/40 font-bold uppercase tracking-widest mt-0.5">
-					Last 30 days
-				</p>
-			</div>
+export function MostImprovedWidget({ mostImproved, variant = 'sidebar' }: MostImprovedWidgetProps) {
+  if (!mostImproved) {
+    if (variant === 'mobile') return null;
+    return (
+      <GlassCard className="flex flex-col items-center justify-center py-8 text-foreground/20">
+        <TrendingUp className="w-8 h-8 mb-2 opacity-20" />
+        <span className="text-xs font-bold uppercase tracking-widest">No improvement data yet</span>
+      </GlassCard>
+    );
+  }
 
-			{!mostImproved ? (
-				<div className="flex flex-col items-center justify-center py-6 text-center">
-					<TrendingUp className="w-8 h-8 text-foreground/10 mb-3" />
-					<p className="text-xs text-foreground/40 px-2 line-clamp-3">
-						No weight increases logged in the last 30 days — keep pushing!
-					</p>
-				</div>
-			) : (
-				<div className="space-y-4">
-					<div className="flex items-center gap-2">
-						<Rocket className="w-5 h-5 text-brand-primary shrink-0" />
-						<span className="text-lg font-bold text-foreground truncate">
-							{mostImproved.exerciseName}
-						</span>
-					</div>
+  return (
+    <GlassCard className={cn(
+      "flex flex-col gap-4",
+      variant === 'mobile' && "min-w-[240px] flex-shrink-0 p-4"
+    )}>
+      <div>
+        <p className="text-[10px] font-black tracking-widest text-foreground/40 uppercase mb-1">Most Improved</p>
+        <p className="text-[10px] text-foreground/20 mb-4 font-bold uppercase tracking-tight">Last 30 Days</p>
 
-					<div className="flex items-center justify-between gap-2 py-1">
-						<span className="text-sm font-medium text-foreground/60">
-							{mostImproved.startWeight}kg
-						</span>
-						<div className="flex-1 flex items-center justify-center px-2">
-							<div className="w-full h-px bg-brand-primary/20 relative">
-								<div className="absolute -top-1.5 left-1/2 -translate-x-1/2 bg-transparent text-[10px] text-brand-primary">
-									──→
-								</div>
-							</div>
-						</div>
-						<span className="text-lg font-bold text-brand-primary">
-							{mostImproved.endWeight}kg
-						</span>
-					</div>
-
-					<div className="space-y-0.5">
-						<div className="flex items-center gap-2">
-							<span className="text-sm font-bold text-green-400">
-								+{mostImproved.improvementKg}kg
-							</span>
-							<span className="text-foreground/20 text-xs">·</span>
-							<span className="text-sm font-bold text-green-400">
-								+{mostImproved.improvementPercent}%
-							</span>
-						</div>
-						<p className="text-[10px] text-foreground/40 font-bold uppercase tracking-widest">
-							{mostImproved.sessionCount} sessions
-						</p>
-					</div>
-				</div>
-			)}
-		</GlassCard>
-	);
+        <div className="flex items-center gap-4">
+          <div className="bg-green-500/10 p-3 rounded-2xl border border-green-500/20">
+            <TrendingUp className="w-6 h-6 text-green-400" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-lg font-black text-foreground truncate uppercase tracking-tight">
+              {mostImproved.exerciseName}
+            </p>
+            <div className="flex items-center gap-1.5 text-green-400">
+              <ArrowUp className="w-3 h-3" />
+              <span className="text-xs font-black">+{mostImproved.improvementPercent}%</span>
+              <span className="text-[10px] font-bold text-foreground/40 ml-1">
+                (+{mostImproved.improvementKg}kg)
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </GlassCard>
+  );
 }

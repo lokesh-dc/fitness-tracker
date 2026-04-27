@@ -244,3 +244,43 @@ export interface BodyweightData {
   delta: number | null;
   chartPoints: { date: string; weight: number }[];
 }
+
+export interface MuscleGroupSummary {
+  muscleGroup: string;
+  totalSets: number;
+  totalVolume: number;  // kg
+  sessionCount: number;
+  lastTrainedDate: string; // ISO
+  topExercise: string;
+  weeklyData: { 
+    week: string; 
+    totalSets: number; 
+    totalVolume: number;
+    sessionCount?: number;
+    exerciseVolumes?: { name: string; volume: number }[];
+  }[];
+}
+
+export interface ExerciseProgressDataPoint {
+  date: string; // ISO
+  maxWeight: number;
+  estimatedOneRM: number;
+  totalSets: number;
+}
+
+export interface ExerciseProgressMap {
+  [exerciseName: string]: {
+    muscleGroup: string;
+    prDate?: string;
+    currentPR?: number;
+    dataPoints: ExerciseProgressDataPoint[];
+  };
+}
+
+export interface MuscleGroupPageData {
+  muscleGroups: MuscleGroupSummary[];
+  exerciseProgress: ExerciseProgressMap;
+  trainingBalance: { muscleGroup: string; volumePercent: number }[];
+  mostImproved: { muscleGroup: string; percentChange: number; topExercise: string } | null;
+  neglectedMuscles: { muscleGroup: string; daysSinceLastTrained: number }[];
+}

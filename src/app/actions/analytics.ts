@@ -10,7 +10,11 @@ import {
   WeeklyVolumeComparison,
   BodyWeightTrend,
   AllTimeStats,
-  AccountSummary
+  AccountSummary,
+  MuscleGroupPageData,
+  MuscleGroupSummary,
+  ExerciseProgressMap,
+  ExerciseProgressDataPoint
 } from "@/types/workout";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -160,9 +164,9 @@ export async function getUserExercises(): Promise<string[]> {
     const userId = new ObjectId((session.user as any).id);
 
     const db = await getDb();
-    const records = await db.collection("ExerciseRecords").find({ userId }).toArray();
-    const names = records.map(r => r.exerciseName).filter(Boolean);
-    return Array.from(new Set(names)).sort();
+    // Query WorkoutLog for unique exercise names to ensure we see everything logged
+    const names = await db.collection("WorkoutLog").distinct("exercises.name", { userId });
+    return (names as string[]).filter(Boolean).sort();
   } catch (error) {
     console.error("Error fetching user exercises:", error);
     return [];
@@ -176,13 +180,53 @@ export async function getExerciseProgress(exerciseName: string): Promise<{ date:
     const userId = new ObjectId((session.user as any).id);
 
     const db = await getDb();
-    const record = await db.collection("ExerciseRecords").findOne({ userId, exerciseName });
+    
+    // Query raw WorkoutLog instead of ExerciseRecords cache to avoid sync/duplicate issues
+    const pipeline = [
+      { 
+        $match: { 
+          userId, 
+          "exercises.name": exerciseName,
+          "exercises.isSkipped": { $ne: true }
+        } 
+      },
+      { $unwind: "$exercises" },
+      { 
+        $match: { 
+          "exercises.name": exerciseName,
+          "exercises.isSkipped": { $ne: true }
+        } 
+      },
+      { $unwind: "$exercises.sets" },
+      { 
+        $match: { 
+          "exercises.sets.weight": { $gt: 0 },
+          $or: [
+            { "exercises.sets.completed": true },
+            { "exercises.sets.isDone": true },
+            { 
+              $and: [
+                { "exercises.sets.weight": { $gt: 0 } },
+                { "exercises.sets.reps": { $gt: 0 } }
+              ]
+            }
+          ]
+        } 
+      },
+      {
+        $group: {
+          _id: "$date",
+          maxWeight: { $max: "$exercises.sets.weight" }
+        }
+      },
+      { $sort: { "_id": 1 } }
+    ];
 
-    if (!record || !record.history) return [];
+    const results = await db.collection("WorkoutLog").aggregate(pipeline).toArray();
 
-    return record.history.map((h: any) => ({
-      date: h.date instanceof Date ? h.date.toISOString() : h.date,
-      weight: h.maxWeight
+    return results.map((r: any) => ({
+      date: r._id instanceof Date ? r._id.toISOString() : r._id,
+      weight: r.maxWeight
     }));
   } catch (error) {
     console.error("Error fetching exercise progress:", error);
@@ -225,7 +269,17 @@ export async function getExerciseTimeline(
       {
         $match: {
           'exercises.sets.weight': { $gt: 0 },
-          'exercises.sets.reps': { $gt: 0 }
+          // Count sets that are either completed OR have values (matching updateExerciseRecords logic)
+          $or: [
+            { 'exercises.sets.completed': true },
+            { 'exercises.sets.isDone': true },
+            { 
+              $and: [
+                { 'exercises.sets.weight': { $gt: 0 } },
+                { 'exercises.sets.reps': { $gt: 0 } }
+              ]
+            }
+          ]
         }
       },
       {
@@ -1239,5 +1293,399 @@ export async function getAccountSummary(userId: string): Promise<AccountSummary>
       monthsTraining: 0, 
       memberSinceLabel: now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) 
     };
+  }
+}
+
+export async function getMuscleGroupPageData(): Promise<MuscleGroupPageData> {
+  const emptyData: MuscleGroupPageData = {
+    muscleGroups: [],
+    exerciseProgress: {},
+    trainingBalance: [],
+    mostImproved: null,
+    neglectedMuscles: []
+  };
+
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return emptyData;
+    const userId = new ObjectId((session.user as any).id);
+
+    const [
+      muscleGroups,
+      exerciseProgress,
+      sidebarData
+    ] = await Promise.all([
+      fetchMuscleGroupSummaries(userId),
+      fetchExerciseProgressMap(userId),
+      fetchSidebarAnalytics(userId)
+    ]);
+
+    return {
+      muscleGroups,
+      exerciseProgress,
+      trainingBalance: sidebarData.trainingBalance,
+      mostImproved: sidebarData.mostImproved,
+      neglectedMuscles: sidebarData.neglectedMuscles
+    };
+  } catch (error) {
+    console.error("Error in getMuscleGroupPageData:", error);
+    return emptyData;
+  }
+}
+
+async function fetchMuscleGroupSummaries(userId: ObjectId): Promise<MuscleGroupSummary[]> {
+  try {
+    const db = await getDb();
+    
+    const pipeline = [
+      { $match: { userId } },
+      { $unwind: "$exercises" },
+      { $match: { "exercises.isSkipped": { $ne: true } } },
+      {
+        $lookup: {
+          from: "Exercises",
+          localField: "exercises.name",
+          foreignField: "name",
+          as: "exerciseDetails"
+        }
+      },
+      { $unwind: { path: "$exerciseDetails", preserveNullAndEmptyArrays: true } },
+      { 
+        $addFields: { 
+          muscleGroup: { $ifNull: ["$exerciseDetails.muscleGroup", "Other"] } 
+        } 
+      },
+      { $unwind: "$exercises.sets" },
+      { 
+        $match: { 
+          "exercises.sets.weight": { $gt: 0 }, 
+          "exercises.sets.reps": { $gt: 0 } 
+        } 
+      },
+      {
+        $facet: {
+          summaries: [
+            {
+              $group: {
+                _id: "$muscleGroup",
+                totalSets: { $sum: 1 },
+                totalVolume: { $sum: { $multiply: ["$exercises.sets.weight", "$exercises.sets.reps"] } },
+                sessionIds: { $addToSet: "$_id" },
+                lastTrainedDate: { $max: "$date" },
+                exerciseVolumes: {
+                  $push: {
+                    name: "$exercises.name",
+                    volume: { $multiply: ["$exercises.sets.weight", "$exercises.sets.reps"] }
+                  }
+                }
+              }
+            }
+          ],
+          weeklySparklines: [
+            {
+              $addFields: {
+                week: { $dateToString: { format: "%Y-%U", date: "$date" } }
+              }
+            },
+            {
+              $group: {
+                _id: { muscleGroup: "$muscleGroup", week: "$week" },
+                totalSets: { $sum: 1 },
+                totalVolume: { $sum: { $multiply: ["$exercises.sets.weight", "$exercises.sets.reps"] } },
+                sessionIds: { $addToSet: "$_id" },
+                exerciseVolumes: {
+                  $push: {
+                    name: "$exercises.name",
+                    volume: { $multiply: ["$exercises.sets.weight", "$exercises.sets.reps"] }
+                  }
+                }
+              }
+            },
+            { $sort: { "_id.week": 1 } }
+          ]
+        }
+      }
+    ];
+
+    const [results] = await db.collection("WorkoutLog").aggregate(pipeline).toArray();
+    
+    if (!results) return [];
+
+    const muscleGroups = results.summaries.map((s: any) => {
+      // Find top exercise
+      const exerciseVolumeMap: Record<string, number> = {};
+      s.exerciseVolumes.forEach((ev: any) => {
+        exerciseVolumeMap[ev.name] = (exerciseVolumeMap[ev.name] || 0) + ev.volume;
+      });
+      const topExercise = Object.entries(exerciseVolumeMap)
+        .sort((a, b) => b[1] - a[1])[0]?.[0] || "Unknown";
+
+      // Weekly data (all time for client filtering)
+      const weeklyData = results.weeklySparklines
+        .filter((ws: any) => ws._id.muscleGroup === s._id)
+        .map((ws: any) => ({
+          week: ws._id.week,
+          totalSets: ws.totalSets,
+          totalVolume: Math.round(ws.totalVolume),
+          sessionCount: ws.sessionIds.length,
+          exerciseVolumes: ws.exerciseVolumes
+        }));
+
+      return {
+        muscleGroup: s._id,
+        totalSets: s.totalSets,
+        totalVolume: Math.round(s.totalVolume),
+        sessionCount: s.sessionIds.length,
+        lastTrainedDate: s.lastTrainedDate instanceof Date ? s.lastTrainedDate.toISOString() : s.lastTrainedDate,
+        topExercise,
+        weeklyData
+      };
+    });
+
+    return muscleGroups;
+  } catch (error) {
+    console.error("Error in fetchMuscleGroupSummaries:", error);
+    return [];
+  }
+}
+
+async function fetchExerciseProgressMap(userId: ObjectId): Promise<ExerciseProgressMap> {
+  try {
+    const db = await getDb();
+    
+    // 1. Fetch WorkoutLog data
+    const pipeline = [
+      { $match: { userId } },
+      { $unwind: "$exercises" },
+      { $match: { "exercises.isSkipped": { $ne: true } } },
+      {
+        $lookup: {
+          from: "Exercises",
+          localField: "exercises.name",
+          foreignField: "name",
+          as: "exerciseDetails"
+        }
+      },
+      { $unwind: { path: "$exerciseDetails", preserveNullAndEmptyArrays: true } },
+      { $unwind: "$exercises.sets" },
+      { 
+        $match: { 
+          "exercises.sets.weight": { $gt: 0 }, 
+          "exercises.sets.reps": { $gt: 0 } 
+        } 
+      },
+      {
+        $group: {
+          _id: { name: "$exercises.name", date: "$date" },
+          muscleGroup: { $first: { $ifNull: ["$exerciseDetails.muscleGroup", "Other"] } },
+          maxWeight: { $max: "$exercises.sets.weight" },
+          // For estimated 1RM, we need the reps of the heaviest set
+          sets: { $push: { weight: "$exercises.sets.weight", reps: "$exercises.sets.reps" } },
+          totalSets: { $sum: 1 }
+        }
+      },
+      { $sort: { "_id.date": 1 } }
+    ];
+
+    const results = await db.collection("WorkoutLog").aggregate(pipeline).toArray();
+
+    // 2. Fetch ExerciseRecords for PR markers
+    const records = await db.collection("ExerciseRecords").find({ userId }).toArray();
+    const recordsMap: Record<string, { prDate?: string; currentPR?: number }> = {};
+    records.forEach(r => {
+      recordsMap[r.exerciseName] = {
+        prDate: r.prDate instanceof Date ? r.prDate.toISOString() : r.prDate,
+        currentPR: r.currentPR
+      };
+    });
+
+    // 3. Assemble map
+    const progressMap: ExerciseProgressMap = {};
+
+    results.forEach((r: any) => {
+      const name = r._id.name;
+      if (!progressMap[name]) {
+        progressMap[name] = {
+          muscleGroup: r.muscleGroup,
+          prDate: recordsMap[name]?.prDate,
+          currentPR: recordsMap[name]?.currentPR,
+          dataPoints: []
+        };
+      }
+
+      // Find the heaviest set to calculate 1RM
+      const heaviestSet = r.sets.sort((a: any, b: any) => b.weight - a.weight)[0];
+      const estimatedOneRM = calculateOneRM(heaviestSet.weight, heaviestSet.reps);
+
+      progressMap[name].dataPoints.push({
+        date: r._id.date instanceof Date ? r._id.date.toISOString() : r._id.date,
+        maxWeight: r.maxWeight,
+        estimatedOneRM,
+        totalSets: r.totalSets
+      });
+    });
+
+    return progressMap;
+  } catch (error) {
+    console.error("Error in fetchExerciseProgressMap:", error);
+    return {};
+  }
+}
+
+async function fetchSidebarAnalytics(userId: ObjectId): Promise<{
+  trainingBalance: { muscleGroup: string; volumePercent: number }[];
+  mostImproved: { muscleGroup: string; percentChange: number; topExercise: string } | null;
+  neglectedMuscles: { muscleGroup: string; daysSinceLastTrained: number }[];
+}> {
+  try {
+    const db = await getDb();
+    const now = new Date();
+    const fourWeeksAgo = new Date(now);
+    fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+    const eightWeeksAgo = new Date(now);
+    eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56);
+
+    // 1. Training Balance (Last 4 weeks)
+    const balancePipeline = [
+      { $match: { userId, date: { $gte: fourWeeksAgo } } },
+      { $unwind: "$exercises" },
+      { $match: { "exercises.isSkipped": { $ne: true } } },
+      {
+        $lookup: {
+          from: "Exercises",
+          localField: "exercises.name",
+          foreignField: "name",
+          as: "exerciseDetails"
+        }
+      },
+      { $unwind: { path: "$exerciseDetails", preserveNullAndEmptyArrays: true } },
+      { $unwind: "$exercises.sets" },
+      { $match: { "exercises.sets.weight": { $gt: 0 }, "exercises.sets.reps": { $gt: 0 } } },
+      {
+        $group: {
+          _id: { $ifNull: ["$exerciseDetails.muscleGroup", "Other"] },
+          volume: { $sum: { $multiply: ["$exercises.sets.weight", "$exercises.sets.reps"] } }
+        }
+      }
+    ];
+
+    const balanceResults = await db.collection("WorkoutLog").aggregate(balancePipeline).toArray();
+    const totalVol = balanceResults.reduce((acc, r) => acc + r.volume, 0);
+    const trainingBalance = balanceResults.map(r => ({
+      muscleGroup: r._id,
+      volumePercent: totalVol > 0 ? Math.round((r.volume / totalVol) * 100) : 0
+    })).sort((a, b) => b.volumePercent - a.volumePercent);
+
+    // 2. Most Improved (Last 4 weeks vs 4 weeks before)
+    const improvementPipeline = [
+      { $match: { userId, date: { $gte: eightWeeksAgo } } },
+      { $unwind: "$exercises" },
+      { $match: { "exercises.isSkipped": { $ne: true } } },
+      {
+        $lookup: {
+          from: "Exercises",
+          localField: "exercises.name",
+          foreignField: "name",
+          as: "exerciseDetails"
+        }
+      },
+      { $unwind: { path: "$exerciseDetails", preserveNullAndEmptyArrays: true } },
+      { $unwind: "$exercises.sets" },
+      { $match: { "exercises.sets.weight": { $gt: 0 }, "exercises.sets.reps": { $gt: 0 } } },
+      {
+        $group: {
+          _id: { 
+            muscleGroup: { $ifNull: ["$exerciseDetails.muscleGroup", "Other"] },
+            period: { $cond: [{ $gte: ["$date", fourWeeksAgo] }, "current", "previous"] }
+          },
+          avgMaxWeight: { $avg: "$exercises.sets.weight" },
+          exerciseVolumes: {
+            $push: {
+              name: "$exercises.name",
+              volume: { $multiply: ["$exercises.sets.weight", "$exercises.sets.reps"] }
+            }
+          }
+        }
+      }
+    ];
+
+    const improvementResults = await db.collection("WorkoutLog").aggregate(improvementPipeline).toArray();
+    
+    // Group by muscle group
+    const muscleGroupStats: Record<string, { current?: number; previous?: number; exercises: Record<string, number> }> = {};
+    improvementResults.forEach(r => {
+      const mg = r._id.muscleGroup;
+      if (!muscleGroupStats[mg]) muscleGroupStats[mg] = { exercises: {} };
+      if (r._id.period === "current") {
+        muscleGroupStats[mg].current = r.avgMaxWeight;
+        r.exerciseVolumes.forEach((ev: any) => {
+          muscleGroupStats[mg].exercises[ev.name] = (muscleGroupStats[mg].exercises[ev.name] || 0) + ev.volume;
+        });
+      } else {
+        muscleGroupStats[mg].previous = r.avgMaxWeight;
+      }
+    });
+
+    let mostImproved = null;
+    let maxImprovement = -Infinity;
+
+    Object.entries(muscleGroupStats).forEach(([mg, stats]) => {
+      if (stats.current !== undefined && stats.previous !== undefined && stats.previous > 0) {
+        const diff = ((stats.current - stats.previous) / stats.previous) * 100;
+        if (diff > maxImprovement) {
+          maxImprovement = diff;
+          const topEx = Object.entries(stats.exercises).sort((a, b) => b[1] - a[1])[0]?.[0] || "Unknown";
+          mostImproved = {
+            muscleGroup: mg,
+            percentChange: Math.round(diff),
+            topExercise: topEx
+          };
+        }
+      }
+    });
+
+    // 3. Neglected Muscles
+    const lastTrainedPipeline = [
+      { $match: { userId } },
+      { $unwind: "$exercises" },
+      { $match: { "exercises.isSkipped": { $ne: true } } },
+      {
+        $lookup: {
+          from: "Exercises",
+          localField: "exercises.name",
+          foreignField: "name",
+          as: "exerciseDetails"
+        }
+      },
+      { $unwind: { path: "$exerciseDetails", preserveNullAndEmptyArrays: true } },
+      {
+        $group: {
+          _id: { $ifNull: ["$exerciseDetails.muscleGroup", "Other"] },
+          lastTrained: { $max: "$date" }
+        }
+      }
+    ];
+
+    const lastTrainedResults = await db.collection("WorkoutLog").aggregate(lastTrainedPipeline).toArray();
+    const neglectedMuscles = lastTrainedResults
+      .map(r => {
+        const lastTrained = new Date(r.lastTrained);
+        const diffDays = Math.floor((now.getTime() - lastTrained.getTime()) / (1000 * 60 * 60 * 24));
+        return {
+          muscleGroup: r._id,
+          daysSinceLastTrained: diffDays
+        };
+      })
+      .filter(m => m.daysSinceLastTrained > 14)
+      .sort((a, b) => b.daysSinceLastTrained - a.daysSinceLastTrained);
+
+    return {
+      trainingBalance,
+      mostImproved,
+      neglectedMuscles
+    };
+  } catch (error) {
+    console.error("Error in fetchSidebarAnalytics:", error);
+    return { trainingBalance: [], mostImproved: null, neglectedMuscles: [] };
   }
 }

@@ -86,7 +86,7 @@ export default function WorkoutSession({
 				: Array.from({ length: ex.targetSets || 1 }).map(() => ({
 						weight: ex.lastWeight || 0,
 						reps: ex.targetReps || 0,
-						completed: false,
+						completed: activeMode === "MANUAL_LOG",
 					}));
 			return {
 				...ex,
@@ -134,12 +134,12 @@ export default function WorkoutSession({
 			let newSet = {
 				weight: targetEx.lastWeight || 0,
 				reps: targetEx.targetReps || 0,
-				completed: false,
+				completed: activeMode === "MANUAL_LOG",
 			};
 
 			if (targetEx.sets.length > 0) {
 				const lastSet = targetEx.sets[targetEx.sets.length - 1];
-				newSet = { ...lastSet, completed: false };
+				newSet = { ...lastSet, completed: activeMode === "MANUAL_LOG" };
 			}
 
 			targetEx.sets = [...targetEx.sets, newSet];

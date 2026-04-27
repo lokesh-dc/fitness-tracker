@@ -338,6 +338,8 @@ export async function saveWorkoutSession(
     await updateExerciseRecords(new ObjectId(userId), data.exercises, startOfDay);
 
     revalidatePath("/");
+    revalidatePath("/analytics");
+    revalidatePath("/workouts");
     return JSON.parse(JSON.stringify(log)) as WorkoutLog;
   } catch (error) {
     console.error("Error saving workout session:", error);
@@ -515,6 +517,8 @@ export async function saveSingleExerciseLog(
     await updateExerciseRecords(userId, [exercise], startOfDay);
 
     revalidatePath("/");
+    revalidatePath("/analytics");
+    revalidatePath("/workouts");
   } catch (error) {
     console.error("Error saving single exercise log:", error);
     throw new Error("Failed to save exercise.");
@@ -678,17 +682,32 @@ export async function updateExerciseRecords(
     // Skip exercises marked as skipped OR with no sets
     if (exercise.isSkipped || !exercise.sets || exercise.sets.length === 0) continue;
 
-    const maxWeight = Math.max(...exercise.sets.map((s: SetLog) => s.weight || 0));
-    const maxReps = Math.max(...exercise.sets
+    // Use completed sets if any exist, otherwise use all sets that have values
+    // This handles users forgetting to check the boxes but still finishing the workout.
+    let targetSets = exercise.sets.filter((s: SetLog) => s.completed);
+    if (targetSets.length === 0) {
+      targetSets = exercise.sets.filter((s: SetLog) => (s.weight || 0) > 0 || (s.reps || 0) > 0);
+    }
+    
+    if (targetSets.length === 0) continue;
+
+    const maxWeight = Math.max(...targetSets.map((s: SetLog) => s.weight || 0));
+    const maxReps = Math.max(...targetSets
       .filter((s: SetLog) => (s.weight || 0) === maxWeight)
       .map((s: SetLog) => s.reps || 0));
       
-    const totalSets = exercise.sets.length;
-    const totalReps = exercise.sets.reduce((acc: number, s: SetLog) => acc + (s.reps || 0), 0);
+    const totalSets = targetSets.length;
+    const totalReps = targetSets.reduce((acc: number, s: SetLog) => acc + (s.reps || 0), 0);
     const exerciseId = exercise.exerciseId;
 
-    // We use a findOne and manual check instead of just $max so we can track prDate and previousPR
-    const existing = await db.collection("ExerciseRecords").findOne({ userId, exerciseId });
+    // Match by ID OR Name to avoid split records
+    const existing = await db.collection("ExerciseRecords").findOne({ 
+      userId, 
+      $or: [
+        { exerciseId },
+        { exerciseName: exercise.name }
+      ]
+    });
 
     const historyEntry = {
       date: sessionDate,
@@ -710,14 +729,10 @@ export async function updateExerciseRecords(
         updatedAt: new Date(),
       });
     } else {
-      // NEW PR LOGIC:
-      // 1. maxWeight is strictly higher
-      // 2. maxWeight is same AND maxReps is strictly higher
       const isWeightPR = maxWeight > (existing.currentPR || 0);
       const isRepPR = maxWeight === existing.currentPR && maxReps > (existing.currentPRReps || 0);
       const isNewPR = isWeightPR || isRepPR;
       
-      // Update history: if there's an entry for the same day, replace it, otherwise push
       const existingHistory = existing.history || [];
       const sameDayIndex = existingHistory.findIndex((h: any) => 
         new Date(h.date).toDateString() === sessionDate.toDateString()
@@ -725,13 +740,18 @@ export async function updateExerciseRecords(
 
       const updateOps: any = {
         $set: { 
+          exerciseId,
           exerciseName: exercise.name,
           updatedAt: new Date()
         }
       };
 
       if (sameDayIndex > -1) {
-        updateOps.$set[`history.${sameDayIndex}`] = historyEntry;
+        const existingEntry = existingHistory[sameDayIndex];
+        // Always update same day if we have data, but keep the highest maxWeight
+        if (maxWeight >= (existingEntry.maxWeight || 0)) {
+           updateOps.$set[`history.${sameDayIndex}`] = historyEntry;
+        }
       } else {
         updateOps.$push = { history: historyEntry };
       }

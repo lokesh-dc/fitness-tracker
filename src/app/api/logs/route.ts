@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/with-auth'
 import { connectToDatabase } from '@/lib/mongodb'
 import { ObjectId } from 'mongodb'
+import { updateExerciseRecords } from '@/app/actions/logs'
 
 export const POST = withAuth(async (req) => {
   try {
@@ -14,18 +15,23 @@ export const POST = withAuth(async (req) => {
       return NextResponse.json({ error: 'No exercises provided' }, { status: 400 })
     }
 
+    // Prepare Date
+    const logDate = payload.date ? new Date(payload.date) : new Date();
+    const startOfDay = new Date(logDate);
+    startOfDay.setHours(0,0,0,0);
+
     // 1. Prepare the log document
     const workoutLog = {
       userId: new ObjectId(userId),
       name: payload.name || 'Workout',
-      date: payload.date || new Date().toISOString().split('T')[0],
+      date: startOfDay,
       exercises: payload.exercises.map((ex: any) => ({
         exerciseId: ex.exerciseId,
-        exerciseName: ex.name,
+        name: ex.name,
         sets: ex.sets.map((s: any) => ({
           weight: s.weight,
           reps: s.reps,
-          isDone: s.isDone
+          completed: s.completed || s.isDone || true // API logs usually implies completed
         }))
       })),
       durationSeconds: payload.durationSeconds || 0,
@@ -38,29 +44,8 @@ export const POST = withAuth(async (req) => {
     // 2. Insert the log
     const result = await db.collection('WorkoutLog').insertOne(workoutLog)
 
-    // 3. Update ExerciseRecords for PRs
-    for (const ex of payload.exercises) {
-      const maxWeight = Math.max(...ex.sets.map((s: any) => s.weight))
-      
-      if (maxWeight > 0) {
-        await db.collection('ExerciseRecords').updateOne(
-          { userId: new ObjectId(userId), exerciseId: ex.exerciseId },
-          { 
-            $set: { 
-              lastWeight: maxWeight,
-              updatedAt: new Date() 
-            },
-            $max: { 
-              personalRecord: maxWeight 
-            },
-            $setOnInsert: {
-              createdAt: new Date()
-            }
-          },
-          { upsert: true }
-        )
-      }
-    }
+    // 3. Update ExerciseRecords using centralized helper
+    await updateExerciseRecords(new ObjectId(userId), workoutLog.exercises, startOfDay);
 
     return NextResponse.json({ 
       success: true, 

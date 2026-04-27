@@ -10,6 +10,7 @@ import {
 	CalendarRange,
 	Play,
 	Activity,
+	Trophy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -60,10 +61,10 @@ export function Navigation() {
 			desktop: true,
 		},
 		{
-			href: "/profile",
-			icon: User,
-			label: "Profile",
-			mobile: true,
+			href: "/muscle-groups",
+			icon: Trophy,
+			label: "Muscles",
+			mobile: false,
 			desktop: true,
 		},
 	];
