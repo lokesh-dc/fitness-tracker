@@ -69,12 +69,12 @@ export function MuscleGroupDrilldown({ summary, progressMap, onClose }: MuscleGr
                   Weekly progression
                 </p>
               </div>
-              <div className="flex bg-white/5 p-1 rounded-xl border border-white/5">
+              <div className="group-tabs no-scrollbar">
                 <button
                   onClick={() => setMetric("volume")}
                   className={cn(
-                    "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
-                    metric === "volume" ? "bg-brand-primary text-white" : "text-white/40 hover:text-white"
+                    "tab-item px-3 md:px-4 py-1 md:py-1.5 rounded-lg text-[9px] md:text-[10px]",
+                    metric === "volume" && "tab-item-active"
                   )}
                 >
                   Volume
@@ -82,8 +82,8 @@ export function MuscleGroupDrilldown({ summary, progressMap, onClose }: MuscleGr
                 <button
                   onClick={() => setMetric("sets")}
                   className={cn(
-                    "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
-                    metric === "sets" ? "bg-brand-primary text-white" : "text-white/40 hover:text-white"
+                    "tab-item px-3 md:px-4 py-1 md:py-1.5 rounded-lg text-[9px] md:text-[10px]",
+                    metric === "sets" && "tab-item-active"
                   )}
                 >
                   Sets

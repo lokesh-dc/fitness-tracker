@@ -4,7 +4,6 @@ import { ExerciseProgressDataPoint } from "@/types/workout";
 import {
   LineChart,
   Line,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -41,10 +40,6 @@ export function ExerciseProgressInline({ data, prDate, exerciseName }: ExerciseP
             <p className="text-sm font-bold text-indigo-400 flex justify-between gap-4">
               <span>Est. 1RM:</span>
               <span>{payload.find((p: any) => p.dataKey === 'estimatedOneRM')?.value} kg</span>
-            </p>
-            <p className="text-sm font-bold text-white/60 flex justify-between gap-4">
-              <span>Sets:</span>
-              <span>{payload.find((p: any) => p.dataKey === 'totalSets')?.value}</span>
             </p>
           </div>
         </div>
@@ -95,13 +90,7 @@ export function ExerciseProgressInline({ data, prDate, exerciseName }: ExerciseP
           />
           <Tooltip content={<CustomTooltip />} />
           
-          <Bar 
-            yAxisId="sets"
-            dataKey="totalSets" 
-            fill="currentColor" 
-            className="text-foreground/10" 
-            barSize={20}
-          />
+
           
           <Line
             yAxisId="weight"

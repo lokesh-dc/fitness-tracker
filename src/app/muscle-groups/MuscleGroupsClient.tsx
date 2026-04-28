@@ -4,9 +4,7 @@ import { useState, useMemo } from "react";
 import { MuscleGroupPageData, ExerciseProgressMap } from "@/types/workout";
 import PageWithSidebar from "@/components/layout/PageWithSidebar";
 import { MuscleGroupGrid } from "@/components/analytics/MuscleGroupGrid";
-import { MuscleGroupDrilldown } from "@/components/analytics/MuscleGroupDrilldown";
 import { MuscleGroupSidebar } from "@/components/sidebar/MuscleGroupSidebar";
-import { AnimatePresence, motion } from "framer-motion";
 import { subDays, isAfter, parseISO, startOfYear, addWeeks } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Trophy, Info, AlertCircle } from "lucide-react";
@@ -20,7 +18,6 @@ interface MuscleGroupsClientProps {
 
 export default function MuscleGroupsClient({ data }: MuscleGroupsClientProps) {
 	const [timeRange, setTimeRange] = useState<TimeRange>("1M");
-	const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
 
 	const cutoff = useMemo(() => {
 		const now = new Date();
@@ -137,9 +134,7 @@ export default function MuscleGroupsClient({ data }: MuscleGroupsClientProps) {
 		);
 	}
 
-	const activeSummary = filteredSummaries.find(
-		(m) => m.muscleGroup === selectedGroup,
-	);
+
 
 	return (
 		<PageWithSidebar
@@ -190,27 +185,25 @@ export default function MuscleGroupsClient({ data }: MuscleGroupsClientProps) {
 				</div>
 
 				<section className="space-y-6">
-					<div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-						<div>
-							<h2 className="text-xl font-black text-foreground uppercase tracking-tight">
+					<div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
+						<div className="space-y-1">
+							<h2 className="text-lg md:text-xl font-black text-foreground uppercase tracking-tight">
 								Muscle Groups
 							</h2>
-							<p className="text-xs font-bold text-foreground/40 uppercase tracking-widest mt-1">
-								Select a group for deep dive
+							<p className="text-[10px] md:text-xs font-bold text-foreground/40 uppercase tracking-widest">
+								Click a group for detailed analysis
 							</p>
 						</div>
 
-						<div className="flex bg-white/5 p-1 rounded-2xl border border-white/5 whitespace-nowrap self-start md:self-auto overflow-x-auto no-scrollbar">
+						<div className="group-tabs no-scrollbar self-start md:self-auto">
 							{(["1W", "4W", "1M", "3M", "6M", "ALL"] as TimeRange[]).map(
 								(range) => (
 									<button
 										key={range}
 										onClick={() => setTimeRange(range)}
 										className={cn(
-											"px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-											timeRange === range
-												? "bg-brand-primary text-white"
-												: "text-white/40 hover:text-white",
+											"tab-item px-3 md:px-4 py-1.5 md:py-2 rounded-xl text-[9px] md:text-[10px]",
+											timeRange === range && "tab-item-active",
 										)}>
 										{range}
 									</button>
@@ -219,23 +212,8 @@ export default function MuscleGroupsClient({ data }: MuscleGroupsClientProps) {
 						</div>
 					</div>
 
-					<MuscleGroupGrid
-						summaries={filteredSummaries}
-						selectedGroup={selectedGroup}
-						onSelect={setSelectedGroup}
-					/>
+					<MuscleGroupGrid summaries={filteredSummaries} />
 				</section>
-
-				<AnimatePresence mode="wait">
-					{selectedGroup && activeSummary && (
-						<MuscleGroupDrilldown
-							key={selectedGroup}
-							summary={activeSummary}
-							progressMap={filteredProgress}
-							onClose={() => setSelectedGroup(null)}
-						/>
-					)}
-				</AnimatePresence>
 			</div>
 		</PageWithSidebar>
 	);

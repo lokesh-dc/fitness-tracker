@@ -14,7 +14,12 @@ import {
   MuscleGroupPageData,
   MuscleGroupSummary,
   ExerciseProgressMap,
-  ExerciseProgressDataPoint
+  ExerciseProgressDataPoint,
+  WeeklyMuscleVolume,
+  ExerciseDetailData,
+  RepRangeDistribution,
+  BestSession,
+  MuscleGroupDetailPageData
 } from "@/types/workout";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -1688,4 +1693,374 @@ async function fetchSidebarAnalytics(userId: ObjectId): Promise<{
     console.error("Error in fetchSidebarAnalytics:", error);
     return { trainingBalance: [], mostImproved: null, neglectedMuscles: [] };
   }
+}
+
+/**
+ * MUSCLE GROUP DETAIL
+ */
+
+export async function getMuscleGroupDetail(muscleGroupSlug: string): Promise<MuscleGroupDetailPageData | null> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return null;
+    const userId = new ObjectId((session.user as any).id);
+    const db = await getDb();
+
+    // Convert slug (e.g. "full-body") to search term or use regex
+    // We'll use case-insensitive regex for the muscle group name
+    const mgSearch = muscleGroupSlug.replace(/-/g, " ");
+
+    const [
+      volumeHistory,
+      exerciseDetails,
+      heatmapData,
+      repDistribution,
+      bestSessionResult
+    ] = await Promise.all([
+      fetchVolumeHistory(userId, mgSearch),
+      fetchExerciseDetails(userId, mgSearch),
+      fetchHeatmapData(userId, mgSearch),
+      fetchRepDistribution(userId, mgSearch),
+      fetchBestSession(userId, mgSearch)
+    ]);
+
+    // Calculate rolling average volume (4-week) server-side
+    const weeklyVolume = volumeHistory.map((week, idx, arr) => {
+      const last4Weeks = arr.slice(Math.max(0, idx - 3), idx + 1);
+      const avg = last4Weeks.reduce((acc, w) => acc + w.totalVolume, 0) / last4Weeks.length;
+      return { ...week, rollingAvgVolume: Math.round(avg) };
+    });
+
+    const mgName = mgSearch.split(' ').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+
+    return {
+      muscleGroup: mgName,
+      totalExercises: exerciseDetails.length,
+      totalSessions: exerciseDetails.reduce((acc, ex) => acc + ex.totalSessions, 0), // This is an approx, we could get distinct dates
+      weeklyVolume,
+      exercises: exerciseDetails,
+      heatmapDates: heatmapData,
+      repRangeDistribution: {
+        ...repDistribution,
+        interpretation: getRepRangeInterpretation(repDistribution, mgName)
+      },
+      bestSession: bestSessionResult
+    };
+  } catch (error) {
+    console.error("Error in getMuscleGroupDetail:", error);
+    return null;
+  }
+}
+
+async function fetchVolumeHistory(userId: ObjectId, mgName: string): Promise<WeeklyMuscleVolume[]> {
+  try {
+    const db = await getDb();
+    const pipeline = [
+      { $match: { userId } },
+      { $unwind: "$exercises" },
+      { $match: { "exercises.isSkipped": { $ne: true } } },
+      {
+        $lookup: {
+          from: "Exercises",
+          localField: "exercises.name",
+          foreignField: "name",
+          as: "exerciseDetails"
+        }
+      },
+      { $unwind: "$exerciseDetails" },
+      { $match: { "exerciseDetails.muscleGroup": { $regex: new RegExp(`^${mgName}$`, "i") } } },
+      { $unwind: "$exercises.sets" },
+      { $match: { "exercises.sets.weight": { $gt: 0 }, "exercises.sets.reps": { $gt: 0 } } },
+      {
+        $group: {
+          _id: {
+            year: { $isoWeekYear: "$date" },
+            week: { $isoWeek: "$date" }
+          },
+          weekStart: { $min: "$date" },
+          totalVolume: { $sum: { $multiply: ["$exercises.sets.weight", "$exercises.sets.reps"] } },
+          totalSets: { $sum: 1 },
+          sessionIds: { $addToSet: "$_id" }
+        }
+      },
+      { $sort: { "_id.year": 1, "_id.week": 1 } }
+    ];
+
+    const results = await db.collection("WorkoutLog").aggregate(pipeline).toArray();
+    if (results.length === 0) return [];
+
+    // Fill missing weeks
+    const filledWeeks: WeeklyMuscleVolume[] = [];
+    const firstWeek = results[0];
+    const lastWeek = results[results.length - 1];
+
+    let current = new Date(firstWeek.weekStart);
+    current.setDate(current.getDate() - (current.getDay() === 0 ? 6 : current.getDay() - 1)); // Back to Monday
+    const end = new Date();
+
+    const resultsMap = new Map(results.map(r => [`${r._id.year}-W${r._id.week}`, r]));
+
+    while (current <= end) {
+      const year = current.getFullYear();
+      // Simple week calculation for filling, but we should match $isoWeek
+      // We'll use a helper to get ISO week string
+      const isoWeekStr = getISOWeekString(current);
+      const data = resultsMap.get(isoWeekStr);
+
+      filledWeeks.push({
+        week: isoWeekStr,
+        weekStart: current.toISOString(),
+        totalVolume: data ? Math.round(data.totalVolume) : 0,
+        totalSets: data ? data.totalSets : 0,
+        sessionCount: data ? data.sessionIds.length : 0
+      });
+
+      current.setDate(current.getDate() + 7);
+    }
+
+    return filledWeeks;
+  } catch (error) {
+    console.error("Error in fetchVolumeHistory:", error);
+    return [];
+  }
+}
+
+function getISOWeekString(date: Date): string {
+  const tempDate = new Date(date.getTime());
+  tempDate.setHours(0, 0, 0, 0);
+  tempDate.setDate(tempDate.getDate() + 3 - (tempDate.getDay() + 6) % 7);
+  const week1 = new Date(tempDate.getFullYear(), 0, 4);
+  const weekNum = 1 + Math.round(((tempDate.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+  return `${tempDate.getFullYear()}-W${weekNum}`;
+}
+
+async function fetchExerciseDetails(userId: ObjectId, mgName: string): Promise<ExerciseDetailData[]> {
+  try {
+    const db = await getDb();
+    
+    // 1. Fetch WorkoutLog data for progress
+    const pipeline = [
+      { $match: { userId } },
+      { $unwind: "$exercises" },
+      { $match: { "exercises.isSkipped": { $ne: true } } },
+      {
+        $lookup: {
+          from: "Exercises",
+          localField: "exercises.name",
+          foreignField: "name",
+          as: "exerciseDetails"
+        }
+      },
+      { $unwind: "$exerciseDetails" },
+      { $match: { "exerciseDetails.muscleGroup": { $regex: new RegExp(`^${mgName}$`, "i") } } },
+      { $unwind: "$exercises.sets" },
+      { $match: { "exercises.sets.weight": { $gt: 0 }, "exercises.sets.reps": { $gt: 0 } } },
+      {
+        $group: {
+          _id: { name: "$exercises.name", date: "$date" },
+          maxWeight: { $max: "$exercises.sets.weight" },
+          sets: { $push: { weight: "$exercises.sets.weight", reps: "$exercises.sets.reps" } },
+          totalSets: { $sum: 1 },
+          totalVolume: { $sum: { $multiply: ["$exercises.sets.weight", "$exercises.sets.reps"] } }
+        }
+      },
+      { $sort: { "_id.date": 1 } }
+    ];
+
+    const logResults = await db.collection("WorkoutLog").aggregate(pipeline).toArray();
+    
+    // 2. Fetch PR records
+    const prRecords = await db.collection("ExerciseRecords").find({ userId }).toArray();
+    const prMap = new Map(prRecords.map(r => [r.exerciseName, r]));
+
+    // 3. Group by exercise
+    const exerciseGroups = new Map<string, ExerciseDetailData>();
+
+    logResults.forEach(r => {
+      const name = r._id.name;
+      if (!exerciseGroups.has(name)) {
+        const pr = prMap.get(name);
+        exerciseGroups.set(name, {
+          exerciseName: name,
+          currentPR: pr?.currentPR || 0,
+          currentPRReps: pr?.currentPRReps || 0,
+          prDate: pr?.prDate instanceof Date ? pr.prDate.toISOString() : pr?.prDate,
+          currentEstimatedOneRM: 0,
+          totalSets: 0,
+          totalSessions: 0,
+          firstLoggedDate: r._id.date instanceof Date ? r._id.date.toISOString() : r._id.date,
+          lastLoggedDate: r._id.date instanceof Date ? r._id.date.toISOString() : r._id.date,
+          dataPoints: []
+        });
+      }
+
+      const ex = exerciseGroups.get(name)!;
+      const heaviestSet = r.sets.sort((a: any, b: any) => b.weight - a.weight)[0];
+      const est1RM = calculateOneRM(heaviestSet.weight, heaviestSet.reps);
+
+      ex.dataPoints.push({
+        date: r._id.date instanceof Date ? r._id.date.toISOString() : r._id.date,
+        maxWeight: r.maxWeight,
+        estimatedOneRM: est1RM,
+        totalSets: r.totalSets,
+        maxWeightReps: heaviestSet.reps,
+        totalVolume: Math.round(r.totalVolume)
+      } as any);
+
+      ex.totalSets += r.totalSets;
+      ex.totalSessions += 1;
+      ex.lastLoggedDate = r._id.date instanceof Date ? r._id.date.toISOString() : r._id.date;
+      ex.currentEstimatedOneRM = est1RM; // Last one will be the current one due to sort
+    });
+
+    return Array.from(exerciseGroups.values());
+  } catch (error) {
+    console.error("Error in fetchExerciseDetails:", error);
+    return [];
+  }
+}
+
+async function fetchHeatmapData(userId: ObjectId, mgName: string): Promise<string[]> {
+  try {
+    const db = await getDb();
+    const pipeline = [
+      { $match: { userId } },
+      { $unwind: "$exercises" },
+      { $match: { "exercises.isSkipped": { $ne: true } } },
+      {
+        $lookup: {
+          from: "Exercises",
+          localField: "exercises.name",
+          foreignField: "name",
+          as: "exerciseDetails"
+        }
+      },
+      { $unwind: "$exerciseDetails" },
+      { $match: { "exerciseDetails.muscleGroup": { $regex: new RegExp(`^${mgName}$`, "i") } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } }
+        }
+      },
+      { $sort: { "_id": 1 } }
+    ];
+
+    const results = await db.collection("WorkoutLog").aggregate(pipeline).toArray();
+    return results.map(r => r._id);
+  } catch (error) {
+    console.error("Error in fetchHeatmapData:", error);
+    return [];
+  }
+}
+
+async function fetchRepDistribution(userId: ObjectId, mgName: string): Promise<RepRangeDistribution> {
+  const emptyDist = { strength: 0, strengthHyper: 0, hypertrophy: 0, endurance: 0, total: 0 };
+  try {
+    const db = await getDb();
+    const pipeline = [
+      { $match: { userId } },
+      { $unwind: "$exercises" },
+      { $match: { "exercises.isSkipped": { $ne: true } } },
+      {
+        $lookup: {
+          from: "Exercises",
+          localField: "exercises.name",
+          foreignField: "name",
+          as: "exerciseDetails"
+        }
+      },
+      { $unwind: "$exerciseDetails" },
+      { $match: { "exerciseDetails.muscleGroup": { $regex: new RegExp(`^${mgName}$`, "i") } } },
+      { $unwind: "$exercises.sets" },
+      { $match: { "exercises.sets.weight": { $gt: 0 }, "exercises.sets.reps": { $gt: 0 } } },
+      {
+        $group: {
+          _id: null,
+          strength: { $sum: { $cond: [{ $lte: ["$exercises.sets.reps", 5] }, 1, 0] } },
+          strengthHyper: { $sum: { $cond: [{ $and: [{ $gt: ["$exercises.sets.reps", 5] }, { $lte: ["$exercises.sets.reps", 10] }] }, 1, 0] } },
+          hypertrophy: { $sum: { $cond: [{ $and: [{ $gt: ["$exercises.sets.reps", 10] }, { $lte: ["$exercises.sets.reps", 15] }] }, 1, 0] } },
+          endurance: { $sum: { $cond: [{ $gt: ["$exercises.sets.reps", 15] }, 1, 0] } },
+          total: { $sum: 1 }
+        }
+      }
+    ];
+
+    const [result] = await db.collection("WorkoutLog").aggregate(pipeline).toArray();
+    return (result as unknown as RepRangeDistribution) || emptyDist;
+  } catch (error) {
+    console.error("Error in fetchRepDistribution:", error);
+    return emptyDist;
+  }
+}
+
+async function fetchBestSession(userId: ObjectId, mgName: string): Promise<BestSession | null> {
+  try {
+    const db = await getDb();
+    const pipeline = [
+      { $match: { userId } },
+      { $unwind: "$exercises" },
+      { $match: { "exercises.isSkipped": { $ne: true } } },
+      {
+        $lookup: {
+          from: "Exercises",
+          localField: "exercises.name",
+          foreignField: "name",
+          as: "exerciseDetails"
+        }
+      },
+      { $unwind: "$exerciseDetails" },
+      { $match: { "exerciseDetails.muscleGroup": { $regex: new RegExp(`^${mgName}$`, "i") } } },
+      { $unwind: "$exercises.sets" },
+      { $match: { "exercises.sets.weight": { $gt: 0 }, "exercises.sets.reps": { $gt: 0 } } },
+      {
+        $group: {
+          _id: "$_id",
+          date: { $first: "$date" },
+          name: { $first: "$name" },
+          volume: { $sum: { $multiply: ["$exercises.sets.weight", "$exercises.sets.reps"] } },
+          sets: { $sum: 1 },
+          exercises: { $addToSet: "$exercises.name" }
+        }
+      },
+      { $sort: { volume: -1 } },
+      { $limit: 1 }
+    ];
+
+    const [result] = await db.collection("WorkoutLog").aggregate(pipeline).toArray();
+    if (!result) return null;
+
+    return {
+      date: result.date instanceof Date ? result.date.toISOString() : result.date,
+      workoutName: result.name || "Untitled Session",
+      totalVolume: Math.round(result.volume),
+      totalSets: result.sets,
+      exerciseCount: result.exercises.length
+    };
+  } catch (error) {
+    console.error("Error in fetchBestSession:", error);
+    return null;
+  }
+}
+
+function getRepRangeInterpretation(dist: RepRangeDistribution, muscleGroup: string): string {
+  if (dist.total === 0) return "No training data available for rep range analysis.";
+  
+  const maxVal = Math.max(dist.strength, dist.strengthHyper, dist.hypertrophy, dist.endurance);
+
+  if (dist.strength === maxVal && dist.strength / dist.total > 0.5) {
+    return `You primarily train ${muscleGroup} for strength, spending most of your sets in the 1–5 rep range. This builds maximum force output but less muscle volume. Consider adding some higher-rep work for hypertrophy.`;
+  }
+  if (dist.hypertrophy === maxVal && dist.hypertrophy / dist.total > 0.5) {
+    return `Your ${muscleGroup} training is optimized for muscle growth, with most sets in the 11–15 rep range. This is an effective range for hypertrophy. Make sure you're also including heavier work to build your strength base.`;
+  }
+  
+  const isBalanced = [dist.strength, dist.strengthHyper, dist.hypertrophy, dist.endurance].every(v => v / dist.total <= 0.5);
+  if (isBalanced) {
+    return `Your ${muscleGroup} training is well-balanced across rep ranges, developing both strength and hypertrophy. This is a solid approach for overall development.`;
+  }
+
+  if (dist.strength === maxVal) return `You lean towards strength training for ${muscleGroup}.`;
+  if (dist.strengthHyper === maxVal) return `You spend most of your time in the strength-hypertrophy crossover range (6-10 reps) for ${muscleGroup}. This is great for both power and size.`;
+  if (dist.hypertrophy === maxVal) return `You focus on the traditional hypertrophy range for ${muscleGroup}.`;
+  return `You focus on high-rep endurance training for ${muscleGroup}.`;
 }

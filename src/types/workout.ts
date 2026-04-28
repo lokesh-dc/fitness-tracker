@@ -284,3 +284,53 @@ export interface MuscleGroupPageData {
   mostImproved: { muscleGroup: string; percentChange: number; topExercise: string } | null;
   neglectedMuscles: { muscleGroup: string; daysSinceLastTrained: number }[];
 }
+
+export interface WeeklyMuscleVolume {
+  week: string;         // "2024-W32"
+  weekStart: string;    // ISO date
+  totalVolume: number;
+  totalSets: number;
+  sessionCount: number;
+  rollingAvgVolume?: number; // Calculated server-side
+}
+
+export interface ExerciseDetailData {
+  exerciseName: string;
+  currentPR: number;
+  currentPRReps: number;
+  prDate?: string;
+  currentEstimatedOneRM: number;  // from most recent dataPoint
+  totalSets: number;
+  totalSessions: number;
+  firstLoggedDate: string;
+  lastLoggedDate: string;
+  dataPoints: ExerciseProgressDataPoint[];
+}
+
+export interface RepRangeDistribution {
+  strength: number;
+  strengthHyper: number;
+  hypertrophy: number;
+  endurance: number;
+  total: number;
+  interpretation?: string; // Generated server-side
+}
+
+export interface BestSession {
+  date: string;
+  workoutName: string;
+  totalVolume: number;
+  totalSets: number;
+  exerciseCount: number;
+}
+
+export interface MuscleGroupDetailPageData {
+  muscleGroup: string;
+  totalExercises: number;
+  totalSessions: number;
+  weeklyVolume: WeeklyMuscleVolume[];
+  exercises: ExerciseDetailData[];
+  heatmapDates: string[];          // ISO dates trained
+  repRangeDistribution: RepRangeDistribution;
+  bestSession: BestSession | null;
+}
