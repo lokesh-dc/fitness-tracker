@@ -14,6 +14,7 @@ interface WorkoutShareCardProps {
 		exercises: number;
 		totalSets: number;
 		totalReps: number;
+		calories: number;
 	};
 	exerciseDetails: ExerciseDetail[];
 	splitName?: string;
@@ -158,6 +159,7 @@ export const WorkoutShareCard = forwardRef<HTMLDivElement, WorkoutShareCardProps
 						{ label: "Exercises", value: stats.exercises, icon: "🏋️" },
 						{ label: "Sets", value: stats.totalSets, icon: "🔄" },
 						{ label: "Reps", value: stats.totalReps, icon: "✅" },
+						{ label: "Calories", value: stats.calories, icon: "🔥" },
 					].map((stat) => (
 						<div
 							className="flex flex-col gap-2"
@@ -191,6 +193,7 @@ export const WorkoutShareCard = forwardRef<HTMLDivElement, WorkoutShareCardProps
 							</div>
 						</div>
 					))}
+
 				</div>
 
 				{/* Exercise breakdown */}

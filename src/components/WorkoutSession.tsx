@@ -631,14 +631,30 @@ export default function WorkoutSession({
 			</GlassCard>
 		);
 
+		const totalSets = exercises.reduce(
+			(acc, ex: any) => acc + (ex.isDone && !ex.isSkipped ? ex.sets.length : 0),
+			0,
+		);
+		const totalVolume = exercises.reduce(
+			(acc, ex: any) =>
+				acc +
+				(ex.isDone && !ex.isSkipped
+					? ex.sets.reduce(
+							(sAcc: any, s: any) => sAcc + (s.weight || 0) * (s.reps || 0),
+							0,
+						)
+					: 0),
+			0,
+		);
+
+		// Work-based estimation (ignores timer inaccuracies)
+		// Approx: 1 kcal per 25kg moved + 4 kcal per set for setup/movement
+		const caloriesBurned = Math.round(totalVolume / 25 + totalSets * 4);
+
 		const celebrationStats = {
 			exercises: exercises.filter((ex: any) => ex.isDone && !ex.isSkipped)
 				.length,
-			totalSets: exercises.reduce(
-				(acc, ex: any) =>
-					acc + (ex.isDone && !ex.isSkipped ? ex.sets.length : 0),
-				0,
-			),
+			totalSets,
 			totalReps: exercises.reduce(
 				(acc, ex: any) =>
 					acc +
@@ -647,7 +663,10 @@ export default function WorkoutSession({
 						: 0),
 				0,
 			),
+			calories: caloriesBurned,
 		};
+
+
 
 		const celebrationExerciseDetails = exercises
 			.filter((ex: any) => ex.isDone && !ex.isSkipped)

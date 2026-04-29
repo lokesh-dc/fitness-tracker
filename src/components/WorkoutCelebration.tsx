@@ -29,6 +29,7 @@ interface WorkoutCelebrationProps {
 		exercises: number;
 		totalSets: number;
 		totalReps: number;
+		calories: number;
 	};
 	exerciseDetails: ExerciseDetail[];
 	splitName?: string;
@@ -198,11 +199,12 @@ export function WorkoutCelebration({
 								initial={{ y: 20, opacity: 0 }}
 								animate={{ y: 0, opacity: 1 }}
 								transition={{ delay: 0.6 }}
-								className="grid grid-cols-3 gap-2 w-full">
+								className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
 								{[
 									{ label: "Exercises", value: stats.exercises, icon: <Dumbbell className="w-3 h-3" /> },
 									{ label: "Total Sets", value: stats.totalSets, icon: <Zap className="w-3 h-3" /> },
 									{ label: "Total Reps", value: stats.totalReps, icon: <Activity className="w-3 h-3" /> },
+									{ label: "Burned", value: `${stats.calories} kcal`, icon: <Zap className="w-3 h-3 text-orange-500" /> },
 								].map((stat, i) => (
 									<GlassCard key={i} className="p-4 text-center border-white/5 bg-white/5 backdrop-blur-sm">
 										<div className="flex justify-center text-foreground/20 mb-1">{stat.icon}</div>
@@ -213,6 +215,7 @@ export function WorkoutCelebration({
 									</GlassCard>
 								))}
 							</motion.div>
+
 
 							{/* Exercise List */}
 							<div className="w-full space-y-4">
