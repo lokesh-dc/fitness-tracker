@@ -244,3 +244,93 @@ export interface BodyweightData {
   delta: number | null;
   chartPoints: { date: string; weight: number }[];
 }
+
+export interface MuscleGroupSummary {
+  muscleGroup: string;
+  totalSets: number;
+  totalVolume: number;  // kg
+  sessionCount: number;
+  lastTrainedDate: string; // ISO
+  topExercise: string;
+  weeklyData: { 
+    week: string; 
+    totalSets: number; 
+    totalVolume: number;
+    sessionCount?: number;
+    exerciseVolumes?: { name: string; volume: number }[];
+  }[];
+}
+
+export interface ExerciseProgressDataPoint {
+  date: string; // ISO
+  maxWeight: number;
+  estimatedOneRM: number;
+  totalSets: number;
+}
+
+export interface ExerciseProgressMap {
+  [exerciseName: string]: {
+    muscleGroup: string;
+    prDate?: string;
+    currentPR?: number;
+    dataPoints: ExerciseProgressDataPoint[];
+  };
+}
+
+export interface MuscleGroupPageData {
+  muscleGroups: MuscleGroupSummary[];
+  exerciseProgress: ExerciseProgressMap;
+  trainingBalance: { muscleGroup: string; volumePercent: number }[];
+  mostImproved: { muscleGroup: string; percentChange: number; topExercise: string } | null;
+  neglectedMuscles: { muscleGroup: string; daysSinceLastTrained: number }[];
+}
+
+export interface WeeklyMuscleVolume {
+  week: string;         // "2024-W32"
+  weekStart: string;    // ISO date
+  totalVolume: number;
+  totalSets: number;
+  sessionCount: number;
+  rollingAvgVolume?: number; // Calculated server-side
+}
+
+export interface ExerciseDetailData {
+  exerciseName: string;
+  currentPR: number;
+  currentPRReps: number;
+  prDate?: string;
+  currentEstimatedOneRM: number;  // from most recent dataPoint
+  totalSets: number;
+  totalSessions: number;
+  firstLoggedDate: string;
+  lastLoggedDate: string;
+  dataPoints: ExerciseProgressDataPoint[];
+}
+
+export interface RepRangeDistribution {
+  strength: number;
+  strengthHyper: number;
+  hypertrophy: number;
+  endurance: number;
+  total: number;
+  interpretation?: string; // Generated server-side
+}
+
+export interface BestSession {
+  date: string;
+  workoutName: string;
+  totalVolume: number;
+  totalSets: number;
+  exerciseCount: number;
+}
+
+export interface MuscleGroupDetailPageData {
+  muscleGroup: string;
+  totalExercises: number;
+  totalSessions: number;
+  weeklyVolume: WeeklyMuscleVolume[];
+  exercises: ExerciseDetailData[];
+  heatmapDates: string[];          // ISO dates trained
+  repRangeDistribution: RepRangeDistribution;
+  bestSession: BestSession | null;
+}

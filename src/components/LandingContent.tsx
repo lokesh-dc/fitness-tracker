@@ -86,9 +86,11 @@ export function LandingContent() {
 								Start tracking free
 							</button>
 						</Link>
-						<button className="bg-transparent text-white/60 text-[14px] border border-white/15 px-6 py-2.5 rounded-lg hover:bg-white/5 transition-all">
-							See a demo
-						</button>
+						<Link href="/?demo=true">
+							<button className="bg-transparent text-white/60 text-[14px] border border-white/15 px-6 py-2.5 rounded-lg hover:bg-white/5 transition-all">
+								See a demo
+							</button>
+						</Link>
 					</motion.div>
 				</motion.div>
 			</header>
