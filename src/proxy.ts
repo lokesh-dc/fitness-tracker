@@ -5,10 +5,10 @@ import type { NextRequest } from "next/server";
 export async function proxy(req: NextRequest) {
   const { searchParams, pathname } = req.nextUrl;
   const isDemoRequest = searchParams.get("demo") === "true";
-  
-  const token = await getToken({ 
-    req, 
-    secret: process.env.NEXTAUTH_SECRET || "development_secret_only_for_dev_mode" 
+
+  const token = await getToken({
+    req,
+    secret: process.env.NEXTAUTH_SECRET || "development_secret_only_for_dev_mode"
   });
 
   // Handle Demo Mode Entry
@@ -23,7 +23,7 @@ export async function proxy(req: NextRequest) {
     // Redirect to demo login flow
     const callbackUrl = pathname + (searchParams.toString() ? `?${searchParams.toString()}` : "");
     const finalCallback = callbackUrl.replace(/[?&]demo=true/, "");
-    
+
     return NextResponse.redirect(
       new URL(`/api/auth/demo-login?callbackUrl=${encodeURIComponent(finalCallback)}`, req.url)
     );

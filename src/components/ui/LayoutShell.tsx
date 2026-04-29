@@ -18,7 +18,10 @@ export default function LayoutShell({
 }) {
 	const pathname = usePathname();
 	const isWorkoutPage = pathname === "/workout";
-	const isLandingPage = pathname === "/";
+	const isLandingPage =
+		pathname === "/" ||
+		pathname === "/auth/signin" ||
+		pathname === "/auth/signup";
 
 	useEffect(() => {
 		if ("serviceWorker" in navigator) {
