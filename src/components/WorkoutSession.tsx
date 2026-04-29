@@ -475,7 +475,6 @@ export default function WorkoutSession({
 										</div>
 									) : null}
 
-
 									<div className="flex items-center space-x-4 justify-between">
 										<div className="flex items-center space-x-4">
 											<div className="w-8 h-8 rounded-lg bg-foreground/5 flex items-center justify-center text-md font-black text-foreground/40">
@@ -632,27 +631,49 @@ export default function WorkoutSession({
 			</GlassCard>
 		);
 
+		const totalSets = exercises.reduce(
+			(acc, ex: any) => acc + (ex.isDone && !ex.isSkipped ? ex.sets.length : 0),
+			0,
+		);
+		const totalVolume = exercises.reduce(
+			(acc, ex: any) =>
+				acc +
+				(ex.isDone && !ex.isSkipped
+					? ex.sets.reduce(
+							(sAcc: any, s: any) => sAcc + (s.weight || 0) * (s.reps || 0),
+							0,
+						)
+					: 0),
+			0,
+		);
+
+		// Work-based estimation (ignores timer inaccuracies)
+		// Approx: 1 kcal per 25kg moved + 4 kcal per set for setup/movement
+		const caloriesBurned = Math.round(totalVolume / 25 + totalSets * 4);
+
 		const celebrationStats = {
-			exercises: exercises.filter((ex: any) => ex.isNew).length,
-			totalSets: exercises.reduce(
-				(acc, ex: any) => acc + (ex.isNew ? ex.sets.length : 0),
-				0,
-			),
+			exercises: exercises.filter((ex: any) => ex.isDone && !ex.isSkipped)
+				.length,
+			totalSets,
 			totalReps: exercises.reduce(
 				(acc, ex: any) =>
 					acc +
-					(ex.isNew
-						? ex.sets.reduce((sAcc: any, s: any) => sAcc + s.reps, 0)
+					(ex.isDone && !ex.isSkipped
+						? ex.sets.reduce((sAcc: any, s: any) => sAcc + (s.reps || 0), 0)
 						: 0),
 				0,
 			),
+			calories: caloriesBurned,
 		};
 
+
+
 		const celebrationExerciseDetails = exercises
-			.filter((ex: any) => ex.isNew)
-			.map((ex) => ({
+			.filter((ex: any) => ex.isDone && !ex.isSkipped)
+			.map((ex: any) => ({
 				name: ex.name,
 				sets: ex.sets,
+				isPR: ex.isNewPR,
 			}));
 
 		return (
@@ -664,9 +685,10 @@ export default function WorkoutSession({
 						exerciseDetails={celebrationExerciseDetails}
 						splitName={template?.splitName}
 						onClose={() => setShowCelebration(false)}
-						targetUrl="/dashboard"
+						targetUrl="/analytics"
 					/>
 				)}
+
 				<SessionLayout
 					title={(template as any).splitName || "Session"}
 					subtitle={`Week ${template.weekNumber} • ${DAYS[template.dayOfWeek]}`}
@@ -848,13 +870,13 @@ export default function WorkoutSession({
 									<div className="flex items-center bg-brand-primary/10 border border-brand-primary/20 px-2 py-1 rounded-lg m-0 w-fit">
 										<Trophy className="w-3 h-3 text-brand-primary mr-1.5" />
 										<span className="text-[10px] font-black text-brand-primary uppercase tracking-tighter">
-											PR: {ex.pr} KG {(ex as any).prReps > 0 ? `× ${(ex as any).prReps}` : ""}
+											PR: {ex.pr} KG{" "}
+											{(ex as any).prReps > 0 ? `× ${(ex as any).prReps}` : ""}
 										</span>
 									</div>
 								) : (
 									<div />
 								)}
-
 							</div>
 							{plateauDetected && (
 								<span className="flex items-center gap-1 text-[10px] font-medium text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-full px-2 py-0.5 animate-in fade-in slide-in-from-right-2 duration-500">
