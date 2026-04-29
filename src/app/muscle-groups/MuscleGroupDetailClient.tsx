@@ -218,15 +218,17 @@ export default function MuscleGroupDetailClient({
 					<section className="space-y-6">
 						<h2 className="text-xl font-black text-foreground uppercase tracking-tight flex items-center gap-3">
 							<Calendar className="w-5 h-5 text-brand-primary" />
-							Training Frequency — Last 52 Weeks
+							Training Frequency — {timeRangeLabel}
 						</h2>
 						<GlassCard className="p-6">
 							<MuscleHeatmap
 								dates={data.heatmapDates}
 								muscleGroup={data.muscleGroup}
+								timeRange={timeRange}
 							/>
 						</GlassCard>
 					</section>
+
 
 					{/* Section 4: Strength Leaderboard */}
 					<section className="space-y-6">
