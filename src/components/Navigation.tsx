@@ -64,7 +64,7 @@ export function Navigation() {
 			href: "/muscle-groups",
 			icon: Trophy,
 			label: "Muscles",
-			mobile: false,
+			mobile: true,
 			desktop: true,
 		},
 	];
