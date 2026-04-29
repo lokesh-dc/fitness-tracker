@@ -29,7 +29,7 @@ export default async function WorkoutPage({
 	const today = format(new Date(), "yyyy-MM-dd");
 	const explicitMode = resolvedParams.mode || (date && date !== today ? 'MANUAL_LOG' : 'LIVE_SESSION');
 
-	let initialPRs: Record<string, number> = {};
+	let initialPRs: Record<string, { weight: number; reps: number }> = {};
 	if (plan && plan.exercises) {
 		const exerciseIds = plan.exercises
 			.map((ex) => ex.exerciseId)

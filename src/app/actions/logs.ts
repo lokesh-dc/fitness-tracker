@@ -699,15 +699,24 @@ export async function updateExerciseRecords(
     const totalSets = targetSets.length;
     const totalReps = targetSets.reduce((acc: number, s: SetLog) => acc + (s.reps || 0), 0);
     const exerciseId = exercise.exerciseId;
+    const exerciseName = exercise.name.trim();
 
-    // Match by ID OR Name to avoid split records
-    const existing = await db.collection("ExerciseRecords").findOne({ 
-      userId, 
-      $or: [
-        { exerciseId },
-        { exerciseName: exercise.name }
-      ]
-    });
+    // Match by ID OR Name (case-insensitive) to avoid split records
+    let existing = null;
+    if (exerciseId) {
+      existing = await db.collection("ExerciseRecords").findOne({ 
+        userId, 
+        exerciseId
+      });
+    }
+    
+    if (!existing) {
+      existing = await db.collection("ExerciseRecords").findOne({ 
+        userId, 
+        exerciseName: { $regex: new RegExp(`^${exerciseName}$`, "i") }
+      });
+    }
+
 
     const historyEntry = {
       date: sessionDate,

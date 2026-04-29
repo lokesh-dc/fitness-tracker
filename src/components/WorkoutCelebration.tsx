@@ -34,7 +34,7 @@ export function WorkoutCelebration({
 	exerciseDetails,
 	splitName,
 	onClose,
-	targetUrl = "/dashboard",
+	targetUrl,
 }: WorkoutCelebrationProps) {
 	const router = useRouter();
 	const [isVisible, setIsVisible] = useState(false);
@@ -45,7 +45,7 @@ export function WorkoutCelebration({
 		setIsVisible(true);
 		// Auto-navigate after 15 seconds instead of 5 to give time to share
 		const timer = setTimeout(() => {
-			if (!document.hidden) {
+			if (!document.hidden && targetUrl) {
 				router.push(targetUrl);
 			}
 		}, 15000);
@@ -241,7 +241,9 @@ export function WorkoutCelebration({
 						onClick={() => {
 							setIsVisible(false);
 							setTimeout(() => {
-								router.push(targetUrl);
+								if (targetUrl) {
+									router.push(targetUrl);
+								}
 								onClose();
 							}, 500);
 						}}

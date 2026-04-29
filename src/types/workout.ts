@@ -23,6 +23,8 @@ export interface Exercise {
   lastWeight?: number;
   sets: SetLog[];
   pr?: number;
+  prReps?: number;
+
   restDuration?: number;
   isDone?: boolean;
   isSkipped?: boolean;
@@ -71,9 +73,12 @@ export interface WorkoutLog {
 export interface PRHit {
   exerciseName: string;
   newPRWeight: number;
+  newPRReps: number;
   previousPRWeight: number | null;
+  previousPRReps: number | null;
   timestamp: Date | string;
 }
+
 
 export interface UserSettings {
   defaultRestDuration: number;

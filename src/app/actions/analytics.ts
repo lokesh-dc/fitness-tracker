@@ -24,23 +24,27 @@ import {
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-export async function getHighestWeightPR(exerciseName: string): Promise<number> {
+export async function getHighestWeightPR(exerciseName: string): Promise<{ weight: number; reps: number }> {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user) return 0;
+    if (!session?.user) return { weight: 0, reps: 0 };
     const userId = new ObjectId((session.user as any).id);
 
     const db = await getDb();
     const record = await db.collection("ExerciseRecords").findOne({ userId, exerciseName });
 
-    return record?.currentPR || 0;
+    return {
+      weight: record?.currentPR || 0,
+      reps: record?.currentPRReps || 0
+    };
   } catch (error) {
     console.error("Error fetching highest weight PR:", error);
-    return 0;
+    return { weight: 0, reps: 0 };
   }
 }
 
-export async function getHighestWeightPRsBulk(exerciseIds: string[]): Promise<Record<string, number>> {
+
+export async function getHighestWeightPRsBulk(exerciseIds: string[]): Promise<Record<string, { weight: number; reps: number }>> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) return {};
@@ -51,9 +55,12 @@ export async function getHighestWeightPRsBulk(exerciseIds: string[]): Promise<Re
       .find({ userId, exerciseId: { $in: exerciseIds } })
       .toArray();
 
-    const prMap: Record<string, number> = {};
+    const prMap: Record<string, { weight: number; reps: number }> = {};
     records.forEach(doc => {
-      prMap[doc.exerciseId] = doc.currentPR;
+      prMap[doc.exerciseId] = {
+        weight: doc.currentPR || 0,
+        reps: doc.currentPRReps || 0
+      };
     });
 
     return prMap;
@@ -62,6 +69,7 @@ export async function getHighestWeightPRsBulk(exerciseIds: string[]): Promise<Re
     return {};
   }
 }
+
 
 export async function getRecentPRs(): Promise<{ name: string; weight: number; date: string; increment: number }[]> {
   try {

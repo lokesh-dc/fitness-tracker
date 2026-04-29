@@ -37,6 +37,8 @@ import { useSessionStats } from "@/hooks/useSessionStats";
 import { PRsFeedDisplay } from "./workout/PRsFeedDisplay";
 import PageWithSidebar from "./layout/PageWithSidebar";
 import { requestNotificationPermission } from "@/lib/notifications";
+import { ExerciseHistoryCard } from "./workout/ExerciseHistoryCard";
+import { Confetti } from "./ui/Confetti";
 
 const DAYS = [
 	"Sunday",
@@ -52,7 +54,7 @@ interface WorkoutSessionProps {
 	template: WorkoutTemplate | null;
 	initialBodyWeight?: number | null;
 	initialWorkoutLog?: WorkoutLog | null;
-	initialPRs?: Record<string, number>;
+	initialPRs?: Record<string, { weight: number; reps: number }>;
 	date?: string;
 	mode?: WorkoutMode;
 	userDefaultRest?: number;
@@ -91,7 +93,8 @@ export default function WorkoutSession({
 			return {
 				...ex,
 				sets: initialSets,
-				pr: initialPRs[ex.exerciseId] || 0,
+				pr: initialPRs[ex.exerciseId]?.weight || 0,
+				prReps: initialPRs[ex.exerciseId]?.reps || 0,
 				isDone: !!loggedEx,
 			};
 		}) || [],
@@ -103,6 +106,8 @@ export default function WorkoutSession({
 	const [isSubmittingExercise, setIsSubmittingExercise] = useState(false);
 	const [showSuccess, setShowSuccess] = useState(false);
 	const [showCelebration, setShowCelebration] = useState(false);
+	const [plateauDetected, setPlateauDetected] = useState(false);
+	const [triggerConfetti, setTriggerConfetti] = useState(false);
 
 	const sessionStats = useSessionStats(
 		exercises,
@@ -116,6 +121,10 @@ export default function WorkoutSession({
 	);
 
 	const timer = useRestTimer();
+
+	useEffect(() => {
+		setPlateauDetected(false);
+	}, [activeExerciseIndex]);
 
 	useEffect(() => {
 		if (step > 0 && template && exercises.length > 0) {
@@ -230,21 +239,40 @@ export default function WorkoutSession({
 		if (activeExerciseIndex === null) return;
 		setIsSubmittingExercise(true);
 		try {
+			let hasNewPR = false;
 			const exercise = exercises[activeExerciseIndex];
 			await saveSingleExerciseLog(exercise, updateTemplate, date);
 
+			const maxWeightThisSession = Math.max(
+				...exercise.sets.map((s) => s.weight || 0),
+			);
+			const maxRepsAtMaxWeight = Math.max(
+				...exercise.sets
+					.filter((s) => (s.weight || 0) === maxWeightThisSession)
+					.map((s) => s.reps || 0),
+			);
+
 			// PR Detection - Only if NOT skipped
 			if (!exercise.isSkipped) {
-				const maxWeightThisSession = Math.max(
-					...exercise.sets.map((s) => s.weight),
-				);
-				if (maxWeightThisSession > (exercise.pr || 0)) {
+				const isWeightPR = maxWeightThisSession > (exercise.pr || 0);
+				const isRepPR =
+					maxWeightThisSession === (exercise.pr || 0) &&
+					maxRepsAtMaxWeight > (exercise.prReps || 0);
+
+				if (isWeightPR || isRepPR) {
 					sessionStats.registerPR({
 						exerciseName: exercise.name,
 						newPRWeight: maxWeightThisSession,
+						newPRReps: maxRepsAtMaxWeight,
 						previousPRWeight: exercise.pr || null,
+						previousPRReps: exercise.prReps || null,
 						timestamp: new Date(),
 					});
+
+					// Mark locally that we hit a PR to show the badge
+					hasNewPR = true;
+					setTriggerConfetti(true);
+					setTimeout(() => setTriggerConfetti(false), 500);
 				}
 			}
 
@@ -254,6 +282,14 @@ export default function WorkoutSession({
 				newExs[activeExerciseIndex] = {
 					...newExs[activeExerciseIndex],
 					isDone: true,
+					isNew: true, // Mark as completed in current session
+					...(hasNewPR
+						? {
+								pr: maxWeightThisSession,
+								prReps: maxRepsAtMaxWeight,
+								isNewPR: true,
+							}
+						: {}),
 				} as any;
 				return newExs;
 			});
@@ -423,7 +459,14 @@ export default function WorkoutSession({
 								key={idx}
 								className="p-4 flex items-center justify-between group">
 								<div className="flex flex-col gap-3 w-full">
-									{ex.pr && ex.pr > 0 ? (
+									{(ex as any).isNewPR ? (
+										<div className="flex w-fit items-center space-x-1.5 px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+											<Trophy className="w-3 h-3 text-emerald-500" />
+											<span className="text-[8px] font-black text-emerald-500 uppercase">
+												New Record: {ex.pr} KG
+											</span>
+										</div>
+									) : ex.pr && ex.pr > 0 ? (
 										<div className="flex w-fit items-center space-x-1.5 px-2 py-1 rounded-lg bg-brand-primary/5 border border-brand-primary/10">
 											<Trophy className="w-3 h-3 text-brand-primary" />
 											<span className="text-[8px] font-black text-brand-primary uppercase">
@@ -431,6 +474,8 @@ export default function WorkoutSession({
 											</span>
 										</div>
 									) : null}
+
+
 									<div className="flex items-center space-x-4 justify-between">
 										<div className="flex items-center space-x-4">
 											<div className="w-8 h-8 rounded-lg bg-foreground/5 flex items-center justify-center text-md font-black text-foreground/40">
@@ -588,15 +633,15 @@ export default function WorkoutSession({
 		);
 
 		const celebrationStats = {
-			exercises: exercises.filter((ex: any) => ex.isDone).length,
+			exercises: exercises.filter((ex: any) => ex.isNew).length,
 			totalSets: exercises.reduce(
-				(acc, ex: any) => acc + (ex.isDone ? ex.sets.length : 0),
+				(acc, ex: any) => acc + (ex.isNew ? ex.sets.length : 0),
 				0,
 			),
 			totalReps: exercises.reduce(
 				(acc, ex: any) =>
 					acc +
-					(ex.isDone
+					(ex.isNew
 						? ex.sets.reduce((sAcc: any, s: any) => sAcc + s.reps, 0)
 						: 0),
 				0,
@@ -604,7 +649,7 @@ export default function WorkoutSession({
 		};
 
 		const celebrationExerciseDetails = exercises
-			.filter((ex: any) => ex.isDone)
+			.filter((ex: any) => ex.isNew)
 			.map((ex) => ({
 				name: ex.name,
 				sets: ex.sets,
@@ -612,12 +657,14 @@ export default function WorkoutSession({
 
 		return (
 			<PageWithSidebar>
+				<Confetti trigger={triggerConfetti} />
 				{showCelebration && (
 					<WorkoutCelebration
 						stats={celebrationStats}
 						exerciseDetails={celebrationExerciseDetails}
 						splitName={template?.splitName}
 						onClose={() => setShowCelebration(false)}
+						targetUrl="/dashboard"
 					/>
 				)}
 				<SessionLayout
@@ -787,23 +834,42 @@ export default function WorkoutSession({
 					mode={activeMode}
 					stats={sessionStats.stats}>
 					<GlassCard className="space-y-6 p-6">
-						<div className="flex flex-col gap-3 justify-between items-start border-b border-foreground/5 pb-4">
-							{ex.pr && ex.pr > 0 ? (
-								<div className="flex items-center bg-brand-primary/10 border border-brand-primary/20 px-2 py-1 rounded-lg m-0">
-									<Trophy className="w-3 h-3 text-brand-primary mr-1.5" />
-									<span className="text-[10px] font-black text-brand-primary uppercase tracking-tighter">
-										PR: {ex.pr} KG
-									</span>
-								</div>
-							) : null}
-							<div>
-								<h2 className="text-lg font-black text-foreground tracking-tight">
-									{ex.name}
-								</h2>
-								<p className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest">
-									Target: {ex.targetSets} Sets • {ex.targetReps} Reps
-								</p>
+						<div className="flex items-center justify-between border-b border-foreground/5 pb-4">
+							<div className="flex flex-col gap-1">
+								{(ex as any).isNewPR ? (
+									<div className="flex items-center bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-lg m-0 w-fit">
+										<Trophy className="w-3 h-3 text-emerald-500 mr-1.5" />
+										<span className="text-[10px] font-black text-emerald-500 uppercase tracking-tighter">
+											NEW RECORD: {ex.pr} KG{" "}
+											{(ex as any).prReps > 0 ? `× ${(ex as any).prReps}` : ""}
+										</span>
+									</div>
+								) : ex.pr && ex.pr > 0 ? (
+									<div className="flex items-center bg-brand-primary/10 border border-brand-primary/20 px-2 py-1 rounded-lg m-0 w-fit">
+										<Trophy className="w-3 h-3 text-brand-primary mr-1.5" />
+										<span className="text-[10px] font-black text-brand-primary uppercase tracking-tighter">
+											PR: {ex.pr} KG {(ex as any).prReps > 0 ? `× ${(ex as any).prReps}` : ""}
+										</span>
+									</div>
+								) : (
+									<div />
+								)}
+
 							</div>
+							{plateauDetected && (
+								<span className="flex items-center gap-1 text-[10px] font-medium text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-full px-2 py-0.5 animate-in fade-in slide-in-from-right-2 duration-500">
+									⚠ No progress in 3 sessions
+								</span>
+							)}
+						</div>
+
+						<div>
+							<h2 className="text-lg font-black text-foreground tracking-tight">
+								{ex.name}
+							</h2>
+							<p className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest">
+								Target: {ex.targetSets} Sets • {ex.targetReps} Reps
+							</p>
 						</div>
 
 						<WarmupSetsPanel
@@ -896,6 +962,13 @@ export default function WorkoutSession({
 							<Plus className="w-3 h-3 mr-2" /> Add Set
 						</button>
 					</GlassCard>
+
+					<ExerciseHistoryCard
+						exerciseName={ex.name}
+						userId={template.userId}
+						mode={activeMode}
+						onPlateauDetected={setPlateauDetected}
+					/>
 				</SessionLayout>
 			</PageWithSidebar>
 		);
