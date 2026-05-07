@@ -21,8 +21,8 @@ export default function LayoutShell({
 	const isLandingPage =
 		pathname === "/" ||
 		pathname === "/auth/signin" ||
-		pathname === "/auth/signup" ||
-		pathname === "/onboarding";
+		pathname === "/auth/signup";
+	const isOnboarding = pathname === "/onboarding";
 
 	useEffect(() => {
 		if ("serviceWorker" in navigator) {
@@ -36,14 +36,21 @@ export default function LayoutShell({
 	return (
 		<div className="flex flex-col">
 			<ScrollToTop />
-			{!isLandingPage && <Navigation />}
-			{!isLandingPage && <DailyReminder />}
+			{!isLandingPage &&
+				(isOnboarding ? (
+					<div className="hidden md:block">
+						<Navigation />
+					</div>
+				) : (
+					<Navigation />
+				))}
+			{pathname == "/dashboard" && <DailyReminder />}
 			<div
 				className={cn(
 					"flex-1",
-					!isLandingPage && "md:pb-0 md:pl-20 pt-28 md:pt-32",
+					!isLandingPage && !isOnboarding && "md:pb-0 md:pl-20 pt-28 md:pt-32",
+					isOnboarding && "pb-0",
 					isWorkoutPage ? "pb-0" : "pb-0",
-					// ← removed max-h-[20px], that was clipping everything
 				)}>
 				{children}
 			</div>
