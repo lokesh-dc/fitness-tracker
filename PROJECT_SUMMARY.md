@@ -1,6 +1,6 @@
 # Project Summary: Fitness Tracker App
 
-This document provides a comprehensive technical and functional overview of the Fitness Tracker application.
+This document provides a comprehensive technical and functional overview of the Fitness Tracker application (TRAK.FIT).
 
 ## 🌟 Overview
 A premium, data-driven fitness tracking application designed for progressive overload and performance analytics. It focuses on workout logging, personal record (PR) tracking, and structured training plan management with a high-end "glassmorphism" aesthetic.
@@ -44,26 +44,32 @@ The app uses an atomic update system defined in `src/app/actions/logs.ts`:
 
 ## 🚀 Key Features
 
-### 1. Training Plans
-- Structured routines mapped to weeks and days.
-- Ability to design plans and templates.
-- Progression tracking through "Active Plans."
+### 1. 🏋️‍♂️ Live Session Logging & Intelligence
+- **Gym-Floor Optimized UX**: A fast, minimalist, high-contrast interface built specifically for quick data entry between sets.
+- **Plateau Detection**: Intelligent alerts that trigger during a workout if no progress (in weight or reps) has been detected for a specific exercise over the past 3 weeks.
+- **Active Timers**: Real-time tracking of overall workout duration (start/stop) alongside integrated, customizable rest timers.
+- **Smart History**: Automatically references past PRs and the last logged weights during a session so users know exactly what numbers to beat.
 
-### 2. Live Session Logging
-- Real-time workout tracking with start/stop timers.
-- Integrated rest timers with customizable durations.
-- Materialized PR updates immediately upon saving.
+### 2. 🏆 Advanced Personal Record (PR) Engine
+- **Atomic PR Tracking**: Materialized records that track two distinct types of PRs: Weight PRs and Rep PRs.
+- **Instant Visual Feedback**: Triggers a "Workout Celebration" using Framer Motion animations immediately upon hitting a new PR.
 
-### 3. Analytics & Progress
-- **Muscle Group Distribution**: Pie charts showing volume by muscle group.
-- **Volume Trends**: Periodic volume comparisons (weekly/monthly).
-- **Exercise Timelines**: Individual exercise progress charts (Max Weight vs. Volume).
-- **Bodyweight Tracking**: Trends and correlation with training volume.
+### 3. 🏗️ Dynamic Cycle Architect (Plan Designer)
+- **Custom Program Builder**: A dedicated tool to architect entire multi-week training blocks from scratch, with drag-and-drop custom splits.
+- **Warmup Calculator**: Automatically generates required warmup sets based on the user's target working weight.
 
-### 4. Interactive UI Widgets
-- Sticky sidebars on Dashboard, History, and Analytics pages.
-- Widgets include: "Most Trained Muscle Group," "Most Improved Exercise," "Weekly Volume Comparison," and more.
-- Mobile-responsive horizontal scroll strips for widgets.
+### 4. 📊 Post-Workout Summaries & History
+- **Detailed Session Debrief**: Comprehensive summary showing exercises performed, estimated calories burned, and updated 1RM (One Rep Max) calculations.
+- **Workout History Page**: A scannable logbook serving as the source of truth for all past workouts.
+
+### 5. 🧬 Deep Analytics & Muscle Diagnostics
+- **Muscle Targeting Breakdown**: Highly detailed analytics for individual muscle groups, including volume tracking, activity heatmaps, and identification of top exercises per muscle.
+- **Exercise Timelines**: Pro-grade Recharts visualizations showing volume analysis and estimated 1RM trends over time for individual lifts.
+- **Bodyweight Correlation**: Maps bodyweight fluctuations against training volume to track relative strength.
+
+### 6. 🔥 Gamification & Consistency Metrics
+- **Streak Maintenance**: Systems to track and display active workout streaks, motivating users to maintain consistency.
+- **Interactive Dashboard Widgets**: Premium UI sidebars showing stats like "Most Trained Muscle Group" and "Weekly Volume Comparisons."
 
 ## 🎨 Design System (Design Tokens)
 - **Primary Accent**: Controlled via `--brand-accent` in `globals.css` (defaults to vibrant orange).

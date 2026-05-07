@@ -15,6 +15,17 @@ const EXERCISE_LIST = {
   "Cardio": ["Running", "Cycling", "Swimming", "Jump Rope"]
 };
 
+const IMAGE_MAPPING: Record<string, string> = {
+  "Bench Press (Barbell)": "/assets/exercises/bench-press.png",
+  "Squat (Barbell)": "/assets/exercises/squat.png",
+  "Deadlift": "/assets/exercises/deadlift.png",
+  "Pull-ups": "/assets/exercises/pull-ups.png",
+  "Overhead Press (Barbell)": "/assets/exercises/overhead-press.png",
+  "Bicep Curl (Dumbbell)": "/assets/exercises/bicep-curl.png",
+  "Plank": "/assets/exercises/plank.png",
+  "Running": "/assets/exercises/running.png",
+};
+
 async function seed() {
   const client = new MongoClient(uri);
   try {
@@ -29,6 +40,7 @@ async function seed() {
           name,
           muscleGroup,
           unit: "reps", // Default unit
+          image: IMAGE_MAPPING[name] || null,
           isCustom: false,
           createdAt: new Date(),
         });

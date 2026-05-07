@@ -9,6 +9,7 @@ export interface ExerciseDefinition {
   name: string;
   muscleGroup: string;
   unit: 'reps' | 'steps' | 'secs' | 'mins';
+  image?: string;
   isCustom?: boolean;
 }
 
