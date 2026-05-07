@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
+import { signIn } from "next-auth/react";
 import {
 	Dumbbell,
 	CheckCircle2,
@@ -39,7 +41,13 @@ const itemVariants: Variants = {
 	},
 };
 
-export function LandingContent() {
+export function LandingContent({ autoLoginDemo }: { autoLoginDemo?: boolean }) {
+	useEffect(() => {
+		if (autoLoginDemo) {
+			signIn("demo", { email: "demo@fittrack.app", callbackUrl: "/dashboard" });
+		}
+	}, [autoLoginDemo]);
+
 	return (
 		<div className="flex flex-col min-h-screen bg-[#0d0d0d] text-[#f0f0f0] selection:bg-brand-primary selection:text-black font-sans">
 			{/* Navigation */}
@@ -86,11 +94,11 @@ export function LandingContent() {
 								Start tracking free
 							</button>
 						</Link>
-						<Link href="/?demo=true">
-							<button className="bg-transparent text-white/60 text-[14px] border border-white/15 px-6 py-2.5 rounded-lg hover:bg-white/5 transition-all">
-								See a demo
-							</button>
-						</Link>
+						<button 
+							onClick={() => signIn("demo", { email: "demo@fittrack.app", callbackUrl: "/dashboard" })}
+							className="bg-transparent text-white/60 text-[14px] border border-white/15 px-6 py-2.5 rounded-lg hover:bg-white/5 transition-all">
+							See a demo
+						</button>
 					</motion.div>
 				</motion.div>
 			</header>
