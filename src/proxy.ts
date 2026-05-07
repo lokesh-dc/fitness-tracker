@@ -1,6 +1,8 @@
 import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import clientPromise from "@/lib/mongodb";
+import { ObjectId } from "mongodb";
 
 export async function proxy(req: NextRequest) {
   const { searchParams, pathname } = req.nextUrl;
@@ -54,6 +56,24 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(
       new URL(`/auth/signin?callbackUrl=${encodeURIComponent(from)}`, req.url)
     );
+  }
+
+  // Handle Onboarding Guard
+  if (token && !pathname.startsWith("/onboarding") && !pathname.startsWith("/api") && !pathname.startsWith("/auth") && !pathname.startsWith("/_next") && pathname !== "/") {
+    try {
+      const client = await clientPromise;
+      const db = client.db();
+      const profile = await db.collection("user_profiles").findOne({ 
+        userId: new ObjectId(token.id as string) 
+      });
+
+      if (!profile || !profile.onboardingComplete) {
+        return NextResponse.redirect(new URL("/onboarding", req.url));
+      }
+    } catch (error) {
+      console.error("Middleware DB Error:", error);
+      // Fail open or closed? Usually fail open for middleware to avoid blocking the app
+    }
   }
 
   return NextResponse.next();

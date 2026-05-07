@@ -21,7 +21,8 @@ export default function LayoutShell({
 	const isLandingPage =
 		pathname === "/" ||
 		pathname === "/auth/signin" ||
-		pathname === "/auth/signup";
+		pathname === "/auth/signup" ||
+		pathname === "/onboarding";
 
 	useEffect(() => {
 		if ("serviceWorker" in navigator) {
@@ -35,8 +36,8 @@ export default function LayoutShell({
 	return (
 		<div className="flex flex-col">
 			<ScrollToTop />
-			<Navigation />
-			<DailyReminder />
+			{!isLandingPage && <Navigation />}
+			{!isLandingPage && <DailyReminder />}
 			<div
 				className={cn(
 					"flex-1",
