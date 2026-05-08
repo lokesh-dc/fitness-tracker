@@ -1,6 +1,8 @@
 import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import clientPromise from "@/lib/mongodb";
+import { ObjectId } from "mongodb";
 
 export async function proxy(req: NextRequest) {
   const { searchParams, pathname } = req.nextUrl;
@@ -55,6 +57,10 @@ export async function proxy(req: NextRequest) {
       new URL(`/auth/signin?callbackUrl=${encodeURIComponent(from)}`, req.url)
     );
   }
+
+  // Handle Onboarding Guard - REMOVED to allow non-blocking flow
+  // Users will now be nudged via banners rather than forced redirects.
+
 
   return NextResponse.next();
 }

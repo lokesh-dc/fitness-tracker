@@ -20,8 +20,11 @@ export function Navigation() {
 	// Don't show navigation on auth pages or landing page
 	if (pathname.startsWith("/auth") || pathname === "/") return null;
 
+	const isOnboarding = pathname === "/onboarding";
+
 	// Specific paths where navigation should be hidden
-	const isMobileNavHidden = pathname === "/workout";
+	const isMobileNavHidden = pathname === "/workout" || isOnboarding || pathname === "/plan/designer";
+
 
 	const navItems = [
 		{
