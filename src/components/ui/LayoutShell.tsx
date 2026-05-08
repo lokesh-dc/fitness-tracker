@@ -23,6 +23,9 @@ export default function LayoutShell({
 		pathname === "/auth/signin" ||
 		pathname === "/auth/signup";
 	const isOnboarding = pathname === "/onboarding";
+	const isPlanDesigner = pathname === "/plan/designer";
+
+	const hideNav = isLandingPage;
 
 	useEffect(() => {
 		if ("serviceWorker" in navigator) {
@@ -36,7 +39,7 @@ export default function LayoutShell({
 	return (
 		<div className="flex flex-col">
 			<ScrollToTop />
-			{!isLandingPage &&
+			{!hideNav &&
 				(isOnboarding ? (
 					<div className="hidden md:block">
 						<Navigation />
@@ -48,9 +51,8 @@ export default function LayoutShell({
 			<div
 				className={cn(
 					"flex-1",
-					!isLandingPage && !isOnboarding && "md:pb-0 md:pl-20 pt-28 md:pt-32",
-					isOnboarding && "pb-0",
-					isWorkoutPage ? "pb-0" : "pb-0",
+					!hideNav && !isOnboarding && "md:pl-20 pt-28 md:pt-32",
+					isOnboarding || isPlanDesigner || isWorkoutPage ? "pb-0" : "pb-0",
 				)}>
 				{children}
 			</div>

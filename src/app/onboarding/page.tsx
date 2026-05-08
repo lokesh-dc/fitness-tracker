@@ -11,7 +11,7 @@ export default async function OnboardingPage() {
 	const initialData = await getOnboardingProfile();
 
 	return (
-		<main className="min-h-screen bg-black">
+		<main className="min-h-screen bg-background">
 			<OnboardingFlow initialData={initialData} />
 		</main>
 	);

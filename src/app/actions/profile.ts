@@ -11,7 +11,7 @@ export async function saveOnboardingStep(data: Partial<UserProfile>) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) throw new Error("Unauthorized");
-    
+
     const userId = (session.user as any).id;
     const db = await getDb();
 
@@ -23,12 +23,14 @@ export async function saveOnboardingStep(data: Partial<UserProfile>) {
     // If it's a new profile, we need to set createdAt
     await db.collection("user_profiles").updateOne(
       { userId: new ObjectId(userId) },
-      { 
+      {
         $set: updateData,
-        $setOnInsert: { 
+        $setOnInsert: {
           userId: new ObjectId(userId),
-          createdAt: new Date() 
-        } 
+          onboardingComplete: false,
+          bannerDismissed: false,
+          createdAt: new Date()
+        }
       },
       { upsert: true }
     );
@@ -49,8 +51,8 @@ export async function getOnboardingProfile(): Promise<UserProfile | null> {
     const userId = (session.user as any).id;
     const db = await getDb();
 
-    const profile = await db.collection("user_profiles").findOne({ 
-      userId: new ObjectId(userId) 
+    const profile = await db.collection("user_profiles").findOne({
+      userId: new ObjectId(userId)
     });
 
     if (!profile) return null;
@@ -62,3 +64,37 @@ export async function getOnboardingProfile(): Promise<UserProfile | null> {
     return null;
   }
 }
+
+export async function dismissOnboardingBanner() {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) throw new Error("Unauthorized");
+
+    const userId = (session.user as any).id;
+    const db = await getDb();
+
+    await db.collection("user_profiles").updateOne(
+      { userId: new ObjectId(userId) },
+      {
+        $set: {
+          bannerDismissed: true,
+          updatedAt: new Date()
+        },
+        $setOnInsert: {
+          userId: new ObjectId(userId),
+          onboardingComplete: false,
+          createdAt: new Date()
+        }
+      },
+      { upsert: true }
+
+    );
+
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (error) {
+    console.error("Error dismissing onboarding banner:", error);
+    return { success: false };
+  }
+}
+

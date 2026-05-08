@@ -9,8 +9,6 @@ export default async function DesignerPage({
 	searchParams: Promise<{ edit?: string }>;
 }) {
 	const { edit: editId } = await searchParams;
-
-
 	const [initialData, exercises] = await Promise.all([
 		editId ? getPlanDetails(editId) : null,
 		getExercises(),
