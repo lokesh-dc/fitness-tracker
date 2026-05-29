@@ -19,11 +19,14 @@ import {
   WeekScheduleDay, 
 } from "@/types/workout";
 
-export async function getPlanByDate(date?: string | Date): Promise<WorkoutTemplate | null> {
+export async function getPlanByDate(date?: string | Date, overrideUserId?: string): Promise<WorkoutTemplate | null> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return null;
-    const userId = (session.user as any).id;
+    let userId = overrideUserId;
+    if (!userId) {
+      const session = await getServerSession(authOptions);
+      if (!session?.user) return null;
+      userId = (session.user as any).id;
+    }
 
     const db = await getDb();
 

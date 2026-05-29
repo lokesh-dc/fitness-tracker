@@ -44,11 +44,15 @@ export async function getHighestWeightPR(exerciseName: string): Promise<{ weight
 }
 
 
-export async function getHighestWeightPRsBulk(exerciseIds: string[]): Promise<Record<string, { weight: number; reps: number }>> {
+export async function getHighestWeightPRsBulk(exerciseIds: string[], overrideUserId?: string): Promise<Record<string, { weight: number; reps: number }>> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return {};
-    const userId = new ObjectId((session.user as any).id);
+    let userIdStr = overrideUserId;
+    if (!userIdStr) {
+      const session = await getServerSession(authOptions);
+      if (!session?.user) return {};
+      userIdStr = (session.user as any).id;
+    }
+    const userId = new ObjectId(userIdStr);
 
     const db = await getDb();
     const records = await db.collection("ExerciseRecords")
