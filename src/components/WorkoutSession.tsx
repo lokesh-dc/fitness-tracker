@@ -982,13 +982,27 @@ export default function WorkoutSession({
 
 
 
-		const celebrationExerciseDetails = exercises
-			.filter((ex: any) => ex.isDone && !ex.isSkipped)
-			.map((ex: any) => ({
+	const celebrationExerciseDetails = exercises
+		.filter((ex: any) => ex.isDone && !ex.isSkipped)
+		.map((ex: any) => {
+			const def = allExercises.find(
+				(d) => d.name.toLowerCase() === ex.name.toLowerCase(),
+			);
+			return {
 				name: ex.name,
 				sets: ex.sets,
 				isPR: ex.isNewPR,
-			}));
+				muscleGroup: def?.muscleGroup,
+			};
+		});
+
+	const muscleGroupsTrained = [
+		...new Set(
+			celebrationExerciseDetails
+				.map((ex) => ex.muscleGroup)
+				.filter(Boolean),
+		),
+	] as string[];
 
 		const unfinishedCount = exercises.filter((ex) => !(ex as any).isDone).length;
 
@@ -999,9 +1013,10 @@ export default function WorkoutSession({
 					<WorkoutCelebration
 						stats={celebrationStats}
 						exerciseDetails={celebrationExerciseDetails}
+						muscleGroups={muscleGroupsTrained}
 						splitName={splitName}
 						onClose={() => setShowCelebration(false)}
-						targetUrl="/analytics"
+						targetUrl="/"
 					/>
 				)}
 
