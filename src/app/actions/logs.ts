@@ -4,6 +4,7 @@ import { ObjectId } from "mongodb";
 import { revalidatePath } from "next/cache";
 import { getDb, getCurrentDayOfWeek, getCurrentWeekIndex } from "@/lib/db-utils";
 import { WorkoutLog, Exercise, SetLog } from "@/types/workout";
+import { calculateEpley } from "@/lib/epley";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
@@ -181,6 +182,8 @@ export async function saveWorkoutSession(
       exerciseId: string;
       name: string;
       sets: Array<{ weight: number; reps: number }>;
+      isDone?: boolean;
+      isSkipped?: boolean;
     }>;
     startedAt?: Date | string; // Optional startedAt from client
   },
@@ -347,11 +350,15 @@ export async function saveWorkoutSession(
   }
 }
 
-export async function getTodayBodyWeight(date?: string | Date): Promise<number | null> {
+export async function getTodayBodyWeight(date?: string | Date, overrideUserId?: string): Promise<number | null> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return null;
-    const userId = new ObjectId((session.user as any).id);
+    let userIdStr = overrideUserId;
+    if (!userIdStr) {
+      const session = await getServerSession(authOptions);
+      if (!session?.user) return null;
+      userIdStr = (session.user as any).id;
+    }
+    const userId = new ObjectId(userIdStr);
 
     const db = await getDb();
 
@@ -524,11 +531,15 @@ export async function saveSingleExerciseLog(
     throw new Error("Failed to save exercise.");
   }
 }
-export async function getTodayWorkoutLog(date?: string | Date): Promise<WorkoutLog | null> {
+export async function getTodayWorkoutLog(date?: string | Date, overrideUserId?: string): Promise<WorkoutLog | null> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return null;
-    const userId = new ObjectId((session.user as any).id);
+    let userIdStr = overrideUserId;
+    if (!userIdStr) {
+      const session = await getServerSession(authOptions);
+      if (!session?.user) return null;
+      userIdStr = (session.user as any).id;
+    }
+    const userId = new ObjectId(userIdStr);
 
     const db = await getDb();
     const targetDate = date ? new Date(date) : new Date();
@@ -679,8 +690,8 @@ export async function updateExerciseRecords(
   const sessionDate = date instanceof Date ? date : new Date(date);
 
   for (const exercise of exercises) {
-    // Skip exercises marked as skipped OR with no sets
-    if (exercise.isSkipped || !exercise.sets || exercise.sets.length === 0) continue;
+    // Skip exercises not actually completed (isDone !== true), skipped, or with no sets
+    if (exercise.isSkipped || exercise.isDone === false || !exercise.sets || exercise.sets.length === 0) continue;
 
     // Use completed sets if any exist, otherwise use all sets that have values
     // This handles users forgetting to check the boxes but still finishing the workout.
@@ -691,10 +702,15 @@ export async function updateExerciseRecords(
     
     if (targetSets.length === 0) continue;
 
-    const maxWeight = Math.max(...targetSets.map((s: SetLog) => s.weight || 0));
-    const maxReps = Math.max(...targetSets
-      .filter((s: SetLog) => (s.weight || 0) === maxWeight)
-      .map((s: SetLog) => s.reps || 0));
+    // Find the set that gives the highest estimated 1RM (Epley)
+    const bestORMSet = targetSets.reduce((prev: SetLog, curr: SetLog) => {
+      const prevEst = calculateEpley(prev.weight || 0, prev.reps || 0) || 0;
+      const currEst = calculateEpley(curr.weight || 0, curr.reps || 0) || 0;
+      return currEst > prevEst ? curr : prev;
+    }, targetSets[0]);
+
+    const maxWeight = bestORMSet.weight || 0;
+    const maxReps = bestORMSet.reps || 0;
       
     const totalSets = targetSets.length;
     const totalReps = targetSets.reduce((acc: number, s: SetLog) => acc + (s.reps || 0), 0);
@@ -721,6 +737,7 @@ export async function updateExerciseRecords(
     const historyEntry = {
       date: sessionDate,
       maxWeight,
+      maxWeightReps: maxReps, // Added for accurate 1RM tracking
       totalSets,
       totalReps,
     };

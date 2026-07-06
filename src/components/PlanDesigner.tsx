@@ -6,6 +6,8 @@ import {
 	Plus,
 	Trash2,
 	ChevronLeft,
+	ChevronUp,
+	ChevronDown,
 	Dumbbell,
 	Loader2,
 	CheckCircle2,
@@ -24,9 +26,10 @@ import { savePlanTemplates } from "@/app/actions/plan";
 import { getExerciseHistory } from "@/app/actions/analytics";
 import { Exercise, ExerciseDefinition } from "@/types/workout";
 import { MuscleGroup } from "@/lib/exercises";
-import { PlanDocument, WorkoutTemplate } from "@/types/workout";
+import { PlanDocument, WorkoutTemplate, MobilityMovement } from "@/types/workout";
 import { addCustomExercise } from "@/app/actions/exercises";
 import { WarmupSetsPanel } from "./WarmupSetsPanel";
+import { MOBILITY_MOVEMENTS } from "@/lib/mobility-warmup-data";
 
 const DAYS = [
 	"Sunday",
@@ -72,12 +75,27 @@ export function PlanDesigner({
 
 	const [isSaving, setIsSubmitting] = useState(false);
 	const [showSuccess, setShowSuccess] = useState(false);
+	const [warmupOpen, setWarmupOpen] = useState(false);
+	const [warmupIds, setWarmupIds] = useState<string[]>(() => {
+		if (initialData?.plan?.mobilityWarmupIds?.length) {
+			return initialData.plan.mobilityWarmupIds;
+		}
+		return [];
+	});
+	const [customWarmups, setCustomWarmups] = useState<MobilityMovement[]>(() => {
+		if (initialData?.plan?.customMobilityWarmups?.length) {
+			return initialData.plan.customMobilityWarmups;
+		}
+		return [];
+	});
 	const [showExerciseSelector, setShowExerciseSelector] = useState(false);
 	const [exerciseModalStep, setExerciseModalStep] = useState<
 		"muscles" | "exercises"
 	>("muscles");
 	const [searchQuery, setSearchQuery] = useState("");
 	const [customExerciseInput, setCustomExerciseInput] = useState("");
+	const [customWarmupInput, setCustomWarmupInput] = useState("");
+	const [customWarmupDuration, setCustomWarmupDuration] = useState(45);
 	const [loadingHistory, setLoadingHistory] = useState<string | null>(null);
 
 	const [selectedMuscles, setSelectedMuscles] = useState<string[]>([]);
@@ -152,6 +170,22 @@ export function PlanDesigner({
 				? prev.filter((e) => e !== exerciseName)
 				: [...prev, exerciseName],
 		);
+	};
+
+	const handleMoveExercise = (idx: number, direction: "up" | "down") => {
+		const exercises = [...currentDayData.exercises];
+		const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+		if (targetIdx < 0 || targetIdx >= exercises.length) return;
+		[exercises[idx], exercises[targetIdx]] = [exercises[targetIdx], exercises[idx]];
+		updateDayData(currentDay, { exercises });
+	};
+
+	const handleAddCustomWarmup = () => {
+		const name = customWarmupInput.trim();
+		if (!name) return;
+		const id = "custom-warmup-" + Date.now() + "-" + Math.random().toString(36).substr(2, 6);
+		setCustomWarmups((prev) => [...prev, { id, name, durationSeconds: customWarmupDuration }]);
+		setCustomWarmupInput("");
 	};
 
 	const handleAddSelected = async () => {
@@ -255,7 +289,7 @@ export function PlanDesigner({
 			}
 
 			await savePlanTemplates(
-				{ startDate, numWeeks, planId: editPlanId || undefined },
+				{ startDate, numWeeks, planId: editPlanId || undefined, mobilityWarmupIds: warmupIds, customMobilityWarmups: customWarmups },
 				allTemplates,
 			);
 			setShowSuccess(true);
@@ -401,6 +435,7 @@ export function PlanDesigner({
 
 			{/* Step 3: Exercises */}
 			{step === "exercises" && (
+			<>
 				<div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
 					{/* Day Navigator */}
 					<div className="flex overflow-x-auto pb-2 space-x-2 no-scrollbar">
@@ -481,16 +516,30 @@ export function PlanDesigner({
 												</div>
 											</div>
 										</div>
-										<button
-											onClick={() => {
-												const newExs = currentDayData.exercises.filter(
-													(_, i) => i !== idx,
-												);
-												updateDayData(currentDay, { exercises: newExs });
-											}}
-											className="p-2 text-foreground/20 hover:text-rose-500">
-											<Trash2 className="w-4 h-4" />
-										</button>
+										<div className="flex items-center space-x-1">
+											<button
+												onClick={() => handleMoveExercise(idx, "up")}
+												disabled={idx === 0}
+												className="p-1.5 text-foreground/20 hover:text-brand-primary transition-colors disabled:opacity-20 disabled:cursor-not-allowed">
+												<ChevronUp className="w-4 h-4" />
+											</button>
+											<button
+												onClick={() => handleMoveExercise(idx, "down")}
+												disabled={idx === currentDayData.exercises.length - 1}
+												className="p-1.5 text-foreground/20 hover:text-brand-primary transition-colors disabled:opacity-20 disabled:cursor-not-allowed">
+												<ChevronDown className="w-4 h-4" />
+											</button>
+											<button
+												onClick={() => {
+													const newExs = currentDayData.exercises.filter(
+														(_, i) => i !== idx,
+													);
+													updateDayData(currentDay, { exercises: newExs });
+												}}
+												className="p-2 text-foreground/20 hover:text-rose-500">
+												<Trash2 className="w-4 h-4" />
+											</button>
+										</div>
 									</div>
 
 									<div className="grid grid-cols-3 gap-4">
@@ -598,6 +647,139 @@ export function PlanDesigner({
 						)}
 					</div>
 				</div>
+
+				{/* Mobility Warmup Selection */}
+				<GlassCard className="space-y-4">
+					<button
+						onClick={() => setWarmupOpen(!warmupOpen)}
+						className="w-full flex items-center justify-between p-4"
+					>
+						<div className="flex items-center space-x-3">
+							<div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center">
+								<Dumbbell className="w-5 h-5 text-brand-primary" />
+							</div>
+							<div className="text-left">
+								<h3 className="text-xs font-black text-foreground uppercase tracking-widest">
+									Mobility Warmup
+								</h3>
+								<p className="text-[10px] font-bold text-foreground/40 uppercase">
+									{warmupIds.length === 0 && customWarmups.length === 0
+										? "Using 6 default movements"
+										: `${warmupIds.length + customWarmups.length} selected`}
+								</p>
+							</div>
+						</div>
+						{warmupOpen ? (
+							<ChevronUp className="w-4 h-4 text-foreground/40" />
+						) : (
+							<ChevronDown className="w-4 h-4 text-foreground/40" />
+						)}
+					</button>
+
+					{warmupOpen && (
+						<div className="px-4 pb-4 space-y-4">
+							<p className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest">
+								Select movements. Leave all empty for defaults.
+							</p>
+
+							{/* Custom warmup input */}
+							<div className="flex items-center space-x-2">
+								<input
+									value={customWarmupInput}
+									onChange={(e) => setCustomWarmupInput(e.target.value)}
+									placeholder="Name (e.g. Ankle Rolls)"
+									className="flex-1 bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-2.5 text-sm text-foreground font-bold outline-none focus:border-brand-primary placeholder:font-medium placeholder:opacity-50"
+								/>
+								<select
+									value={customWarmupDuration}
+									onChange={(e) => setCustomWarmupDuration(Number(e.target.value))}
+									className="bg-foreground/5 border border-foreground/10 rounded-xl px-3 py-2.5 text-sm text-foreground font-bold outline-none focus:border-brand-primary"
+								>
+									<option value={30}>30s</option>
+									<option value={45}>45s</option>
+									<option value={60}>60s</option>
+									<option value={90}>90s</option>
+								</select>
+								<button
+									onClick={handleAddCustomWarmup}
+									disabled={!customWarmupInput.trim()}
+									className="bg-brand-primary text-black px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all disabled:opacity-30 disabled:hover:scale-100"
+								>
+									<Plus className="w-4 h-4" />
+								</button>
+							</div>
+
+							{/* Movement grid — defaults + custom */}
+							{customWarmups.length > 0 && (
+								<div className="space-y-2">
+									<h4 className="text-[8px] font-black text-brand-primary uppercase tracking-widest">Custom</h4>
+									<div className="grid grid-cols-2 gap-2">
+										{customWarmups.map((m, idx) => (
+											<div
+												key={m.id}
+												className="flex items-center justify-between px-3 py-2.5 rounded-xl border border-brand-primary/20 bg-brand-primary/5"
+											>
+												<div className="flex flex-col">
+													<span className="text-[10px] font-bold text-foreground/80">{m.name}</span>
+													<span className="text-[8px] font-medium text-foreground/40">{m.durationSeconds}s</span>
+												</div>
+												<button
+													onClick={() => setCustomWarmups((prev) => prev.filter((_, i) => i !== idx))}
+													className="p-1 text-foreground/20 hover:text-rose-500 transition-colors"
+												>
+													<Trash2 className="w-3.5 h-3.5" />
+												</button>
+											</div>
+										))}
+									</div>
+								</div>
+							)}
+
+							<h4 className="text-[8px] font-black text-foreground/40 uppercase tracking-widest">Defaults</h4>
+							<div className="grid grid-cols-2 gap-2">
+								{MOBILITY_MOVEMENTS.map((m) => {
+									const selected = warmupIds.includes(m.id);
+									return (
+										<button
+											key={m.id}
+											onClick={() => {
+												setWarmupIds((prev) =>
+													prev.includes(m.id)
+														? prev.filter((id) => id !== m.id)
+														: [...prev, m.id]
+												);
+											}}
+											className={cn(
+												"flex items-center space-x-2 px-3 py-2.5 rounded-xl border text-left transition-all",
+												selected
+													? "border-brand-primary/30 bg-brand-primary/10"
+													: "border-foreground/10 bg-foreground/5",
+											)}
+										>
+											<div
+												className={cn(
+													"w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0",
+													selected ? "bg-brand-primary" : "bg-foreground/10",
+												)}
+											>
+												{selected && <Check className="w-3 h-3 text-black" />}
+											</div>
+											<div className="flex flex-col">
+												<span className="text-[10px] font-bold text-foreground/80">
+													{m.name}
+												</span>
+												<span className="text-[8px] font-medium text-foreground/40">
+													{m.durationSeconds}s
+												</span>
+											</div>
+										</button>
+									);
+								})}
+							</div>
+						</div>
+					)}
+				</GlassCard>
+			</>
 			)}
 
 			{/* Sticky Footer */}

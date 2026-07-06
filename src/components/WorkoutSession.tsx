@@ -1,13 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
 	saveWorkoutSession,
 	saveBodyWeight,
 	saveSingleExerciseLog,
 } from "@/app/actions/logs";
 import {
+	saveCustomWorkoutPlan,
+	deleteCustomWorkoutPlan,
+} from "@/app/actions/custom-workout";
+import {
 	type Exercise,
+	type ExerciseDefinition,
 	type WorkoutTemplate,
 	type WorkoutLog,
 	type WorkoutMode,
@@ -19,12 +24,17 @@ import {
 	Trash2,
 	Trophy,
 	ChevronLeft,
+	ChevronUp,
+	ChevronDown,
 	Save,
 	CheckCircle2,
 	ArrowRight,
 	Edit2,
 	Dumbbell,
 	Play,
+	RefreshCw,
+	SkipForward,
+	XCircle,
 } from "lucide-react";
 import { GlassCard } from "./ui/GlassCard";
 import { cn } from "@/lib/utils";
@@ -33,12 +43,15 @@ import { WorkoutCelebration } from "./WorkoutCelebration";
 import { useRestTimer } from "@/hooks/useRestTimer";
 import { RestTimerBar } from "./RestTimerBar";
 import { WarmupSetsPanel } from "./WarmupSetsPanel";
+import { MobilityWarmupPanel } from "./workout/MobilityWarmupPanel";
+import { resolveMovements, type MobilityMovement } from "@/lib/mobility-warmup-data";
 import { useSessionStats } from "@/hooks/useSessionStats";
 import { PRsFeedDisplay } from "./workout/PRsFeedDisplay";
 import PageWithSidebar from "./layout/PageWithSidebar";
 import { requestNotificationPermission } from "@/lib/notifications";
 import { ExerciseHistoryCard } from "./workout/ExerciseHistoryCard";
 import { Confetti } from "./ui/Confetti";
+import ChangeWorkoutModal from "./ChangeWorkoutModal";
 
 const DAYS = [
 	"Sunday",
@@ -58,6 +71,8 @@ interface WorkoutSessionProps {
 	date?: string;
 	mode?: WorkoutMode;
 	userDefaultRest?: number;
+	allExercises?: ExerciseDefinition[];
+	customExerciseNames?: string[] | null;
 }
 
 export default function WorkoutSession({
@@ -68,6 +83,8 @@ export default function WorkoutSession({
 	date,
 	mode = "LIVE_SESSION",
 	userDefaultRest = 90,
+	allExercises = [],
+	customExerciseNames = null,
 }: WorkoutSessionProps) {
 	// Sync logic for initial weight and step
 	const effectiveBodyWeight =
@@ -78,27 +95,51 @@ export default function WorkoutSession({
 	const [activeExerciseIndex, setActiveExerciseIndex] = useState<number | null>(
 		null,
 	);
-	const [exercises, setExercises] = useState<Exercise[]>(
-		template?.exercises.map((ex) => {
-			const loggedEx = initialWorkoutLog?.exercises?.find(
-				(le: any) => le.exerciseId === ex.exerciseId,
-			);
-			const initialSets = loggedEx
-				? loggedEx.sets
-				: Array.from({ length: ex.targetSets || 1 }).map(() => ({
+	const initialExercises = (() => {
+		if (customExerciseNames && customExerciseNames.length > 0) {
+			return customExerciseNames.map((name, idx) => ({
+				exerciseId: "custom-" + idx + "-" + Date.now(),
+				name,
+				targetSets: 3,
+				targetReps: 10,
+				lastWeight: 0,
+				pr: initialPRs[name]?.weight || 0,
+				prReps: initialPRs[name]?.reps || 0,
+				restDuration: 90,
+				unit: "reps" as const,
+				isDone: false,
+				sets: Array.from({ length: 3 }).map(() => ({
+					weight: 0,
+					reps: 10,
+					completed: activeMode === "MANUAL_LOG",
+				})),
+			}));
+		}
+		if (template?.exercises) {
+			return template.exercises.map((ex) => {
+				const loggedEx = initialWorkoutLog?.exercises?.find(
+					(le: any) => le.exerciseId === ex.exerciseId,
+				);
+				const initialSets = loggedEx
+					? loggedEx.sets
+					: Array.from({ length: ex.targetSets || 1 }).map(() => ({
 						weight: ex.lastWeight || 0,
 						reps: ex.targetReps || 0,
 						completed: activeMode === "MANUAL_LOG",
 					}));
-			return {
-				...ex,
-				sets: initialSets,
-				pr: initialPRs[ex.exerciseId]?.weight || 0,
-				prReps: initialPRs[ex.exerciseId]?.reps || 0,
-				isDone: !!loggedEx,
-			};
-		}) || [],
-	);
+				return {
+					...ex,
+					sets: initialSets,
+					pr: initialPRs[ex.exerciseId]?.weight || 0,
+					prReps: initialPRs[ex.exerciseId]?.reps || 0,
+					isDone: !!loggedEx,
+				};
+			});
+		}
+		return [];
+	})();
+
+	const [exercises, setExercises] = useState<Exercise[]>(initialExercises);
 	const [bodyWeight, setBodyWeight] = useState<number>(effectiveBodyWeight);
 	const [updateTemplate, setUpdateTemplate] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -108,13 +149,32 @@ export default function WorkoutSession({
 	const [showCelebration, setShowCelebration] = useState(false);
 	const [plateauDetected, setPlateauDetected] = useState(false);
 	const [triggerConfetti, setTriggerConfetti] = useState(false);
+	const [showChangeWorkout, setShowChangeWorkout] = useState(false);
+	const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
+	const [hasChangedWorkout, setHasChangedWorkout] = useState(
+		!!(customExerciseNames && customExerciseNames.length > 0),
+	);
+	const [showMobilityWarmup, setShowMobilityWarmup] = useState(false);
+	const [warmupIndex, setWarmupIndex] = useState(0);
+	const [warmupDone, setWarmupDone] = useState<Set<string>>(new Set());
+
+	const warmupMovements = useMemo(
+		() => resolveMovements((template as any)?.mobilityWarmupIds, (template as any)?.customMobilityWarmups),
+		[template],
+	);
+	const isLastWarmup = warmupIndex === warmupMovements.length - 1;
+
+	const splitName = template?.splitName || (hasChangedWorkout ? "Custom Workout" : "Workout");
+	const dayOfWeek = template?.dayOfWeek ?? new Date().getDay();
+	const weekNumber = template?.weekNumber || 1;
+	const userId = template?.userId || "";
 
 	const sessionStats = useSessionStats(
 		exercises,
 		initialWorkoutLog?.id || "",
 		"", // userId handled serverside
-		template?.splitName || "Workout",
-		template?.splitName,
+		splitName || "Workout",
+		splitName,
 		date,
 		userDefaultRest,
 		initialWorkoutLog?.startedAt,
@@ -197,15 +257,41 @@ export default function WorkoutSession({
 		});
 	};
 
+	const moveExercise = (idx: number, direction: "up" | "down") => {
+		const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+		if (targetIdx < 0 || targetIdx >= exercises.length) return;
+		setExercises((prev) => {
+			const next = [...prev];
+			[next[idx], next[targetIdx]] = [next[targetIdx], next[idx]];
+			return next;
+		});
+	};
+
 	const handleSubmit = async () => {
+		const unfinishedExercises = exercises.filter((ex) => !(ex as any).isDone);
+		if (unfinishedExercises.length > 0) {
+			setShowCompleteConfirm(true);
+			return;
+		}
+		await doSaveWorkout();
+	};
+
+	const doSaveWorkout = async () => {
 		setIsSubmitting(true);
+		setShowCompleteConfirm(false);
 		try {
 			await saveWorkoutSession(
 				{
 					bodyWeight,
-					exercises,
-					splitName: template?.splitName,
-					name: template?.splitName || "Workout Session",
+					exercises: exercises.map((ex) => ({
+						exerciseId: ex.exerciseId,
+						name: ex.name,
+						sets: ex.sets.map((s) => ({ weight: s.weight, reps: s.reps })),
+						isDone: (ex as any).isDone,
+						isSkipped: ex.isSkipped,
+					})),
+					splitName,
+					name: splitName || "Workout Session",
 					startedAt: sessionStats.stats.startedAt || undefined,
 				},
 				updateTemplate,
@@ -254,9 +340,12 @@ export default function WorkoutSession({
 
 			// PR Detection - Only if NOT skipped
 			if (!exercise.isSkipped) {
-				const isWeightPR = maxWeightThisSession > (exercise.pr || 0);
+				const currentPR = exercise.pr ?? 0;
+				const hasBaseline = currentPR > 0;
+				const isWeightPR = hasBaseline && maxWeightThisSession > currentPR;
 				const isRepPR =
-					maxWeightThisSession === (exercise.pr || 0) &&
+					hasBaseline &&
+					maxWeightThisSession === currentPR &&
 					maxRepsAtMaxWeight > (exercise.prReps || 0);
 
 				if (isWeightPR || isRepPR) {
@@ -264,7 +353,7 @@ export default function WorkoutSession({
 						exerciseName: exercise.name,
 						newPRWeight: maxWeightThisSession,
 						newPRReps: maxRepsAtMaxWeight,
-						previousPRWeight: exercise.pr || null,
+						previousPRWeight: currentPR > 0 ? currentPR : null,
 						previousPRReps: exercise.prReps || null,
 						timestamp: new Date(),
 					});
@@ -285,10 +374,10 @@ export default function WorkoutSession({
 					isNew: true, // Mark as completed in current session
 					...(hasNewPR
 						? {
-								pr: maxWeightThisSession,
-								prReps: maxRepsAtMaxWeight,
-								isNewPR: true,
-							}
+							pr: maxWeightThisSession,
+							prReps: maxRepsAtMaxWeight,
+							isNewPR: true,
+						}
 						: {}),
 				} as any;
 				return newExs;
@@ -302,6 +391,129 @@ export default function WorkoutSession({
 		} finally {
 			setIsSubmittingExercise(false);
 		}
+	};
+
+	const handleChangeWorkout = async (selectedNames: string[]) => {
+		try {
+			if (selectedNames.length === 0 && template?.exercises) {
+				await deleteCustomWorkoutPlan(date);
+				const restoredExercises: Exercise[] = template.exercises.map((ex) => {
+					const loggedEx = initialWorkoutLog?.exercises?.find(
+						(le: any) => le.exerciseId === ex.exerciseId,
+					);
+					return {
+						...ex,
+						sets: loggedEx
+							? loggedEx.sets
+							: Array.from({ length: ex.targetSets || 1 }).map(() => ({
+								weight: ex.lastWeight || 0,
+								reps: ex.targetReps || 0,
+								completed: activeMode === "MANUAL_LOG",
+							})),
+						pr: initialPRs[ex.exerciseId]?.weight || 0,
+						prReps: initialPRs[ex.exerciseId]?.reps || 0,
+						isDone: !!loggedEx,
+					};
+				});
+				setExercises(restoredExercises);
+				setHasChangedWorkout(false);
+				return;
+			}
+
+			if (selectedNames.length === 0) {
+				await deleteCustomWorkoutPlan(date);
+				setExercises([]);
+				setHasChangedWorkout(false);
+				return;
+			}
+
+			await saveCustomWorkoutPlan(selectedNames, date);
+
+			const currentNames = exercises.map((ex) => ex.name);
+			const namesToKeep = currentNames.filter((n) =>
+				selectedNames.includes(n),
+			);
+			const namesToAdd = selectedNames.filter(
+				(n) => !currentNames.includes(n),
+			);
+
+			const keptExercises = exercises.filter((ex) =>
+				namesToKeep.includes(ex.name),
+			);
+			const newExercises: Exercise[] = namesToAdd.map((name, idx) => ({
+				exerciseId: "custom-" + idx + "-" + Date.now(),
+				name,
+				targetSets: 3,
+				targetReps: 10,
+				lastWeight: 0,
+				pr: 0,
+				prReps: 0,
+				restDuration: 90,
+				unit: "reps" as const,
+				sets: Array.from({ length: 3 }).map(() => ({
+					weight: 0,
+					reps: 10,
+					completed: activeMode === "MANUAL_LOG",
+				})),
+			}));
+
+			setExercises([...keptExercises, ...newExercises]);
+			setHasChangedWorkout(true);
+		} catch (error) {
+			console.error("Failed to save custom workout:", error);
+			alert("Failed to save custom workout.");
+		}
+	};
+
+	const handleRemoveCustomWorkout = async () => {
+		try {
+			await deleteCustomWorkoutPlan(date);
+			if (template?.exercises) {
+				const restoredExercises: Exercise[] = template.exercises.map((ex) => {
+					const loggedEx = initialWorkoutLog?.exercises?.find(
+						(le: any) => le.exerciseId === ex.exerciseId,
+					);
+					return {
+						...ex,
+						sets: loggedEx
+							? loggedEx.sets
+							: Array.from({ length: ex.targetSets || 1 }).map(() => ({
+								weight: ex.lastWeight || 0,
+								reps: ex.targetReps || 0,
+								completed: activeMode === "MANUAL_LOG",
+							})),
+						pr: initialPRs[ex.exerciseId]?.weight || 0,
+						prReps: initialPRs[ex.exerciseId]?.reps || 0,
+						isDone: !!loggedEx,
+					};
+				});
+				setExercises(restoredExercises);
+			} else {
+				setExercises([]);
+			}
+			setHasChangedWorkout(false);
+		} catch (error) {
+			console.error("Failed to remove custom workout:", error);
+			alert("Failed to remove custom workout.");
+		}
+	};
+
+	const handleWarmupNext = () => {
+		const current = warmupMovements[warmupIndex];
+		if (current) {
+			setWarmupDone((prev) => new Set(prev).add(current.id));
+		}
+		if (isLastWarmup) {
+			setShowMobilityWarmup(false);
+			setStep(effectiveBodyWeight > 0 ? 2 : 1);
+		} else {
+			setWarmupIndex((i) => Math.min(i + 1, warmupMovements.length - 1));
+		}
+	};
+
+	const handleWarmupSkip = () => {
+		setShowMobilityWarmup(false);
+		setStep(effectiveBodyWeight > 0 ? 2 : 1);
 	};
 
 	const handleSkipExercise = async (idx: number) => {
@@ -323,12 +535,12 @@ export default function WorkoutSession({
 		}
 	};
 
-	if (!template || exercises.length === 0) {
+	if (!template && !hasChangedWorkout) {
 		return (
 			<PageWithSidebar>
 				<GlassCard className="p-12 md:mt-12 flex flex-col items-center justify-center text-center space-y-6 border-brand-primary/10 bg-brand-primary/5 max-w-2xl mx-auto min-h-[50vh]">
 					<div className="w-20 h-20 rounded-3xl bg-brand-primary/10 flex items-center justify-center">
-						<CheckCircle2 className="w-10 h-10 text-brand-primary" />
+						<Dumbbell className="w-10 h-10 text-brand-primary" />
 					</div>
 					<div className="space-y-2">
 						<h2 className="text-2xl font-black text-foreground uppercase tracking-widest">
@@ -339,12 +551,25 @@ export default function WorkoutSession({
 							prepare for your next session.
 						</p>
 					</div>
+					<button
+						onClick={() => setShowChangeWorkout(true)}
+						className="px-8 py-4 bg-brand-primary text-black rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-[0_10px_30px_rgba(249,115,22,0.3)] hover:scale-105 active:scale-95 transition-all inline-flex items-center">
+						<Dumbbell className="w-4 h-4 mr-2" />
+						Train Something Today
+					</button>
 					<Link
 						href="/dashboard"
-						className="px-8 py-4 bg-brand-primary text-black rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-[0_10px_30px_rgba(249,115,22,0.3)] hover:scale-105 active:scale-95 transition-all mt-4 inline-flex items-center">
+						className="px-8 py-4 bg-foreground/10 text-foreground/60 rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:scale-105 active:scale-95 transition-all mt-4 inline-flex items-center">
 						Back to Dashboard
 					</Link>
 				</GlassCard>
+				<ChangeWorkoutModal
+					open={showChangeWorkout}
+					exercises={allExercises}
+					preSelectedExerciseNames={exercises.map((ex) => ex.name)}
+					onClose={() => setShowChangeWorkout(false)}
+					onConfirm={handleChangeWorkout}
+				/>
 			</PageWithSidebar>
 		);
 	}
@@ -352,6 +577,59 @@ export default function WorkoutSession({
 	const completedCount = exercises.filter((ex) => (ex as any).isDone).length;
 	const totalCount = exercises.length;
 	const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+
+	if (showMobilityWarmup && activeMode === "LIVE_SESSION") {
+		const warmupExercises = warmupMovements.map((m) => ({
+			isDone: warmupDone.has(m.id),
+		})) as Exercise[];
+		const warmupFooter = (
+			<div className="max-w-lg mx-auto flex gap-3 w-full">
+				<button
+					onClick={handleWarmupSkip}
+					className="w-[40%] py-4 rounded-2xl border border-foreground/10 text-foreground/50 hover:text-foreground hover:border-foreground/20 active:scale-95 transition-all text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
+				>
+					<SkipForward className="w-4 h-4" />
+					Skip All
+				</button>
+				<button
+					onClick={handleWarmupNext}
+					className="w-[60%] py-4 rounded-2xl bg-brand-primary text-black font-black text-xs uppercase tracking-[0.2em] shadow-[0_10px_30px_rgba(249,115,22,0.3)] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center"
+				>
+					{isLastWarmup ? (
+						<>
+							<CheckCircle2 className="w-4 h-4 mr-2" /> Done
+						</>
+					) : (
+						<>
+							Next <ArrowRight className="w-4 h-4 ml-2" />
+						</>
+					)}
+				</button>
+			</div>
+		);
+		return (
+			<PageWithSidebar>
+				<SessionLayout
+					title="Mobility Warmup"
+					maxWidth="max-w-lg"
+					onBack={() => { setShowMobilityWarmup(false); setStep(0); }}
+					exercises={warmupExercises}
+					completedCount={warmupDone.size}
+					totalCount={warmupMovements.length}
+					progress={warmupMovements.length > 0 ? (warmupDone.size / warmupMovements.length) * 100 : 0}
+					mode={activeMode}
+					timer={null}
+					footer={warmupFooter}>
+					<MobilityWarmupPanel
+						movements={warmupMovements}
+						currentIndex={warmupIndex}
+						completedMovements={warmupDone}
+						onSelectMovement={(idx) => setWarmupIndex(idx)}
+					/>
+				</SessionLayout>
+			</PageWithSidebar>
+		);
+	}
 
 	if (step === 0) {
 		const footer = (
@@ -392,11 +670,12 @@ export default function WorkoutSession({
 
 				<button
 					onClick={async () => {
-						// Request notification permission on user gesture
 						await requestNotificationPermission();
-						setStep(effectiveBodyWeight > 0 ? 2 : 1);
 						if (activeMode === "LIVE_SESSION") {
+							setShowMobilityWarmup(true);
 							sessionStats.startSession();
+						} else {
+							setStep(effectiveBodyWeight > 0 ? 2 : 1);
 						}
 					}}
 					className="w-full md:w-auto px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center bg-brand-primary text-black hover:scale-105 active:scale-95 shadow-[0_20px_40px_rgba(249,115,22,0.3)]">
@@ -408,7 +687,7 @@ export default function WorkoutSession({
 		return (
 			<SessionLayout
 				title="Ready for your workout?"
-				subtitle={`${DAYS[template.dayOfWeek]} • ${template.splitName}`}
+				subtitle={`${DAYS[dayOfWeek]} • ${splitName}`}
 				footer={footer}
 				exercises={exercises}
 				completedCount={completedCount}
@@ -504,7 +783,42 @@ export default function WorkoutSession({
 							</GlassCard>
 						))}
 					</div>
+
+					<div className="flex gap-3">
+						{!hasChangedWorkout && (
+							<button
+								onClick={() => setShowChangeWorkout(true)}
+								className="flex-1 py-4 rounded-2xl border border-dashed border-foreground/20 text-foreground/40 hover:text-foreground hover:border-brand-primary hover:bg-brand-primary/5 transition-all text-[10px] font-black uppercase tracking-widest flex items-center justify-center">
+								<Dumbbell className="w-4 h-4 mr-2" />
+								Change Today's Workout
+							</button>
+						)}
+						{hasChangedWorkout && (
+							<>
+								<button
+									onClick={() => setShowChangeWorkout(true)}
+									className="flex-1 py-4 rounded-2xl border border-dashed border-foreground/20 text-foreground/40 hover:text-foreground hover:border-brand-primary hover:bg-brand-primary/5 transition-all text-[10px] font-black uppercase tracking-widest flex items-center justify-center">
+									<RefreshCw className="w-4 h-4 mr-2" />
+									Change Exercises
+								</button>
+								<button
+									onClick={handleRemoveCustomWorkout}
+									className="flex-1 py-4 rounded-2xl border border-dashed border-rose-500/20 text-rose-400/60 hover:text-rose-400 hover:border-rose-500/40 hover:bg-rose-500/5 transition-all text-[10px] font-black uppercase tracking-widest flex items-center justify-center">
+									<XCircle className="w-4 h-4 mr-2" />
+									Remove Custom
+								</button>
+							</>
+						)}
+					</div>
 				</div>
+
+				<ChangeWorkoutModal
+					open={showChangeWorkout}
+					exercises={allExercises}
+					preSelectedExerciseNames={exercises.map((ex) => ex.name)}
+					onClose={() => setShowChangeWorkout(false)}
+					onConfirm={handleChangeWorkout}
+				/>
 			</SessionLayout>
 		);
 	}
@@ -640,9 +954,9 @@ export default function WorkoutSession({
 				acc +
 				(ex.isDone && !ex.isSkipped
 					? ex.sets.reduce(
-							(sAcc: any, s: any) => sAcc + (s.weight || 0) * (s.reps || 0),
-							0,
-						)
+						(sAcc: any, s: any) => sAcc + (s.weight || 0) * (s.reps || 0),
+						0,
+					)
 					: 0),
 			0,
 		);
@@ -676,6 +990,8 @@ export default function WorkoutSession({
 				isPR: ex.isNewPR,
 			}));
 
+		const unfinishedCount = exercises.filter((ex) => !(ex as any).isDone).length;
+
 		return (
 			<PageWithSidebar>
 				<Confetti trigger={triggerConfetti} />
@@ -683,15 +999,45 @@ export default function WorkoutSession({
 					<WorkoutCelebration
 						stats={celebrationStats}
 						exerciseDetails={celebrationExerciseDetails}
-						splitName={template?.splitName}
+						splitName={splitName}
 						onClose={() => setShowCelebration(false)}
 						targetUrl="/analytics"
 					/>
 				)}
 
+				{showCompleteConfirm && (
+					<div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+						<div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowCompleteConfirm(false)} />
+						<div className="bg-background border border-foreground/10 rounded-2xl p-6 max-w-sm w-full relative z-[101] space-y-6 shadow-2xl">
+							<div className="space-y-2 text-center">
+								<h3 className="text-lg font-black text-foreground uppercase tracking-tight">
+									Finish Early?
+								</h3>
+								<p className="text-sm font-medium text-foreground/60">
+									{unfinishedCount} exercise{unfinishedCount !== 1 ? "s" : ""} not logged — finish anyway?
+								</p>
+							</div>
+							<div className="flex gap-3">
+								<button
+									onClick={() => setShowCompleteConfirm(false)}
+									className="flex-1 py-3 rounded-xl border border-foreground/10 text-foreground/60 hover:text-foreground hover:border-foreground/20 transition-all text-[10px] font-black uppercase tracking-widest"
+								>
+									Keep Going
+								</button>
+								<button
+									onClick={doSaveWorkout}
+									className="flex-1 py-3 rounded-xl bg-brand-primary text-black font-black text-[10px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-[0_10px_20px_rgba(249,115,22,0.3)]"
+								>
+									Finish Anyway
+								</button>
+							</div>
+						</div>
+					</div>
+				)}
+
 				<SessionLayout
-					title={(template as any).splitName || "Session"}
-					subtitle={`Week ${template.weekNumber} • ${DAYS[template.dayOfWeek]}`}
+					title={splitName || "Session"}
+					subtitle={`Week ${weekNumber} • ${DAYS[dayOfWeek]}`}
 					footer={footer}
 					exercises={exercises}
 					completedCount={completedCount}
@@ -739,7 +1085,23 @@ export default function WorkoutSession({
 											? "border-emerald-500/20 bg-emerald-500/5 shadow-none"
 											: "hover:bg-foreground/5 shadow-xl",
 								)}>
-								<div className="flex items-center space-x-4">
+								<div className="flex items-center space-x-2">
+									<div className="flex flex-col items-center space-y-0.5 mr-1">
+										<button
+											onClick={(e) => { e.stopPropagation(); moveExercise(exIndex, "up"); }}
+											disabled={exIndex === 0}
+											className="p-0.5 text-foreground/20 hover:text-brand-primary transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+										>
+											<ChevronUp className="w-3 h-3" />
+										</button>
+										<button
+											onClick={(e) => { e.stopPropagation(); moveExercise(exIndex, "down"); }}
+											disabled={exIndex === exercises.length - 1}
+											className="p-0.5 text-foreground/20 hover:text-brand-primary transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+										>
+											<ChevronDown className="w-3 h-3" />
+										</button>
+									</div>
 									<div
 										className={cn(
 											"w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300",
@@ -987,7 +1349,7 @@ export default function WorkoutSession({
 
 					<ExerciseHistoryCard
 						exerciseName={ex.name}
-						userId={template.userId}
+						userId={userId}
 						mode={activeMode}
 						onPlateauDetected={setPlateauDetected}
 					/>

@@ -1,6 +1,8 @@
 import { getPlanByDate } from "@/app/actions/plan";
 import { getTodayBodyWeight, getTodayWorkoutLog } from "@/app/actions/logs";
 import { getHighestWeightPRsBulk } from "@/app/actions/analytics";
+import { getExercises } from "@/app/actions/exercises";
+import { getCustomWorkoutPlan } from "@/app/actions/custom-workout";
 import WorkoutSession from "@/components/WorkoutSession";
 import { WorkoutMode } from "@/types/workout";
 import { Header } from "@/components/Header";
@@ -17,17 +19,18 @@ export default async function WorkoutPage({
 
 	const resolvedParams = await searchParams;
 	const date = resolvedParams.date;
-
-	// Fetch base data in parallel
-	const [plan, initialBodyWeight, initialWorkoutLog, userSettings] = await Promise.all([
-		getPlanByDate(date),
-		getTodayBodyWeight(date),
-		getTodayWorkoutLog(date),
-		getUserSettings()
-	]);
-
 	const today = format(new Date(), "yyyy-MM-dd");
 	const explicitMode = resolvedParams.mode || (date && date !== today ? 'MANUAL_LOG' : 'LIVE_SESSION');
+	const isFuturePrep = date && date > today && explicitMode === 'LIVE_SESSION';
+
+	const [plan, initialBodyWeight, initialWorkoutLog, userSettings, allExercises, customPlan] = await Promise.all([
+		getPlanByDate(date),
+		isFuturePrep ? Promise.resolve(null) : getTodayBodyWeight(date),
+		isFuturePrep ? Promise.resolve(null) : getTodayWorkoutLog(date),
+		getUserSettings(),
+		getExercises(),
+		isFuturePrep ? Promise.resolve(null) : getCustomWorkoutPlan(date),
+	]);
 
 	let initialPRs: Record<string, { weight: number; reps: number }> = {};
 	if (plan && plan.exercises) {
@@ -48,9 +51,11 @@ export default async function WorkoutPage({
 					initialBodyWeight={initialBodyWeight}
 					initialWorkoutLog={initialWorkoutLog}
 					initialPRs={initialPRs}
-					date={date}
+					date={isFuturePrep ? undefined : date}
 					mode={explicitMode}
 					userDefaultRest={userSettings.defaultRestDuration}
+					allExercises={allExercises}
+					customExerciseNames={customPlan?.exerciseNames || null}
 				/>
 			</div>
 		</div>
