@@ -108,10 +108,11 @@ export const POST = withAuth(async (req) => {
       )
 
       // history[0] is THIS session (just updated), history[1] is the previous one
-      const previous1RM = record?.history?.length > 1
+      const prevHistory = record?.history
+      const previous1RM = prevHistory && prevHistory.length > 1
         ? calculateEpley(
-            record.history[1].maxWeight,
-            record.history[1].maxWeightReps ?? 1
+            prevHistory[1].maxWeight,
+            prevHistory[1].maxWeightReps ?? 1
           )
         : null
 

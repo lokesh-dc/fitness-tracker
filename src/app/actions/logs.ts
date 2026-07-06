@@ -703,7 +703,7 @@ export async function updateExerciseRecords(
     if (targetSets.length === 0) continue;
 
     // Find the set that gives the highest estimated 1RM (Epley)
-    const bestORMSet = targetSets.reduce((prev, curr) => {
+    const bestORMSet = targetSets.reduce((prev: SetLog, curr: SetLog) => {
       const prevEst = calculateEpley(prev.weight || 0, prev.reps || 0) || 0;
       const currEst = calculateEpley(curr.weight || 0, curr.reps || 0) || 0;
       return currEst > prevEst ? curr : prev;
