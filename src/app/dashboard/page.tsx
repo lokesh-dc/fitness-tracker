@@ -27,9 +27,11 @@ import {
 	getMonthWorkoutDates,
 	getWeekSnapshot,
 	getNextPlannedWorkout,
+	getTomorrowPlanDetail,
 } from "@/app/actions/analytics";
 import { getOnboardingProfile } from "@/app/actions/profile";
 import OnboardingBanner from "@/components/onboarding/OnboardingBanner";
+import { TomorrowPrompt } from "@/components/dashboard/TomorrowPrompt";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +80,7 @@ export default async function DashboardPage() {
 		nextWorkout,
 		randomQuote,
 		userProfile,
+		tomorrowPlan,
 	] = await Promise.all([
 		getPlanByDate().catch(() => null),
 		getActivePlanInfo().catch(() => null),
@@ -99,6 +102,7 @@ export default async function DashboardPage() {
 		getNextPlannedWorkout().catch(() => null),
 		getDailyQuote(),
 		getOnboardingProfile().catch(() => null),
+		getTomorrowPlanDetail().catch(() => null),
 	]);
 
 	const today = new Date();
@@ -141,6 +145,15 @@ export default async function DashboardPage() {
 					<div className="space-y-8">
 						{showOnboardingBanner && <OnboardingBanner />}
 						<NotificationPrompt />
+						<TomorrowPrompt
+							tomorrowPlan={tomorrowPlan ? {
+								planName: tomorrowPlan.planName,
+								splitName: tomorrowPlan.splitName,
+								totalExercises: tomorrowPlan.totalExercises,
+							} : null}
+							isTodayDone={!!isTodayDone}
+							isRestDay={!plan || (plan as any)?.exercises?.length === 0}
+						/>
 
 						<section>
 							<GlassCard className="relative overflow-hidden p-6 border-foreground/5 bg-gradient-to-br from-brand-primary/10 to-transparent">

@@ -37,7 +37,15 @@ export interface PlanDocument {
   name?: string;
   startDate: string;
   numWeeks: number;
+  mobilityWarmupIds?: string[];
+  customMobilityWarmups?: MobilityMovement[];
   createdAt: string | Date;
+}
+
+export interface MobilityMovement {
+  id: string;
+  name: string;
+  durationSeconds: number;
 }
 
 export interface WorkoutTemplate {
@@ -48,6 +56,8 @@ export interface WorkoutTemplate {
   dayOfWeek: number;
   splitName?: string;
   exercises: Exercise[];
+  mobilityWarmupIds?: string[];
+  customMobilityWarmups?: MobilityMovement[];
 }
 
 export interface WorkoutLog {

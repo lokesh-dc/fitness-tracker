@@ -182,6 +182,8 @@ export async function saveWorkoutSession(
       exerciseId: string;
       name: string;
       sets: Array<{ weight: number; reps: number }>;
+      isDone?: boolean;
+      isSkipped?: boolean;
     }>;
     startedAt?: Date | string; // Optional startedAt from client
   },
@@ -688,8 +690,8 @@ export async function updateExerciseRecords(
   const sessionDate = date instanceof Date ? date : new Date(date);
 
   for (const exercise of exercises) {
-    // Skip exercises marked as skipped OR with no sets
-    if (exercise.isSkipped || !exercise.sets || exercise.sets.length === 0) continue;
+    // Skip exercises not actually completed (isDone !== true), skipped, or with no sets
+    if (exercise.isSkipped || exercise.isDone === false || !exercise.sets || exercise.sets.length === 0) continue;
 
     // Use completed sets if any exist, otherwise use all sets that have values
     // This handles users forgetting to check the boxes but still finishing the workout.

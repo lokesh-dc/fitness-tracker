@@ -612,6 +612,7 @@ export async function getNextPlannedWorkout(): Promise<{
   scheduledDay: string;
   exercises: string[];
   totalExercises: number;
+  detail: Array<{ name: string; targetSets: number; targetReps: number; unit?: string }>;
 } | null> {
   try {
     const session = await getServerSession(authOptions);
@@ -684,10 +685,72 @@ export async function getNextPlannedWorkout(): Promise<{
       name: nextTemplate.splitName || "Workout",
       scheduledDay,
       exercises: nextTemplate.exercises.slice(0, 3).map((e: any) => e.name),
-      totalExercises: nextTemplate.exercises.length
+      totalExercises: nextTemplate.exercises.length,
+      detail: nextTemplate.exercises.map((e: any) => ({
+        name: e.name,
+        targetSets: e.targetSets,
+        targetReps: e.targetReps,
+        unit: e.unit,
+      })),
     };
   } catch (error) {
     console.error("Error fetching next planned workout:", error);
+    return null;
+  }
+}
+
+export async function getTomorrowPlanDetail(): Promise<{
+  planName: string;
+  splitName: string;
+  exercises: Array<{ name: string; targetSets: number; targetReps: number; unit?: string }>;
+  totalExercises: number;
+} | null> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return null;
+    const userId = new ObjectId((session.user as any).id);
+
+    const db = await getDb();
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+
+    const activePlan = await db.collection("PlanDocument").findOne(
+      { userId, startDate: { $lte: todayStr } },
+      { sort: { startDate: -1 } }
+    );
+    if (!activePlan) return null;
+
+    const startDate = new Date(activePlan.startDate + "T00:00:00");
+    const diffTime = Math.abs(now.getTime() - startDate.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const weekIndex = Math.floor(diffDays / 7) + 1;
+
+    if (weekIndex > activePlan.numWeeks) return null;
+
+    const tomorrowDay = (new Date().getDay() + 1) % 7;
+
+    const template = await db.collection("WorkoutTemplate").findOne({
+      planId: activePlan._id.toString(),
+      userId,
+      dayOfWeek: tomorrowDay,
+      $or: [{ weekNumber: weekIndex }, { weekNumber: 1 }]
+    }, { sort: { weekNumber: -1 } });
+
+    if (!template || !template.exercises || template.exercises.length === 0) return null;
+
+    return {
+      planName: activePlan.name || "Plan",
+      splitName: template.splitName || "Workout",
+      exercises: template.exercises.map((ex: any) => ({
+        name: ex.name,
+        targetSets: ex.targetSets,
+        targetReps: ex.targetReps,
+        unit: ex.unit,
+      })),
+      totalExercises: template.exercises.length,
+    };
+  } catch (error) {
+    console.error("Error fetching tomorrow plan detail:", error);
     return null;
   }
 }

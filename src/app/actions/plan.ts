@@ -2,7 +2,7 @@
 
 import { ObjectId, WithId, Document } from "mongodb";
 import { getDb, getCurrentDayOfWeek, getCurrentWeekIndex } from "@/lib/db-utils";
-import { PlanDocument, WorkoutTemplate, Exercise } from "@/types/workout";
+import { PlanDocument, WorkoutTemplate, Exercise, MobilityMovement } from "@/types/workout";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
@@ -73,6 +73,8 @@ export async function getPlanByDate(date?: string | Date, overrideUserId?: strin
       id: _id.toString(),
       userId: template.userId ? template.userId.toString() : "",
       weekNumber: weekIndex, // Use the calculated current week
+      mobilityWarmupIds: activePlan.mobilityWarmupIds || [],
+      customMobilityWarmups: activePlan.customMobilityWarmups || [],
     })) as WorkoutTemplate;
   } catch (error) {
     console.error("Error fetching today's plan:", error);
@@ -169,7 +171,7 @@ export async function getPlanReport(planId: string) {
 }
 
 export async function savePlanTemplates(
-  planData: { startDate: string; numWeeks: number; name?: string; planId?: string },
+  planData: { startDate: string; numWeeks: number; name?: string; planId?: string; mobilityWarmupIds?: string[]; customMobilityWarmups?: MobilityMovement[] },
   templates: Partial<WorkoutTemplate>[]
 ) {
   try {
@@ -190,6 +192,8 @@ export async function savePlanTemplates(
             name: planData.name || `Plan starting ${planData.startDate}`,
             startDate: planData.startDate,
             numWeeks: planData.numWeeks,
+            mobilityWarmupIds: planData.mobilityWarmupIds || [],
+            customMobilityWarmups: planData.customMobilityWarmups || [],
             updatedAt: new Date()
           }
         }
@@ -202,6 +206,8 @@ export async function savePlanTemplates(
         name: planData.name || `Plan starting ( ${planData.startDate}) `,
         startDate: planData.startDate,
         numWeeks: planData.numWeeks,
+        mobilityWarmupIds: planData.mobilityWarmupIds || [],
+        customMobilityWarmups: planData.customMobilityWarmups || [],
         createdAt: new Date(),
       });
       planId = planResult.insertedId.toString();
