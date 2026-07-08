@@ -365,15 +365,20 @@ function calculateOneRM(weight: number, reps: number): number {
 /**
  * STREAK DATA
  */
-export async function getStreakData(): Promise<{
+export async function getStreakData(overrideUserId?: string): Promise<{
   currentStreak: number;
   longestStreak: number;
   lastWorkoutDate: string | null;
 }> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return { currentStreak: 0, longestStreak: 0, lastWorkoutDate: null };
-    const userId = new ObjectId((session.user as any).id);
+    let userId: ObjectId;
+    if (overrideUserId) {
+      userId = new ObjectId(overrideUserId);
+    } else {
+      const session = await getServerSession(authOptions);
+      if (!session?.user) return { currentStreak: 0, longestStreak: 0, lastWorkoutDate: null };
+      userId = new ObjectId((session.user as any).id);
+    }
 
     const db = await getDb();
 
@@ -494,11 +499,16 @@ export async function getStreakData(): Promise<{
 /**
  * MONTH WORKOUT DATES (FOR HEATMAP)
  */
-export async function getMonthWorkoutDates(year: number, month: number): Promise<string[]> {
+export async function getMonthWorkoutDates(year: number, month: number, overrideUserId?: string): Promise<string[]> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return [];
-    const userId = new ObjectId((session.user as any).id);
+    let userId: ObjectId;
+    if (overrideUserId) {
+      userId = new ObjectId(overrideUserId);
+    } else {
+      const session = await getServerSession(authOptions);
+      if (!session?.user) return [];
+      userId = new ObjectId((session.user as any).id);
+    }
 
     const from = new Date(year, month, 1);
     const to = new Date(year, month + 1, 0, 23, 59, 59);
@@ -521,16 +531,21 @@ export async function getMonthWorkoutDates(year: number, month: number): Promise
 /**
  * WEEK SNAPSHOT
  */
-export async function getWeekSnapshot(): Promise<{
+export async function getWeekSnapshot(overrideUserId?: string): Promise<{
   sessionsCompleted: number;
   sessionsPlanned: number;
   completedDays: number[];
   plannedDays: number[];
 }> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return { sessionsCompleted: 0, sessionsPlanned: 0, completedDays: [], plannedDays: [] };
-    const userId = new ObjectId((session.user as any).id);
+    let userId: ObjectId;
+    if (overrideUserId) {
+      userId = new ObjectId(overrideUserId);
+    } else {
+      const session = await getServerSession(authOptions);
+      if (!session?.user) return { sessionsCompleted: 0, sessionsPlanned: 0, completedDays: [], plannedDays: [] };
+      userId = new ObjectId((session.user as any).id);
+    }
 
     const now = new Date();
     // Start of week (Monday)
@@ -607,7 +622,7 @@ export async function getWeekSnapshot(): Promise<{
 /**
  * NEXT PLANNED WORKOUT
  */
-export async function getNextPlannedWorkout(): Promise<{
+export async function getNextPlannedWorkout(overrideUserId?: string): Promise<{
   name: string;
   scheduledDay: string;
   exercises: string[];
@@ -615,9 +630,14 @@ export async function getNextPlannedWorkout(): Promise<{
   detail: Array<{ name: string; targetSets: number; targetReps: number; unit?: string }>;
 } | null> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return null;
-    const userId = new ObjectId((session.user as any).id);
+    let userId: ObjectId;
+    if (overrideUserId) {
+      userId = new ObjectId(overrideUserId);
+    } else {
+      const session = await getServerSession(authOptions);
+      if (!session?.user) return null;
+      userId = new ObjectId((session.user as any).id);
+    }
 
     const db = await getDb();
     const now = new Date();

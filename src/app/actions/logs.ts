@@ -564,47 +564,76 @@ export async function getTodayWorkoutLog(date?: string | Date, overrideUserId?: 
   }
 }
 
-export async function getWorkoutHistory(): Promise<WorkoutLog[]> {
+export async function getWorkoutHistory(
+  overrideUserId?: string,
+  year?: number,
+  month?: number
+): Promise<WorkoutLog[]> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return [];
-    const userId = new ObjectId((session.user as any).id);
+    let userIdStr = overrideUserId;
+    if (!userIdStr) {
+      const session = await getServerSession(authOptions);
+      if (!session?.user) return [];
+      userIdStr = (session.user as any).id;
+    }
+    const userId = new ObjectId(userIdStr);
 
     const db = await getDb();
 
-    // Use MongoDB aggregation to group logs by local date
-    const logs = await db.collection("WorkoutLog").aggregate([
-      { $match: { userId } },
-      { $sort: { date: -1 } },
-      {
-        $group: {
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
-          id: { $first: { $toString: "$_id" } },
-          userId: { $first: { $toString: "$userId" } },
-          date: { $first: "$date" },
-          bodyWeight: { $max: "$bodyWeight" },
-          exercises: { $push: "$exercises" },
-          createdAt: { $first: "$createdAt" }
-        }
-      },
-      {
-        $project: {
-          id: 1,
-          userId: 1,
-          date: 1,
-          bodyWeight: 1,
-          createdAt: 1,
-          exercises: {
-            $reduce: {
-              input: "$exercises",
-              initialValue: [],
-              in: { $concatArrays: ["$$value", "$$this"] }
-            }
-          }
-        }
-      },
-      { $sort: { date: -1 } }
-    ]).toArray();
+    // Build date range filter
+    const match: any = { userId };
+    if (year !== undefined && month !== undefined) {
+      const startOfMonth = new Date(year, month, 1);
+      startOfMonth.setHours(0, 0, 0, 0);
+      const endOfMonth = new Date(year, month + 1, 0);
+      endOfMonth.setHours(23, 59, 59, 999);
+      match.date = { $gte: startOfMonth, $lte: endOfMonth };
+    }
+
+    const rawLogs = await db.collection("WorkoutLog")
+      .find(match)
+      .sort({ date: -1 })
+      .toArray();
+
+    // Group by local date using JS (not $dateToString) to fix UTC/timezone issue
+    const dateMap = new Map<string, any>();
+
+    for (const log of rawLogs) {
+      const d = log.date instanceof Date ? log.date : new Date(log.date);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const dateKey = `${y}-${m}-${day}`;
+
+      const existing = dateMap.get(dateKey);
+      if (existing) {
+        existing.exercises = [...(existing.exercises || []), ...(log.exercises || [])];
+        if (!existing.splitName && log.splitName) existing.splitName = log.splitName;
+        if (!existing.name && log.name) existing.name = log.name;
+        if (log.bodyWeight) existing.bodyWeight = log.bodyWeight;
+        if (log.durationSeconds) existing.durationSeconds = Math.max(existing.durationSeconds || 0, log.durationSeconds);
+        if (log.completedAt) existing.completedAt = log.completedAt;
+      } else {
+        dateMap.set(dateKey, {
+          id: log._id.toString(),
+          userId: log.userId.toString(),
+          date: dateKey,
+          name: log.name || 'Workout',
+          splitName: log.splitName,
+          bodyWeight: log.bodyWeight,
+          durationSeconds: log.durationSeconds,
+          startedAt: log.startedAt,
+          completedAt: log.completedAt,
+          createdAt: log.createdAt,
+          exercises: [...(log.exercises || [])],
+        });
+      }
+    }
+
+    // Convert to sorted array
+    const logs = Array.from(dateMap.entries())
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([, log]) => log);
 
     return JSON.parse(JSON.stringify(logs)) as WorkoutLog[];
   } catch (error) {
@@ -613,11 +642,15 @@ export async function getWorkoutHistory(): Promise<WorkoutLog[]> {
   }
 }
 
-export async function getWorkoutByDate(dateStr: string): Promise<WorkoutLog | null> {
+export async function getWorkoutByDate(dateStr: string, overrideUserId?: string): Promise<WorkoutLog | null> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return null;
-    const userId = new ObjectId((session.user as any).id);
+    let userIdStr = overrideUserId;
+    if (!userIdStr) {
+      const session = await getServerSession(authOptions);
+      if (!session?.user) return null;
+      userIdStr = (session.user as any).id;
+    }
+    const userId = new ObjectId(userIdStr);
 
     const db = await getDb();
 

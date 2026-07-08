@@ -18,7 +18,7 @@ export const POST = withAuth(async (req) => {
     // Prepare Date
     const logDate = payload.date ? new Date(payload.date) : new Date();
     const startOfDay = new Date(logDate);
-    startOfDay.setHours(0,0,0,0);
+    startOfDay.setHours(0, 0, 0, 0);
 
     // 1. Prepare the log document
     const workoutLog = {
@@ -47,9 +47,9 @@ export const POST = withAuth(async (req) => {
     // 3. Update ExerciseRecords using centralized helper
     await updateExerciseRecords(new ObjectId(userId), workoutLog.exercises, startOfDay);
 
-    return NextResponse.json({ 
-      success: true, 
-      logId: result.insertedId 
+    return NextResponse.json({
+      success: true,
+      logId: result.insertedId
     })
 
   } catch (error) {
@@ -68,11 +68,11 @@ export const GET = withAuth(async (req) => {
 
     const { db } = await connectToDatabase()
     const query: Record<string, unknown> = { userId: new ObjectId(req.user.sub) }
-    
+
     if (from || to) {
       query.date = {
-        ...(from ? { $gte: from } : {}),
-        ...(to   ? { $lte: to }   : {}),
+        ...(from ? { $gte: new Date(from) } : {}),
+        ...(to   ? { $lte: new Date(to) }   : {}),
       }
     }
 

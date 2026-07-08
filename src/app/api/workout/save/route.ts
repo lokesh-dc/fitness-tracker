@@ -43,6 +43,16 @@ export const POST = withAuth(async (req) => {
     const startOfDay = new Date(completedAt)
     startOfDay.setHours(0, 0, 0, 0)
 
+    // Fetch current PRs before saving so we can embed them on each exercise
+    const exercisePRs = await Promise.all(validExercises.map(async (ex: any) => {
+      const record = await db.collection('ExerciseRecords').findOne(
+        { userId, exerciseId: ex.exerciseId },
+        { projection: { currentPR: 1 } }
+      )
+      return { exerciseId: ex.exerciseId, pr: record?.currentPR ?? null }
+    }))
+    const prMap = new Map(exercisePRs.map(e => [e.exerciseId, e.pr]))
+
     const workoutLog = {
       userId,
       date: startOfDay,
@@ -62,6 +72,7 @@ export const POST = withAuth(async (req) => {
           lastWeight: maxWeight,
           unit: ex.unit,
           isDone: true,
+          pr: prMap.get(ex.exerciseId) ?? null, // PR before this session (null = first time)
           sets: ex.sets.map((s: any) => ({
             weight: s.weight,
             reps: s.reps,
