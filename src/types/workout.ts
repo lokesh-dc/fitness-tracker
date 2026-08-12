@@ -77,6 +77,7 @@ export interface WorkoutLog {
   startedAt?: string | Date;    // NEW
   completedAt?: string | Date;  // NEW
   durationSeconds?: number;     // NEW
+  aiSummary?: string;           // NEW: AI-generated workout summary
   createdAt: string | Date;
   updatedAt?: string | Date;
 }
