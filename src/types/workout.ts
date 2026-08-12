@@ -206,5 +206,3 @@ export interface AccountSummary {
   memberSinceLabel: string;
 }
 
-
-// "You completed a thorough Shoulder Day workout, hitting your shoulders from multiple angles with exercises like Shoulder Press, Cable Lateral Raise, and Front Raise. Your chest also got significant work with the Flat DB press, Cable Chest Fly, and Chest Press. You maintained consistent weights and reps throughout the workout. Your heaviest lift was the Chest Press at 45kg for 10 reps.\n\nHere are the cool-down stretches for the trained muscle groups:\n* Chest Stretch: 30s per side\n* Shoulder Blade Squeeze: 30s\n* Lateral Shoulder Stretch: 30s per side \n* Anterior Shoulder Stretch: 30s per side"
