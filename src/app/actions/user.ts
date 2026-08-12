@@ -78,13 +78,17 @@ export async function updateProfile(data: {
   return { success: true, emailChanged: data.email !== session.user.email };
 }
 
-export async function getUserSettings(): Promise<{ defaultRestDuration: number }> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return { defaultRestDuration: 90 };
+export async function getUserSettings(overrideUserId?: string): Promise<{ defaultRestDuration: number }> {
+  let userIdStr = overrideUserId;
+  if (!userIdStr) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return { defaultRestDuration: 90 };
+    userIdStr = (session.user as any).id;
+  }
 
   const client = await clientPromise;
   const db = client.db();
-  const userId = new ObjectId((session.user as any).id);
+  const userId = new ObjectId(userIdStr);
 
   const user = await db.collection("users").findOne({ _id: userId });
   return {

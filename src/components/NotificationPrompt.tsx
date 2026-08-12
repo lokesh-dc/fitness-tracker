@@ -9,14 +9,17 @@ export function NotificationPrompt() {
 	const [show, setShow] = useState(false);
 
 	useEffect(() => {
-		// Only show if supported and permission is still "default" (not yet asked)
-		console.log(
-			"Notification.permission",
-			Notification.permission,
-			"Notification" in window && "serviceWorker" in navigator,
-		);
-		if ("Notification" in window && "serviceWorker" in navigator) {
-			setShow(true);
+		// SAFETY CHECK: Use "in window" and navigator check to avoid ReferenceError on mobile
+		const hasSupport = typeof window !== 'undefined' && "Notification" in window && "serviceWorker" in navigator;
+		
+		if (hasSupport) {
+			console.log("Notification status:", Notification.permission);
+			// Only show if user hasn't made a choice yet
+			if (Notification.permission === "default") {
+				setShow(true);
+			}
+		} else {
+			console.log("Push notifications not supported in this browser");
 		}
 	}, []);
 

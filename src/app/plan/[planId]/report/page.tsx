@@ -18,10 +18,10 @@ import { PlanCalendar } from "./PlanCalendar";
 export default async function PlanReportPage({
 	params,
 }: {
-	params: Promise<{ planId: string }> | { planId: string };
+	params: Promise<{ planId: string }>;
 }) {
-	const resolvedParams = await Promise.resolve(params);
-	const planId = resolvedParams.planId;
+	const { planId } = await params;
+
 	const report = await getPlanReport(planId);
 
 	if (!report) {

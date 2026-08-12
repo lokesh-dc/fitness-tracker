@@ -5,7 +5,15 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { WorkoutListItem } from "@/components/ui/WorkoutListItem";
 import { GlassCard } from "@/components/ui/GlassCard";
-import { Plus, ChevronRight, BarChart2, Quote, Coffee, Trophy, CheckCircle2 } from "lucide-react";
+import {
+	Plus,
+	ChevronRight,
+	BarChart2,
+	Quote,
+	Coffee,
+	Trophy,
+	CheckCircle2,
+} from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 
@@ -14,12 +22,16 @@ import PageWithSidebar from "@/components/layout/PageWithSidebar";
 import { HomeSidebar } from "@/components/sidebar/HomeSidebar";
 import { MobileWidgetStrip } from "@/components/sidebar/MobileWidgetStrip";
 import { NotificationPrompt } from "@/components/NotificationPrompt";
-import { 
-  getStreakData, 
-  getMonthWorkoutDates, 
-  getWeekSnapshot, 
-  getNextPlannedWorkout 
+import {
+	getStreakData,
+	getMonthWorkoutDates,
+	getWeekSnapshot,
+	getNextPlannedWorkout,
+	getTomorrowPlanDetail,
 } from "@/app/actions/analytics";
+import { getOnboardingProfile } from "@/app/actions/profile";
+import OnboardingBanner from "@/components/onboarding/OnboardingBanner";
+import { TomorrowPrompt } from "@/components/dashboard/TomorrowPrompt";
 
 export const dynamic = "force-dynamic";
 
@@ -65,31 +77,57 @@ export default async function DashboardPage() {
 		streakData,
 		monthDates,
 		weekSnapshot,
-		nextWorkout
+		nextWorkout,
+		randomQuote,
+		userProfile,
+		tomorrowPlan,
 	] = await Promise.all([
 		getPlanByDate().catch(() => null),
 		getActivePlanInfo().catch(() => null),
 		getTodayWorkoutLog().catch(() => null),
-		getStreakData().catch(() => ({ currentStreak: 0, longestStreak: 0, lastWorkoutDate: null })),
-		getMonthWorkoutDates(new Date().getFullYear(), new Date().getMonth()).catch(() => []),
-		getWeekSnapshot().catch(() => ({ sessionsCompleted: 0, sessionsPlanned: 0, completedDays: [], plannedDays: [] })),
-		getNextPlannedWorkout().catch(() => null)
+		getStreakData().catch(() => ({
+			currentStreak: 0,
+			longestStreak: 0,
+			lastWorkoutDate: null,
+		})),
+		getMonthWorkoutDates(new Date().getFullYear(), new Date().getMonth()).catch(
+			() => [],
+		),
+		getWeekSnapshot().catch(() => ({
+			sessionsCompleted: 0,
+			sessionsPlanned: 0,
+			completedDays: [],
+			plannedDays: [],
+		})),
+		getNextPlannedWorkout().catch(() => null),
+		getDailyQuote(),
+		getOnboardingProfile().catch(() => null),
+		getTomorrowPlanDetail().catch(() => null),
 	]);
 
 	const today = new Date();
-	const randomQuote = await getDailyQuote();
 
 	// Check if today's workout is done (has at least one exercise)
-	const isTodayDone = todayWorkoutLog && todayWorkoutLog.exercises && todayWorkoutLog.exercises.length > 0;
+	const isTodayDone =
+		todayWorkoutLog &&
+		todayWorkoutLog.exercises &&
+		todayWorkoutLog.exercises.length > 0;
+
+	const showOnboardingBanner =
+		userProfile?.onboardingComplete !== true &&
+		userProfile?.bannerDismissed !== true;
 
 	return (
 		<div className="flex flex-col">
-			<Header title={`Hi, ${userName}! 👋`} subtitle={format(today, "d MMMM ''yy")} />
+			<Header
+				title={`Hi, ${userName}! 👋`}
+				subtitle={format(today, "d MMMM ''yy")}
+			/>
 
 			<main className="flex-1 px-6 pb-12 w-full transition-all duration-500 animate-in fade-in slide-in-from-bottom-4">
 				<PageWithSidebar
 					mobileWidgets={
-						<MobileWidgetStrip 
+						<MobileWidgetStrip
 							streak={streakData?.currentStreak || 0}
 							workoutsThisMonth={monthDates.length}
 							sessionsDone={`${weekSnapshot?.sessionsCompleted || 0}/${weekSnapshot?.sessionsPlanned || "?"}`}
@@ -97,17 +135,26 @@ export default async function DashboardPage() {
 						/>
 					}
 					sidebar={
-						<HomeSidebar 
+						<HomeSidebar
 							streakData={streakData}
 							monthDates={monthDates}
 							weekSnapshot={weekSnapshot}
 							nextWorkout={nextWorkout}
 						/>
-					}
-				>
+					}>
 					<div className="space-y-8">
+						{showOnboardingBanner && <OnboardingBanner />}
 						<NotificationPrompt />
-						
+						<TomorrowPrompt
+							tomorrowPlan={tomorrowPlan ? {
+								planName: tomorrowPlan.planName,
+								splitName: tomorrowPlan.splitName,
+								totalExercises: tomorrowPlan.totalExercises,
+							} : null}
+							isTodayDone={!!isTodayDone}
+							isRestDay={!plan || (plan as any)?.exercises?.length === 0}
+						/>
+
 						<section>
 							<GlassCard className="relative overflow-hidden p-6 border-foreground/5 bg-gradient-to-br from-brand-primary/10 to-transparent">
 								<Quote className="absolute -bottom-4 -right-4 w-24 h-24 text-brand-primary/10 -rotate-12" />
@@ -150,8 +197,12 @@ export default async function DashboardPage() {
 												<CheckCircle2 className="w-6 h-6 text-black" />
 											</div>
 											<div>
-												<h3 className="text-base font-black text-foreground uppercase tracking-tight">Today's done! 🎉</h3>
-												<p className="text-[10px] font-bold text-emerald-500/60 uppercase tracking-widest">Do you want to change the log?</p>
+												<h3 className="text-base font-black text-foreground uppercase tracking-tight">
+													Today's done! 🎉
+												</h3>
+												<p className="text-[10px] font-bold text-emerald-500/60 uppercase tracking-widest">
+													Do you want to change the log?
+												</p>
 											</div>
 										</div>
 										<ChevronRight className="w-5 h-5 text-emerald-500 relative z-10 group-hover:translate-x-1 transition-transform" />
@@ -168,7 +219,9 @@ export default async function DashboardPage() {
 									/>
 								</Link>
 							) : activePlanInfo?.isCompleted ? (
-								<Link href={`/plan/${activePlanInfo.id}/report`} className="block">
+								<Link
+									href={`/plan/${activePlanInfo.id}/report`}
+									className="block">
 									<GlassCard className="border-emerald-500/30 bg-emerald-500/5 p-6 flex items-center justify-between group overflow-hidden relative">
 										<div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
 											<Trophy className="w-16 h-16 text-emerald-500" />
@@ -178,8 +231,12 @@ export default async function DashboardPage() {
 												<Trophy className="w-6 h-6 text-black" />
 											</div>
 											<div>
-												<h3 className="text-base font-black text-foreground uppercase tracking-tight">Cycle Completed!</h3>
-												<p className="text-[10px] font-bold text-emerald-500/60 uppercase tracking-widest">Tap to view your report</p>
+												<h3 className="text-base font-black text-foreground uppercase tracking-tight">
+													Cycle Completed!
+												</h3>
+												<p className="text-[10px] font-bold text-emerald-500/60 uppercase tracking-widest">
+													Tap to view your report
+												</p>
 											</div>
 										</div>
 										<ChevronRight className="w-5 h-5 text-emerald-500 relative z-10 group-hover:translate-x-1 transition-transform" />
@@ -195,10 +252,14 @@ export default async function DashboardPage() {
 										)}
 									</div>
 									<p className="text-foreground/60 text-sm font-medium mb-1">
-										{(plan as any)?.dayOfWeek === 0 ? "It's a Rest Day! 🧘‍♂️" : "No workout scheduled for today"}
+										{(plan as any)?.dayOfWeek === 0
+											? "It's a Rest Day! 🧘‍♂️"
+											: "No workout scheduled for today"}
 									</p>
 									<p className="text-foreground/40 text-xs">
-										{(plan as any)?.dayOfWeek === 0 ? "Take some time to recover and prep for tomorrow." : "Tap to create a new session or set up a plan."}
+										{(plan as any)?.dayOfWeek === 0
+											? "Take some time to recover and prep for tomorrow."
+											: "Tap to create a new session or set up a plan."}
 									</p>
 								</div>
 							)}

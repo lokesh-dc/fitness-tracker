@@ -10,6 +10,7 @@ import {
 	CalendarRange,
 	Play,
 	Activity,
+	Trophy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,8 +20,11 @@ export function Navigation() {
 	// Don't show navigation on auth pages or landing page
 	if (pathname.startsWith("/auth") || pathname === "/") return null;
 
+	const isOnboarding = pathname === "/onboarding";
+
 	// Specific paths where navigation should be hidden
-	const isMobileNavHidden = pathname === "/workout";
+	const isMobileNavHidden = pathname === "/workout" || isOnboarding || pathname === "/plan/designer";
+
 
 	const navItems = [
 		{
@@ -60,9 +64,9 @@ export function Navigation() {
 			desktop: true,
 		},
 		{
-			href: "/profile",
-			icon: User,
-			label: "Profile",
+			href: "/muscle-groups",
+			icon: Trophy,
+			label: "Muscles",
 			mobile: true,
 			desktop: true,
 		},

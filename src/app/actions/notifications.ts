@@ -10,7 +10,7 @@ const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
 
 webpush.setVapidDetails(
-  "mailto:user@testing.com",
+  "mailto:lokesh.cdewanand@gmail.com",
   VAPID_PUBLIC_KEY,
   VAPID_PRIVATE_KEY
 );
@@ -70,8 +70,8 @@ export async function sendPushNotification(userId: string, title: string, messag
           return { success: true };
         } catch (error: any) {
           if (error.statusCode === 410 || error.statusCode === 404) {
-             // Subscription expired or no longer valid
-             await db.collection("pushSubscriptions").deleteOne({ _id: sub._id });
+            // Subscription expired or no longer valid
+            await db.collection("pushSubscriptions").deleteOne({ _id: sub._id });
           }
           return { error: error.message };
         }

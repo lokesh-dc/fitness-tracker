@@ -1,17 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { GlassCard } from "@/components/ui/GlassCard";
-import { Dumbbell, ArrowRight, Loader2 } from "lucide-react";
+import {
+	ArrowRight,
+	Loader2,
+	Mail,
+	Lock,
+	User,
+	Eye,
+	EyeOff,
+	CheckCircle2,
+} from "lucide-react";
 import Link from "next/link";
 import { registerUser } from "@/app/actions/auth";
-import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import { AuthLayout } from "@/components/auth/AuthLayout";
 
 export default function SignUp() {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState("");
 	const [success, setSuccess] = useState(false);
-	const router = useRouter();
+	const [showPassword, setShowPassword] = useState(false);
 
 	const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
@@ -31,104 +40,139 @@ export default function SignUp() {
 	};
 
 	return (
-		<div className=" flex items-center justify-center px-6">
-			<div className="w-full max-w-md space-y-8">
-				<div className="flex flex-col items-center">
-					<div className="w-16 h-16 rounded-2xl bg-brand-primary flex items-center justify-center shadow-[0_0_30px_rgba(249,115,22,0.4)] mb-6">
-						<Dumbbell className="w-8 h-8 text-black" />
-					</div>
-					<h1 className="text-3xl font-black text-white tracking-tighter">
-						Create Account
-					</h1>
-					<p className="text-white/40 text-sm font-bold uppercase tracking-widest mt-1">
-						Start your journey today
-					</p>
-				</div>
-
-				<GlassCard className="p-8 space-y-6">
-					{success ? (
-						<div className="text-center space-y-4 py-4">
-							<div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
-								<div className="w-6 h-6 rounded-full bg-green-500" />
-							</div>
-							<h2 className="text-xl font-black text-white uppercase tracking-tight">Verify Your Email</h2>
-							<p className="text-sm text-white/60 font-medium leading-relaxed">
-								We've sent a verification link to your email address. Please check your inbox to activate your account.
-							</p>
-							<Link 
-								href="/auth/signin" 
-								className="inline-block bg-white/5 border border-white/10 text-white px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-colors"
-							>
-								Back to Log In
-							</Link>
+		<AuthLayout
+			heroTitle={
+				<>
+					Start your <br />
+					<span className="text-white">Fitness</span> journey.
+				</>
+			}
+			heroSubtitle="Unlock personalized workout plans, track your muscle growth, and visualize your strength gains over time."
+			heroFloatingText="Join thousands of users who have transformed their lives using our data-driven approach to fitness.">
+			<AnimatePresence mode="wait">
+				{success ? (
+					<motion.div
+						key="success"
+						initial={{ opacity: 0, scale: 0.95 }}
+						animate={{ opacity: 1, scale: 1 }}
+						className="text-center space-y-6 py-8">
+						<div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto shadow-2xl shadow-emerald-500/20">
+							<CheckCircle2 className="w-8 h-8 text-emerald-500" />
 						</div>
-					) : (
-						<>
+						<div className="space-y-2">
+							<h2 className="text-2xl font-black text-white tracking-tight">
+								VERIFY YOUR EMAIL
+							</h2>
+							<p className="text-white/60 font-medium leading-relaxed max-w-xs mx-auto text-xs">
+								We&apos;ve sent a verification link to your email address.
+								Please check your inbox to activate your account.
+							</p>
+						</div>
+						<Link
+							href="/auth/signin"
+							className="inline-flex items-center gap-2 bg-brand-primary text-black px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-brand-primary/20">
+							<span>Back to Log In</span>
+							<ArrowRight className="w-4 h-4" />
+						</Link>
+					</motion.div>
+				) : (
+					<motion.div key="form" className="space-y-6 lg:space-y-8">
+						{/* Header */}
+						<div className="space-y-1">
+							<h1 className="text-3xl lg:text-4xl font-black text-white tracking-tight leading-none">
+								Join the <br />
+								<span className="text-brand-primary">Movement</span>
+							</h1>
+							<p className="text-white/50 text-xs font-medium max-w-sm">
+								Create your account today and start tracking your progress like
+								a pro.
+							</p>
+						</div>
+
+						{/* Form */}
+						<form onSubmit={handleSubmit} className="space-y-4">
 							{error && (
-								<p className="text-xs font-bold text-rose-500 text-center uppercase tracking-widest">
-									{error}
-								</p>
+								<motion.div
+									initial={{ opacity: 0, height: 0 }}
+									animate={{ opacity: 1, height: "auto" }}
+									className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center gap-3">
+									<div className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+									<p className="text-xs font-bold text-rose-500 uppercase tracking-widest">
+										{error}
+									</p>
+								</motion.div>
 							)}
-							<form onSubmit={handleSubmit} className="space-y-4">
-								<div className="space-y-1">
-									<label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">
-										Name
-									</label>
+
+							<div className="space-y-4">
+								<div className="relative group">
+									<User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-focus-within:text-brand-primary transition-colors" />
 									<input
 										name="name"
+										type="text"
 										required
-										className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-brand-primary transition-colors"
-										placeholder="Your name"
+										className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-white outline-none focus:border-brand-primary/50 focus:bg-white/10 transition-all placeholder:text-white/20"
+										placeholder="Full Name"
 									/>
 								</div>
-								<div className="space-y-1">
-									<label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">
-										Email
-									</label>
+
+								<div className="relative group">
+									<Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-focus-within:text-brand-primary transition-colors" />
 									<input
 										name="email"
 										type="email"
 										required
-										className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-brand-primary transition-colors"
-										placeholder="you@example.com"
+										className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-white outline-none focus:border-brand-primary/50 focus:bg-white/10 transition-all placeholder:text-white/20"
+										placeholder="Email Address"
 									/>
 								</div>
-								<div className="space-y-1">
-									<label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">
-										Password
-									</label>
+
+								<div className="relative group">
+									<Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-focus-within:text-brand-primary transition-colors" />
 									<input
 										name="password"
-										type="password"
+										type={showPassword ? "text" : "password"}
 										required
-										className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-brand-primary transition-colors"
-										placeholder="••••••••"
+										className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-12 py-4 text-white outline-none focus:border-brand-primary/50 focus:bg-white/10 transition-all placeholder:text-white/20"
+										placeholder="Create Password"
 									/>
+									<button
+										type="button"
+										onClick={() => setShowPassword(!showPassword)}
+										className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/40 transition-colors">
+										{showPassword ? (
+											<EyeOff className="w-5 h-5" />
+										) : (
+											<Eye className="w-5 h-5" />
+										)}
+									</button>
 								</div>
-								<button
-									disabled={loading}
-									className="w-full bg-brand-primary text-black py-4 rounded-xl font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center hover:scale-[1.02] active:scale-95 transition-all shadow-[0_0_20px_rgba(249,115,22,0.3)] mt-8">
-									{loading ? (
-										<Loader2 className="w-5 h-5 animate-spin" />
-									) : (
-										<>
-											<span className="mr-2">Join Now</span>{" "}
-											<ArrowRight className="w-4 h-4" />
-										</>
-									)}
-								</button>
-							</form>
-						</>
-					)}
-				</GlassCard>
+							</div>
 
-				<p className="text-center text-white/40 text-xs font-bold">
-					Already have an account?{" "}
-					<Link href="/auth/signin" className="text-brand-primary hover:underline">
-						Log In
-					</Link>
-				</p>
-			</div>
-		</div>
+							<button
+								disabled={loading}
+								className="w-full bg-brand-primary text-black py-4 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center hover:scale-[1.01] active:scale-[0.99] transition-all shadow-lg shadow-brand-primary/20 disabled:opacity-50 disabled:cursor-not-allowed group mt-2">
+								{loading ? (
+									<Loader2 className="w-5 h-5 animate-spin" />
+								) : (
+									<>
+										<span>Join Now</span>
+										<ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+									</>
+								)}
+							</button>
+						</form>
+
+						<p className="text-center text-white/40 text-xs font-bold uppercase tracking-widest">
+							Already have an account?{" "}
+							<Link
+								href="/auth/signin"
+								className="text-brand-primary hover:underline transition-all">
+								Log In
+							</Link>
+						</p>
+					</motion.div>
+				)}
+			</AnimatePresence>
+		</AuthLayout>
 	);
 }

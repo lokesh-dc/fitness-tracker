@@ -4,6 +4,7 @@ import { ObjectId } from "mongodb";
 import { revalidatePath } from "next/cache";
 import { getDb, getCurrentDayOfWeek, getCurrentWeekIndex } from "@/lib/db-utils";
 import { WorkoutLog, Exercise, SetLog } from "@/types/workout";
+import { calculateEpley } from "@/lib/epley";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
@@ -181,6 +182,8 @@ export async function saveWorkoutSession(
       exerciseId: string;
       name: string;
       sets: Array<{ weight: number; reps: number }>;
+      isDone?: boolean;
+      isSkipped?: boolean;
     }>;
     startedAt?: Date | string; // Optional startedAt from client
   },
@@ -338,6 +341,8 @@ export async function saveWorkoutSession(
     await updateExerciseRecords(new ObjectId(userId), data.exercises, startOfDay);
 
     revalidatePath("/");
+    revalidatePath("/analytics");
+    revalidatePath("/workouts");
     return JSON.parse(JSON.stringify(log)) as WorkoutLog;
   } catch (error) {
     console.error("Error saving workout session:", error);
@@ -345,11 +350,15 @@ export async function saveWorkoutSession(
   }
 }
 
-export async function getTodayBodyWeight(date?: string | Date): Promise<number | null> {
+export async function getTodayBodyWeight(date?: string | Date, overrideUserId?: string): Promise<number | null> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return null;
-    const userId = new ObjectId((session.user as any).id);
+    let userIdStr = overrideUserId;
+    if (!userIdStr) {
+      const session = await getServerSession(authOptions);
+      if (!session?.user) return null;
+      userIdStr = (session.user as any).id;
+    }
+    const userId = new ObjectId(userIdStr);
 
     const db = await getDb();
 
@@ -515,16 +524,22 @@ export async function saveSingleExerciseLog(
     await updateExerciseRecords(userId, [exercise], startOfDay);
 
     revalidatePath("/");
+    revalidatePath("/analytics");
+    revalidatePath("/workouts");
   } catch (error) {
     console.error("Error saving single exercise log:", error);
     throw new Error("Failed to save exercise.");
   }
 }
-export async function getTodayWorkoutLog(date?: string | Date): Promise<WorkoutLog | null> {
+export async function getTodayWorkoutLog(date?: string | Date, overrideUserId?: string): Promise<WorkoutLog | null> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return null;
-    const userId = new ObjectId((session.user as any).id);
+    let userIdStr = overrideUserId;
+    if (!userIdStr) {
+      const session = await getServerSession(authOptions);
+      if (!session?.user) return null;
+      userIdStr = (session.user as any).id;
+    }
+    const userId = new ObjectId(userIdStr);
 
     const db = await getDb();
     const targetDate = date ? new Date(date) : new Date();
@@ -549,47 +564,76 @@ export async function getTodayWorkoutLog(date?: string | Date): Promise<WorkoutL
   }
 }
 
-export async function getWorkoutHistory(): Promise<WorkoutLog[]> {
+export async function getWorkoutHistory(
+  overrideUserId?: string,
+  year?: number,
+  month?: number
+): Promise<WorkoutLog[]> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return [];
-    const userId = new ObjectId((session.user as any).id);
+    let userIdStr = overrideUserId;
+    if (!userIdStr) {
+      const session = await getServerSession(authOptions);
+      if (!session?.user) return [];
+      userIdStr = (session.user as any).id;
+    }
+    const userId = new ObjectId(userIdStr);
 
     const db = await getDb();
 
-    // Use MongoDB aggregation to group logs by local date
-    const logs = await db.collection("WorkoutLog").aggregate([
-      { $match: { userId } },
-      { $sort: { date: -1 } },
-      {
-        $group: {
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
-          id: { $first: { $toString: "$_id" } },
-          userId: { $first: { $toString: "$userId" } },
-          date: { $first: "$date" },
-          bodyWeight: { $max: "$bodyWeight" },
-          exercises: { $push: "$exercises" },
-          createdAt: { $first: "$createdAt" }
-        }
-      },
-      {
-        $project: {
-          id: 1,
-          userId: 1,
-          date: 1,
-          bodyWeight: 1,
-          createdAt: 1,
-          exercises: {
-            $reduce: {
-              input: "$exercises",
-              initialValue: [],
-              in: { $concatArrays: ["$$value", "$$this"] }
-            }
-          }
-        }
-      },
-      { $sort: { date: -1 } }
-    ]).toArray();
+    // Build date range filter
+    const match: any = { userId };
+    if (year !== undefined && month !== undefined) {
+      const startOfMonth = new Date(year, month, 1);
+      startOfMonth.setHours(0, 0, 0, 0);
+      const endOfMonth = new Date(year, month + 1, 0);
+      endOfMonth.setHours(23, 59, 59, 999);
+      match.date = { $gte: startOfMonth, $lte: endOfMonth };
+    }
+
+    const rawLogs = await db.collection("WorkoutLog")
+      .find(match)
+      .sort({ date: -1 })
+      .toArray();
+
+    // Group by local date using JS (not $dateToString) to fix UTC/timezone issue
+    const dateMap = new Map<string, any>();
+
+    for (const log of rawLogs) {
+      const d = log.date instanceof Date ? log.date : new Date(log.date);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const dateKey = `${y}-${m}-${day}`;
+
+      const existing = dateMap.get(dateKey);
+      if (existing) {
+        existing.exercises = [...(existing.exercises || []), ...(log.exercises || [])];
+        if (!existing.splitName && log.splitName) existing.splitName = log.splitName;
+        if (!existing.name && log.name) existing.name = log.name;
+        if (log.bodyWeight) existing.bodyWeight = log.bodyWeight;
+        if (log.durationSeconds) existing.durationSeconds = Math.max(existing.durationSeconds || 0, log.durationSeconds);
+        if (log.completedAt) existing.completedAt = log.completedAt;
+      } else {
+        dateMap.set(dateKey, {
+          id: log._id.toString(),
+          userId: log.userId.toString(),
+          date: dateKey,
+          name: log.name || 'Workout',
+          splitName: log.splitName,
+          bodyWeight: log.bodyWeight,
+          durationSeconds: log.durationSeconds,
+          startedAt: log.startedAt,
+          completedAt: log.completedAt,
+          createdAt: log.createdAt,
+          exercises: [...(log.exercises || [])],
+        });
+      }
+    }
+
+    // Convert to sorted array
+    const logs = Array.from(dateMap.entries())
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([, log]) => log);
 
     return JSON.parse(JSON.stringify(logs)) as WorkoutLog[];
   } catch (error) {
@@ -598,11 +642,15 @@ export async function getWorkoutHistory(): Promise<WorkoutLog[]> {
   }
 }
 
-export async function getWorkoutByDate(dateStr: string): Promise<WorkoutLog | null> {
+export async function getWorkoutByDate(dateStr: string, overrideUserId?: string): Promise<WorkoutLog | null> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return null;
-    const userId = new ObjectId((session.user as any).id);
+    let userIdStr = overrideUserId;
+    if (!userIdStr) {
+      const session = await getServerSession(authOptions);
+      if (!session?.user) return null;
+      userIdStr = (session.user as any).id;
+    }
+    const userId = new ObjectId(userIdStr);
 
     const db = await getDb();
 
@@ -675,23 +723,54 @@ export async function updateExerciseRecords(
   const sessionDate = date instanceof Date ? date : new Date(date);
 
   for (const exercise of exercises) {
-    if (!exercise.sets || exercise.sets.length === 0) continue;
+    // Skip exercises not actually completed (isDone !== true), skipped, or with no sets
+    if (exercise.isSkipped || exercise.isDone === false || !exercise.sets || exercise.sets.length === 0) continue;
 
-    const maxWeight = Math.max(...exercise.sets.map((s: SetLog) => s.weight || 0));
-    const maxReps = Math.max(...exercise.sets
-      .filter((s: SetLog) => (s.weight || 0) === maxWeight)
-      .map((s: SetLog) => s.reps || 0));
+    // Use completed sets if any exist, otherwise use all sets that have values
+    // This handles users forgetting to check the boxes but still finishing the workout.
+    let targetSets = exercise.sets.filter((s: SetLog) => s.completed);
+    if (targetSets.length === 0) {
+      targetSets = exercise.sets.filter((s: SetLog) => (s.weight || 0) > 0 || (s.reps || 0) > 0);
+    }
+    
+    if (targetSets.length === 0) continue;
+
+    // Find the set that gives the highest estimated 1RM (Epley)
+    const bestORMSet = targetSets.reduce((prev: SetLog, curr: SetLog) => {
+      const prevEst = calculateEpley(prev.weight || 0, prev.reps || 0) || 0;
+      const currEst = calculateEpley(curr.weight || 0, curr.reps || 0) || 0;
+      return currEst > prevEst ? curr : prev;
+    }, targetSets[0]);
+
+    const maxWeight = bestORMSet.weight || 0;
+    const maxReps = bestORMSet.reps || 0;
       
-    const totalSets = exercise.sets.length;
-    const totalReps = exercise.sets.reduce((acc: number, s: SetLog) => acc + (s.reps || 0), 0);
+    const totalSets = targetSets.length;
+    const totalReps = targetSets.reduce((acc: number, s: SetLog) => acc + (s.reps || 0), 0);
     const exerciseId = exercise.exerciseId;
+    const exerciseName = exercise.name.trim();
 
-    // We use a findOne and manual check instead of just $max so we can track prDate and previousPR
-    const existing = await db.collection("ExerciseRecords").findOne({ userId, exerciseId });
+    // Match by ID OR Name (case-insensitive) to avoid split records
+    let existing = null;
+    if (exerciseId) {
+      existing = await db.collection("ExerciseRecords").findOne({ 
+        userId, 
+        exerciseId
+      });
+    }
+    
+    if (!existing) {
+      existing = await db.collection("ExerciseRecords").findOne({ 
+        userId, 
+        exerciseName: { $regex: new RegExp(`^${exerciseName}$`, "i") }
+      });
+    }
+
 
     const historyEntry = {
       date: sessionDate,
       maxWeight,
+      maxWeightReps: maxReps, // Added for accurate 1RM tracking
       totalSets,
       totalReps,
     };
@@ -709,14 +788,10 @@ export async function updateExerciseRecords(
         updatedAt: new Date(),
       });
     } else {
-      // NEW PR LOGIC:
-      // 1. maxWeight is strictly higher
-      // 2. maxWeight is same AND maxReps is strictly higher
       const isWeightPR = maxWeight > (existing.currentPR || 0);
       const isRepPR = maxWeight === existing.currentPR && maxReps > (existing.currentPRReps || 0);
       const isNewPR = isWeightPR || isRepPR;
       
-      // Update history: if there's an entry for the same day, replace it, otherwise push
       const existingHistory = existing.history || [];
       const sameDayIndex = existingHistory.findIndex((h: any) => 
         new Date(h.date).toDateString() === sessionDate.toDateString()
@@ -724,13 +799,18 @@ export async function updateExerciseRecords(
 
       const updateOps: any = {
         $set: { 
+          exerciseId,
           exerciseName: exercise.name,
           updatedAt: new Date()
         }
       };
 
       if (sameDayIndex > -1) {
-        updateOps.$set[`history.${sameDayIndex}`] = historyEntry;
+        const existingEntry = existingHistory[sameDayIndex];
+        // Always update same day if we have data, but keep the highest maxWeight
+        if (maxWeight >= (existingEntry.maxWeight || 0)) {
+           updateOps.$set[`history.${sameDayIndex}`] = historyEntry;
+        }
       } else {
         updateOps.$push = { history: historyEntry };
       }

@@ -8,24 +8,38 @@ TRAK.FIT is a data-driven cockpit for your training. Designed for athletes who d
 
 ## 💎 The Athlete's Toolkit
 
-### 🏗️ Dynamic Cycle Architect
-Build multi-week training blocks with ease. The **Plan Designer** allows you to architect your entire progression.
-- **Custom Splits**: Define your training days and rest days with a fluid drag-and-drop interface.
-- **Smart History**: Automatically pulls your historical PRs and last weights when adding exercises to a new plan.
-- **Warmup Calculator**: Integrated calculator for every exercise based on your target working weight.
-- **Rest Timer Management**: Set exercise-specific rest durations to keep your intensity on track.
+### 🏋️‍♂️ Live Session Logging & Intelligence
+- **Gym-Floor Optimized UX**: A fast, minimalist, high-contrast interface built specifically for quick data entry between sets.
+- **Plateau Detection**: Intelligent alerts that trigger during a workout if no progress (in weight or reps) has been detected for a specific exercise over the past 3 weeks.
+- **Active Timers**: Real-time tracking of overall workout duration (start/stop) alongside integrated, customizable rest timers.
+- **Smart History**: Automatically references past PRs and the last logged weights during a session so you know exactly what numbers to beat.
 
-### 📈 Surgical Analytics
-Visualize your journey with pro-grade data visualizations powered by Recharts.
-- **Personal Record Engine**: Atomic tracking of Weight and Rep PRs. If you match your weight PR but hit more reps, it's still a win.
-- **Exercise Timelines**: Deep dive into every lift with volume analysis, estimated 1RM trends, and PR markers.
-- **Body Weight Correlation**: Track how your body weight fluctuations impact your relative strength.
-- **Consistency Metrics**: Live streak tracking, monthly heatmaps, and weekly snapshot widgets.
+### 🏆 Advanced Personal Record (PR) Engine
+- **Atomic PR Tracking**: Materialized records that track two distinct types of PRs:
+  - **Weight PR**: Lifting a heavier absolute weight.
+  - **Rep PR**: Lifting the current max weight, but for more reps.
+- **Instant Visual Feedback**: Triggers a "Workout Celebration" using Framer Motion animations immediately upon hitting a new PR.
+
+### 🏗️ Dynamic Cycle Architect (Plan Designer)
+- **Custom Program Builder**: A dedicated tool to architect entire multi-week training blocks from scratch.
+- **Custom Splits**: Drag-and-drop interface to define training days versus rest days.
+- **Warmup Calculator**: Automatically generates required warmup sets based on your target working weight.
+
+### 📊 Post-Workout Summaries & History
+- **Detailed Session Debrief**: Complete a workout to see a comprehensive summary showing exercises performed, estimated calories burned, and updated **1RM (One Rep Max)** calculations.
+- **Workout History Page**: A scannable logbook serving as the source of truth for all past workouts, allowing you to review exact sets, reps, and weights.
+
+### 🧬 Deep Analytics & Muscle Diagnostics
+- **Muscle Targeting Breakdown**: Highly detailed analytics for individual muscle groups, including volume tracking, activity heatmaps, and identification of your top exercises per muscle.
+- **Exercise Timelines**: Pro-grade Recharts visualizations showing volume analysis and estimated 1RM trends over time for individual lifts.
+- **Bodyweight Correlation**: Maps bodyweight fluctuations against training volume to track relative strength.
+
+### 🔥 Gamification & Consistency Metrics
+- **Streak Maintenance**: Systems to track and display active workout streaks, motivating you to maintain consistency.
+- **Interactive Dashboard Widgets**: Premium UI sidebars showing stats like "Most Trained Muscle Group" and "Weekly Volume Comparisons."
 
 ### 🛡️ Secure, Fast, Reliable
-Built on a modern stack to ensure your data is always ready when you are.
 - **NextAuth.js Security**: Secure, session-based authentication using MongoDB adapter.
-- **Gym-Floor UX**: Minimalist, high-contrast logging interface designed for use between sets with live session timers.
 - **Server Actions**: Optimized data mutations using Next.js Server Actions for a "zero-flash" experience.
 
 ---

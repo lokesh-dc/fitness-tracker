@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Navigation } from "@/components/Navigation";
 import { DailyReminder } from "@/components/DailyReminder";
 import ScrollToTop from "@/components/ScrollToTop";
+import { useEffect } from "react";
 
 function cn(...inputs: any[]) {
 	return inputs.filter(Boolean).join(" ");
@@ -17,19 +18,41 @@ export default function LayoutShell({
 }) {
 	const pathname = usePathname();
 	const isWorkoutPage = pathname === "/workout";
-	const isLandingPage = pathname === "/";
+	const isLandingPage =
+		pathname === "/" ||
+		pathname === "/auth/signin" ||
+		pathname === "/auth/signup";
+	const isOnboarding = pathname === "/onboarding";
+	const isPlanDesigner = pathname === "/plan/designer";
+
+	const hideNav = isLandingPage;
+
+	useEffect(() => {
+		if ("serviceWorker" in navigator) {
+			navigator.serviceWorker
+				.register("/sw.js")
+				.then((reg) => console.log("SW registered:", reg))
+				.catch((err) => console.error("SW registration failed:", err));
+		}
+	}, []);
 
 	return (
 		<div className="flex flex-col">
 			<ScrollToTop />
-			<Navigation />
-			<DailyReminder />
+			{!hideNav &&
+				(isOnboarding ? (
+					<div className="hidden md:block">
+						<Navigation />
+					</div>
+				) : (
+					<Navigation />
+				))}
+			{pathname == "/dashboard" && <DailyReminder />}
 			<div
 				className={cn(
 					"flex-1",
-					!isLandingPage && "md:pb-0 md:pl-20 pt-28 md:pt-32",
-					isWorkoutPage ? "pb-0" : "pb-0",
-					// ← removed max-h-[20px], that was clipping everything
+					!hideNav && !isOnboarding && "md:pl-20 pt-28 md:pt-32",
+					isOnboarding || isPlanDesigner || isWorkoutPage ? "pb-0" : "pb-0",
 				)}>
 				{children}
 			</div>

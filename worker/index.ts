@@ -1,28 +1,78 @@
-// Custom service worker for push notifications
+// Custom Service Worker for Rest Timer & Push Notifications
+// Built for @ducanh2912/next-pwa
+
+let restTimerTimeout: any = null;
+
+// Message listener for Rest Timer (Local SW Timeout)
+self.addEventListener('message', (event: any) => {
+  if (event.data?.type === 'SCHEDULE_REST_NOTIFICATION') {
+    // Clear any existing timeout
+    if (restTimerTimeout) {
+      clearTimeout(restTimerTimeout);
+    }
+
+    const { delay, title, body } = event.data;
+
+    if (delay < 0 || delay > 600000) return;
+
+    event.waitUntil(
+      (async () => {
+        // Wait for the delay specified in the message
+
+        await new Promise<void>((resolve) => {
+          restTimerTimeout = setTimeout(async () => {
+            await (self as any).registration.showNotification(title, {
+              body,
+              icon: '/icons/icon-192x192.png',
+              badge: '/icons/badge-72x72.png',
+              tag: 'rest-timer',
+              renotify: true,
+              vibrate: [300, 100, 300, 100, 500],
+              data: { url: '/workout' },
+            });
+            restTimerTimeout = null;
+            resolve();
+          }, delay);
+        });
+      })()
+    );
+  }
+
+  if (event.data?.type === 'CANCEL_REST_NOTIFICATION') {
+    if (restTimerTimeout) {
+      clearTimeout(restTimerTimeout);
+      restTimerTimeout = null;
+    }
+    event.waitUntil(
+      (self as any).registration.getNotifications({ tag: 'rest-timer' }).then((notifications: any[]) => {
+        notifications.forEach(n => n.close());
+      })
+    );
+  }
+});
+
+// Push notification listener (VAPID Remote Push)
 self.addEventListener("push", (event: any) => {
-  const data = event.data ? event.data.json() : { title: "New Notification", message: "You have a new update!" };
+  let data = { title: "Rest Complete 🔥", body: "Time to hit the next set!", url: "/workout" };
+
+  try {
+    if (event.data) {
+      data = event.data.json();
+    }
+  } catch (e) {
+    console.warn("Push event data parse failed:", e);
+  }
 
   const options = {
-    body: data.message,
-    icon: "/icon-192x192.png",
-    badge: "/icon-192x192.png",
-    vibrate: [100, 50, 100],
+    body: data.body,
+    icon: "/icons/icon-192x192.png",
+    badge: "/icons/badge-72x72.png",
+    tag: 'rest-timer', // Same tag ensures it replaces the local 'Timer Active' notification
+    renotify: true,
+    vibrate: [300, 100, 300, 100, 500],
     data: {
-      dateOfArrival: Date.now(),
-      primaryKey: "1",
+      url: data.url || '/workout',
     },
-    actions: [
-      {
-        action: "explore",
-        title: "View Details",
-        icon: "/icon-192x192.png",
-      },
-      {
-        action: "close",
-        title: "Close",
-        icon: "/icon-192x192.png",
-      },
-    ],
   };
 
   event.waitUntil(
@@ -30,12 +80,22 @@ self.addEventListener("push", (event: any) => {
   );
 });
 
-self.addEventListener("notificationclick", (event: any) => {
-  console.log("[Service Worker] Notification click Received.");
-
+// Notification click listener
+self.addEventListener('notificationclick', (event: any) => {
   event.notification.close();
 
+  const urlToOpen = event.notification.data?.url || '/workout';
+
   event.waitUntil(
-    (self as any).clients.openWindow("/")
+    (self as any).clients.matchAll({ type: 'window' }).then((clientList: any[]) => {
+      for (const client of clientList) {
+        if (client.url.includes('/workout') && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if ((self as any).clients.openWindow) {
+        return (self as any).clients.openWindow(urlToOpen);
+      }
+    })
   );
 });

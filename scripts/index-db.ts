@@ -32,6 +32,12 @@ async function ensureIndexes() {
     await db.collection("Exercises").createIndex({ name: 1 });
     await db.collection("Exercises").createIndex({ muscleGroup: 1 });
 
+    // 5. UserProfile Indexes
+    console.log("👤 Indexing UserProfiles...");
+    await db.collection("user_profiles").createIndex({ userId: 1 }, { unique: true });
+    await db.collection("user_profiles").createIndex({ onboardingComplete: 1 });
+
+
     console.log("✅ Database indexing completed successfully!");
   } catch (err) {
     console.error("❌ Indexing failed:", err);

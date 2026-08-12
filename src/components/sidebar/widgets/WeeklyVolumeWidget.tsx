@@ -1,109 +1,129 @@
 "use client";
 
 import { GlassCard } from "@/components/ui/GlassCard";
-import { WeeklyVolumeComparison } from "@/types/workout";
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { WeeklyVolumeData } from "@/types/workout";
 import { cn } from "@/lib/utils";
+import { BarChart, Bar, ResponsiveContainer, Cell } from "recharts";
+import { MoveUpRight, MoveDownRight, Minus } from "lucide-react";
 
-export function WeeklyVolumeWidget({
-	weeklyVolume,
-}: {
-	weeklyVolume: WeeklyVolumeComparison;
-}) {
-	const {
-		thisWeekVolume,
-		lastWeekVolume,
-		differenceKg,
-		differencePercent,
-		trendDirection,
-	} = weeklyVolume;
+interface WeeklyVolumeWidgetProps {
+  data: WeeklyVolumeData | null;
+  variant?: 'sidebar' | 'mobile';
+}
 
-	const isFirstWeek = lastWeekVolume === 0;
+export function WeeklyVolumeWidget({ data, variant = 'sidebar' }: WeeklyVolumeWidgetProps) {
+  if (!data || data.weeks.length === 0) {
+    return (
+      <GlassCard className="flex flex-col items-center justify-center py-8 text-white/40">
+        <Minus className="w-8 h-8 mb-2 opacity-20" />
+        <span className="text-xs">No volume data yet</span>
+      </GlassCard>
+    );
+  }
 
-	return (
-		<GlassCard className="p-4 border-foreground/5 bg-foreground/[0.02]">
-			<div className="mb-4">
-				<h3 className="text-[10px] font-black tracking-widest text-foreground/60 uppercase">
-					WEEKLY VOLUME
-				</h3>
-			</div>
+  const { weeks, currentWeekVolume, averageWeeklyVolume, trend } = data;
+  const lastWeekVolume = weeks.length > 1 ? weeks[weeks.length - 2].totalVolume : currentWeekVolume;
+  const volumeDeltaPercent = lastWeekVolume > 0 
+    ? Math.round(((currentWeekVolume - lastWeekVolume) / lastWeekVolume) * 100) 
+    : 0;
 
-			<div className="space-y-4">
-				<div className="space-y-2.5">
-					<div className="flex items-center justify-between">
-						<span className="text-xs text-foreground/60 font-medium">
-							This week
-						</span>
-						<div className="flex items-center gap-1.5">
-							<span className="text-sm font-bold text-foreground">
-								{thisWeekVolume.toLocaleString()} kg
-							</span>
-							{!isFirstWeek && (
-								<div
-									className={cn(
-										"flex items-center",
-										trendDirection === "up"
-											? "text-green-400"
-											: trendDirection === "down"
-												? "text-red-400"
-												: "text-foreground/40",
-									)}>
-									{trendDirection === "up" && (
-										<TrendingUp className="w-3.5 h-3.5" />
-									)}
-									{trendDirection === "down" && (
-										<TrendingDown className="w-3.5 h-3.5" />
-									)}
-									{trendDirection === "neutral" && (
-										<Minus className="w-3.5 h-3.5" />
-									)}
-								</div>
-							)}
-						</div>
-					</div>
+  if (variant === 'mobile') {
+      return (
+        <GlassCard className="min-w-[220px] flex-shrink-0 p-4">
+          <div className="flex justify-between items-start mb-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-white/40 mb-1">Weekly Volume</p>
+              <div className="flex items-baseline gap-1">
+                <span className="text-xl font-bold text-white">{currentWeekVolume.toLocaleString()}</span>
+                <span className="text-[10px] text-white/40 font-medium">kg</span>
+              </div>
+            </div>
+            <div className={cn(
+              "px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-0.5",
+              volumeDeltaPercent > 0 ? "bg-green-500/10 text-green-400" : 
+              volumeDeltaPercent < 0 ? "bg-red-500/10 text-red-400" : 
+              "bg-white/5 text-white/40"
+            )}>
+              {volumeDeltaPercent > 0 ? <MoveUpRight className="w-2.5 h-2.5" /> : 
+               volumeDeltaPercent < 0 ? <MoveDownRight className="w-2.5 h-2.5" /> : 
+               <Minus className="w-2.5 h-2.5" />}
+              {Math.abs(volumeDeltaPercent)}%
+            </div>
+          </div>
+          <p className="text-[10px] text-white/40 mt-1 uppercase tracking-tight">Avg: {averageWeeklyVolume.toLocaleString()} kg</p>
+        </GlassCard>
+      );
+  }
 
-					<div className="flex items-center justify-between">
-						<span className="text-xs text-foreground/40 font-medium">
-							Last week
-						</span>
-						<span className="text-xs font-bold text-foreground/40">
-							{lastWeekVolume.toLocaleString()} kg
-						</span>
-					</div>
-				</div>
+  return (
+    <GlassCard className="flex flex-col gap-5">
+      <div>
+        <p className="text-[11px] uppercase tracking-wider text-white/40 mb-4 font-medium">Weekly Volume</p>
+        
+        <div className="flex items-baseline justify-between mb-4">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-2xl font-bold text-white">{currentWeekVolume.toLocaleString()}</span>
+            <span className="text-xs text-white/40 uppercase font-medium">kg</span>
+          </div>
+          <div className={cn(
+            "px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1 shadow-sm transition-all",
+            volumeDeltaPercent > 0 ? "bg-green-500/15 text-green-400" : 
+            volumeDeltaPercent < 0 ? "bg-red-500/15 text-red-400" : 
+            "bg-white/5 text-white/40"
+          )}>
+            {volumeDeltaPercent > 0 ? <MoveUpRight className="w-3 h-3" /> : 
+             volumeDeltaPercent < 0 ? <MoveDownRight className="w-3 h-3" /> : 
+             <Minus className="w-3 h-3" />}
+            {Math.abs(volumeDeltaPercent)}% vs last week
+          </div>
+        </div>
 
-				<div className="pt-3 border-t border-foreground/5">
-					{isFirstWeek ? (
-						<p className="text-xs text-brand-primary font-bold uppercase tracking-wider">
-							First week of training logged! 🚀
-						</p>
-					) : thisWeekVolume === 0 ? (
-						<p className="text-xs text-foreground/40 italic">
-							No sessions yet this week
-						</p>
-					) : (
-						<div
-							className={cn(
-								"flex items-center gap-2 text-xs font-black",
-								trendDirection === "up"
-									? "text-green-400"
-									: trendDirection === "down"
-										? "text-red-400"
-										: "text-foreground/40",
-							)}>
-							<span>
-								{differenceKg > 0 ? "+" : ""}
-								{differenceKg.toLocaleString()} kg
-							</span>
-							<span className="text-foreground/20 text-[10px]">·</span>
-							<span>
-								{differenceKg > 0 ? "+" : ""}
-								{differencePercent}%
-							</span>
-						</div>
-					)}
-				</div>
-			</div>
-		</GlassCard>
-	);
+        <div className="h-20 w-full mb-1">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={weeks}>
+              <Bar 
+                dataKey="totalVolume" 
+                radius={[4, 4, 0, 0]}
+              >
+                {weeks.map((entry, index) => (
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={index === weeks.length - 1 ? "#f97316" : "#f9731640"} 
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="flex justify-between items-center text-[10px] uppercase font-bold text-zinc-600 px-1">
+          <span>Week 1</span>
+          <span>This Week</span>
+        </div>
+      </div>
+
+      <div className="h-[1px] bg-white/10 w-full" />
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <p className="text-[10px] text-zinc-500 mb-1 font-medium uppercase tracking-tight">Avg / Week</p>
+          <p className="text-sm font-bold text-white/90">
+            {Math.round(averageWeeklyVolume).toLocaleString()} <span className="text-[10px] text-zinc-500 font-normal">kg</span>
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] text-zinc-500 mb-1 font-medium uppercase tracking-tight">Trend</p>
+          <div className="flex items-center gap-1.5">
+            <span className={cn(
+              "text-sm font-bold capitalize",
+              trend === 'increasing' ? "text-green-400" : 
+              trend === 'declining' ? "text-red-400" : 
+              "text-white/40"
+            )}>
+              {trend}
+            </span>
+          </div>
+        </div>
+      </div>
+    </GlassCard>
+  );
 }

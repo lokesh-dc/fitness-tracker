@@ -6,6 +6,7 @@ import { format } from "date-fns";
 export interface ExerciseDetail {
 	name: string;
 	sets: { weight: number; reps: number }[];
+	isPR?: boolean;
 }
 
 interface WorkoutShareCardProps {
@@ -13,6 +14,7 @@ interface WorkoutShareCardProps {
 		exercises: number;
 		totalSets: number;
 		totalReps: number;
+		calories: number;
 	};
 	exerciseDetails: ExerciseDetail[];
 	splitName?: string;
@@ -157,6 +159,7 @@ export const WorkoutShareCard = forwardRef<HTMLDivElement, WorkoutShareCardProps
 						{ label: "Exercises", value: stats.exercises, icon: "🏋️" },
 						{ label: "Sets", value: stats.totalSets, icon: "🔄" },
 						{ label: "Reps", value: stats.totalReps, icon: "✅" },
+						{ label: "Calories", value: stats.calories, icon: "🔥" },
 					].map((stat) => (
 						<div
 							className="flex flex-col gap-2"
@@ -190,6 +193,7 @@ export const WorkoutShareCard = forwardRef<HTMLDivElement, WorkoutShareCardProps
 							</div>
 						</div>
 					))}
+
 				</div>
 
 				{/* Exercise breakdown */}
@@ -221,9 +225,9 @@ export const WorkoutShareCard = forwardRef<HTMLDivElement, WorkoutShareCardProps
 										alignItems: "center",
 										justifyContent: "space-between",
 										padding: "20px 28px",
-										background: "rgba(255,255,255,0.04)",
+										background: ex.isPR ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.04)",
 										borderRadius: "20px",
-										border: "1px solid rgba(255,255,255,0.06)",
+										border: ex.isPR ? "1px solid rgba(16,185,129,0.3)" : "1px solid rgba(255,255,255,0.06)",
 									}}>
 									<div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
 										<div
@@ -231,13 +235,13 @@ export const WorkoutShareCard = forwardRef<HTMLDivElement, WorkoutShareCardProps
 												width: "44px",
 												height: "44px",
 												borderRadius: "12px",
-												background: "rgba(16,185,129,0.15)",
+												background: ex.isPR ? "#10b981" : "rgba(16,185,129,0.15)",
 												display: "flex",
 												alignItems: "center",
 												justifyContent: "center",
 												fontSize: "22px",
 												fontWeight: 900,
-												color: "#10b981",
+												color: ex.isPR ? "#000000" : "#10b981",
 											}}>
 											{idx + 1}
 										</div>
@@ -248,6 +252,7 @@ export const WorkoutShareCard = forwardRef<HTMLDivElement, WorkoutShareCardProps
 												color: "rgba(255,255,255,0.85)",
 											}}>
 											{ex.name}
+											{ex.isPR && <span style={{ marginLeft: "12px" }}>🏆</span>}
 										</div>
 									</div>
 									<div
@@ -261,7 +266,7 @@ export const WorkoutShareCard = forwardRef<HTMLDivElement, WorkoutShareCardProps
 												style={{
 													fontSize: "28px",
 													fontWeight: 900,
-													color: "#10b981",
+													color: ex.isPR ? "#ffffff" : "#10b981",
 												}}>
 												{ex.sets.length} × {maxWeight > 0 ? `${maxWeight} kg` : `${ex.sets[0]?.reps || 0} reps`}
 											</div>

@@ -4,12 +4,11 @@ import {
 	getPlanAdherenceScore,
 	getWeekPlanSchedule,
 } from "@/app/actions/plan";
+import { getOnboardingProfile } from "@/app/actions/profile";
+import PlanDesignerNudge from "@/components/onboarding/PlanDesignerNudge";
 import { GlassCard } from "@/components/ui/GlassCard";
-import {
-	Plus,
-	Calendar,
-	ChevronRight,
-} from "lucide-react";
+
+import { Plus, Calendar, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -35,12 +34,18 @@ export default async function PlanPage() {
 		activePlansSummary,
 		adherenceScore,
 		weekSchedule,
+		userProfile,
 	] = await Promise.all([
 		getUserPlanSummary() || { plans: [], templatesMap: {} },
 		getActivePlansSummary(userId),
 		getPlanAdherenceScore(userId),
 		getWeekPlanSchedule(userId),
+		getOnboardingProfile().catch(() => null),
 	]);
+
+	const showNudge =
+		!userProfile?.preferredTrainingDays ||
+		userProfile.preferredTrainingDays.length === 0;
 
 	const getPlanStatus = (startDateStr: string, numWeeks: number) => {
 		const start = new Date(startDateStr);
@@ -88,6 +93,8 @@ export default async function PlanPage() {
 							weekSchedule={weekSchedule}
 						/>
 					}>
+					{showNudge && <PlanDesignerNudge />}
+
 					{/* Call to action */}
 					<Link href="/plan/designer" className="block">
 						<GlassCard className="border-dashed border-brand-primary/30 bg-brand-primary/5 hover:bg-brand-primary/10 transition-all group flex items-center justify-between py-8">

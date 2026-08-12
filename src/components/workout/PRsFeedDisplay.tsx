@@ -40,7 +40,7 @@ export function PRsFeedDisplay({ prsHit, variant }: PRsFeedDisplayProps) {
                 <p className="text-[10px] font-black uppercase tracking-widest text-white/80">New PR!</p>
                 <div className="flex items-center justify-between">
                   <span className="font-bold">{lastPR.exerciseName}</span>
-                  <span className="font-mono font-black">{lastPR.newPRWeight} kg</span>
+                  <span className="font-mono font-black">{lastPR.newPRWeight} kg × {lastPR.newPRReps}</span>
                 </div>
               </div>
             </div>
@@ -99,11 +99,11 @@ export function PRsFeedDisplay({ prsHit, variant }: PRsFeedDisplayProps) {
                       {pr.exerciseName}
                     </span>
                     <span className="text-xs font-black text-brand-primary">
-                      {pr.newPRWeight} kg
+                      {pr.newPRWeight} kg × {pr.newPRReps}
                     </span>
                   </div>
                   <p className="text-[8px] font-bold text-foreground/40 uppercase">
-                    {pr.previousPRWeight ? `was: ${pr.previousPRWeight} kg` : "First time! 🎉"}
+                    {pr.previousPRWeight ? `was: ${pr.previousPRWeight} kg × ${pr.previousPRReps}` : "First time! 🎉"}
                   </p>
                 </div>
               </motion.div>
