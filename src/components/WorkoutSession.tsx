@@ -105,6 +105,7 @@ export default function WorkoutSession({
 	const [isSubmittingExercise, setIsSubmittingExercise] = useState(false);
 	const [showSuccess, setShowSuccess] = useState(false);
 	const [showCelebration, setShowCelebration] = useState(false);
+	const [savedLogId, setSavedLogId] = useState<string | null>(null);
 
 	const sessionStats = useSessionStats(
 		exercises,
@@ -193,7 +194,7 @@ export default function WorkoutSession({
 	const handleSubmit = async () => {
 		setIsSubmitting(true);
 		try {
-			await saveWorkoutSession(
+			const savedLog = await saveWorkoutSession(
 				{
 					bodyWeight,
 					exercises,
@@ -204,6 +205,7 @@ export default function WorkoutSession({
 				updateTemplate,
 				date,
 			);
+			setSavedLogId(savedLog.id);
 			setShowSuccess(true);
 			setShowCelebration(true);
 		} catch (error) {
@@ -583,14 +585,19 @@ export default function WorkoutSession({
 
 		return (
 			<PageWithSidebar sidebar={activeMode !== "MANUAL_LOG" ? <WorkoutSidebar stats={sessionStats.stats} /> : null}>
-				{showCelebration && (
-					<WorkoutCelebration
-						stats={celebrationStats}
-						exerciseDetails={celebrationExerciseDetails}
-						splitName={template?.splitName}
-						onClose={() => setShowCelebration(false)}
-					/>
-				)}
+			{showCelebration && (
+				<WorkoutCelebration
+					stats={celebrationStats}
+					exerciseDetails={celebrationExerciseDetails}
+					splitName={template?.splitName}
+					onClose={() => setShowCelebration(false)}
+					logId={savedLogId || undefined}
+					exercises={exercises}
+					durationSeconds={sessionStats.stats.elapsedSeconds}
+					prsHit={sessionStats.stats.prsHit}
+					bodyWeight={bodyWeight}
+				/>
+			)}
 				<SessionLayout
 					title={(template as any).splitName || "Session"}
 					subtitle={`Week ${template.weekNumber} • ${DAYS[template.dayOfWeek]}`}

@@ -12,10 +12,12 @@ import {
 	Share2,
 	Loader2,
 	Download,
+	Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GlassCard } from "./ui/GlassCard";
 import { WorkoutShareCard, type ExerciseDetail } from "./WorkoutShareCard";
+import { type Exercise, type PRHit } from "@/types/workout";
 
 interface WorkoutCelebrationProps {
 	stats: {
@@ -27,6 +29,11 @@ interface WorkoutCelebrationProps {
 	splitName?: string;
 	onClose: () => void;
 	targetUrl?: string;
+	logId?: string;
+	exercises?: Exercise[];
+	durationSeconds?: number;
+	prsHit?: PRHit[];
+	bodyWeight?: number;
 }
 
 export function WorkoutCelebration({
@@ -35,11 +42,19 @@ export function WorkoutCelebration({
 	splitName,
 	onClose,
 	targetUrl = "/dashboard",
+	logId,
+	exercises,
+	durationSeconds,
+	prsHit = [],
+	bodyWeight,
 }: WorkoutCelebrationProps) {
 	const router = useRouter();
 	const [isVisible, setIsVisible] = useState(false);
 	const [isGenerating, setIsGenerating] = useState(false);
+	const [aiSummary, setAiSummary] = useState<string | null>(null);
+	const [isSummaryLoading, setIsSummaryLoading] = useState(false);
 	const shareCardRef = useRef<HTMLDivElement>(null);
+	const summaryRequestedRef = useRef(false);
 
 	useEffect(() => {
 		setIsVisible(true);
@@ -51,6 +66,44 @@ export function WorkoutCelebration({
 		}, 15000);
 		return () => clearTimeout(timer);
 	}, [router, targetUrl]);
+
+	useEffect(() => {
+		if (
+			!logId ||
+			!exercises ||
+			exercises.length === 0 ||
+			summaryRequestedRef.current
+		)
+			return;
+		summaryRequestedRef.current = true;
+		setIsSummaryLoading(true);
+
+		const payload = {
+			logId,
+			exercises,
+			splitName,
+			durationSeconds,
+			prsHit,
+			bodyWeight,
+		};
+
+		(async () => {
+			try {
+				const res = await fetch("/api/workout-summary", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(payload),
+				});
+				if (!res.ok) throw new Error("Failed to fetch summary");
+				const data = await res.json();
+				if (data.summary) setAiSummary(data.summary);
+			} catch (err) {
+				console.error("Error fetching AI summary:", err);
+			} finally {
+				setIsSummaryLoading(false);
+			}
+		})();
+	}, [logId, exercises, splitName, durationSeconds, prsHit, bodyWeight]);
 
 	const generateShareImage = async (): Promise<Blob | null> => {
 		if (!shareCardRef.current) return null;
@@ -218,6 +271,28 @@ export function WorkoutCelebration({
 						</p>
 					</div>
 				</div>
+
+				{(isSummaryLoading || aiSummary) && (
+					<div className="bg-white/10 border border-white/15 rounded-2xl p-4 text-left">
+						<div className="flex items-center space-x-2 mb-2">
+							<Sparkles className="w-3.5 h-3.5 text-white/60 animate-pulse" />
+							<p className="text-[8px] font-black text-white/60 uppercase tracking-widest">
+								AI Coach Summary
+							</p>
+						</div>
+						{isSummaryLoading && !aiSummary ? (
+							<div className="space-y-2">
+								<div className="h-2.5 rounded-full bg-white/10 animate-pulse" />
+								<div className="h-2.5 rounded-full bg-white/10 animate-pulse w-5/6" />
+								<div className="h-2.5 rounded-full bg-white/10 animate-pulse w-2/3" />
+							</div>
+						) : (
+							<p className="text-[11px] font-medium text-white/90 leading-relaxed">
+								{aiSummary}
+							</p>
+						)}
+					</div>
+				)}
 
 				<div className="space-y-3">
 					<button
