@@ -36,9 +36,6 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-
-    // Idempotency: if a summary already exists for this log, return it
-    // without calling the AI provider again (protects free-tier quota).
     if (logId) {
       const db = await getDb();
       const existing = await db.collection("WorkoutLog").findOne(

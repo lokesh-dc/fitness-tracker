@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
 	Trophy,
@@ -10,19 +10,14 @@ import {
 	ArrowRight,
 	Dumbbell,
 	Activity,
-	CheckCircle2,
-	Share2,
-	Loader2,
-	Download,
 	Sparkles,
-  Flame
+	Flame
 } from "lucide-react";
-import { WorkoutShareCard, type ExerciseDetail } from "./WorkoutShareCard";
+import { WorkoutShareCard } from "./WorkoutShareCard";
 import { type Exercise, type PRHit } from "@/types/workout";
 import { cn } from "@/lib/utils";
 import { GlassCard } from "./ui/GlassCard";
 import { motion, AnimatePresence } from "framer-motion";
-import { WorkoutShareCard } from "./WorkoutShareCard";
 
 interface ExerciseDetail {
 	name: string;
@@ -55,7 +50,6 @@ export function WorkoutCelebration({
 	exerciseDetails,
 	muscleGroups,
 	splitName,
-	onClose,
 	logId,
 	exercises,
 	durationSeconds,
@@ -64,7 +58,7 @@ export function WorkoutCelebration({
 	targetUrl = "/",
 }: WorkoutCelebrationProps) {
 	const router = useRouter();
-	const [isVisible, setIsVisible] = useState(true);
+	const isVisible = true;
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [aiSummary, setAiSummary] = useState<string | null>(null);
 	const [isSummaryLoading, setIsSummaryLoading] = useState(false);
@@ -139,7 +133,7 @@ export function WorkoutCelebration({
 
 			const file = new File([blob], "workout-summary.png", { type: "image/png" });
 			const shareText = `I just crushed my ${splitName || "workout"}! 🏋️‍♂️\n\nTracked with Fitness Tracker.`;
-			
+
 			if (navigator.share && navigator.canShare?.({ files: [file] })) {
 				await navigator.share({
 					title: "Session Crushed!",
@@ -155,7 +149,7 @@ export function WorkoutCelebration({
 				a.click();
 				document.body.removeChild(a);
 				URL.revokeObjectURL(url);
-				
+
 				await navigator.clipboard.writeText(shareText);
 				alert("Summary snapshot downloaded & text copied to clipboard!");
 			}
@@ -174,7 +168,7 @@ export function WorkoutCelebration({
 					animate={{ opacity: 1 }}
 					exit={{ opacity: 0 }}
 					className="fixed inset-0 z-[100] bg-background/80 backdrop-blur-xl flex flex-col items-center overflow-hidden m-0">
-					
+
 					{/* Hidden share card for capture */}
 					<WorkoutShareCard
 						ref={shareCardRef}
@@ -278,123 +272,124 @@ export function WorkoutCelebration({
 								</motion.div>
 							)}
 
-				{(isSummaryLoading || aiSummary) && (
-					<div className="bg-white/10 border border-white/15 rounded-2xl p-4 text-left">
-						<div className="flex items-center space-x-2 mb-2">
-							<Sparkles className="w-3.5 h-3.5 text-white/60 animate-pulse" />
-							<p className="text-[8px] font-black text-white/60 uppercase tracking-widest">
-								AI Coach Summary
-							</p>
-						</div>
-						{isSummaryLoading && !aiSummary ? (
-							<div className="space-y-2">
-								<div className="h-2.5 rounded-full bg-white/10 animate-pulse" />
-								<div className="h-2.5 rounded-full bg-white/10 animate-pulse w-5/6" />
-								<div className="h-2.5 rounded-full bg-white/10 animate-pulse w-2/3" />
-							</div>
-						) : (
-							<p className="text-[11px] font-medium text-white/90 leading-relaxed">
-								{aiSummary}
-							</p>
-						)}
-					</div>
-				)}
+							{(isSummaryLoading || aiSummary) && (
+								<div className="w-full bg-foreground/5 border border-foreground/10 rounded-2xl p-4 text-left">
+									<div className="flex items-center space-x-2 mb-2">
+										<Sparkles className="w-3.5 h-3.5 text-brand-primary animate-pulse" />
+										<p className="text-[8px] font-black text-foreground/50 uppercase tracking-widest">
+											AI Coach Summary
+										</p>
+									</div>
+									{isSummaryLoading && !aiSummary ? (
+										<div className="space-y-2">
+											<div className="h-2.5 rounded-full bg-foreground/10 animate-pulse" />
+											<div className="h-2.5 rounded-full bg-foreground/10 animate-pulse w-5/6" />
+											<div className="h-2.5 rounded-full bg-foreground/10 animate-pulse w-2/3" />
+										</div>
+									) : (
+										<p className="text-[11px] font-medium text-foreground/80 leading-relaxed whitespace-pre-line">
+											{aiSummary}
+										</p>
+									)}
+								</div>
+							)}
 
-				<div className="space-y-3">
-					<button
-						onClick={handleShare}
-						disabled={isGenerating}
-						className="w-full bg-emerald-500 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-[0_10px_20px_rgba(0,0,0,0.1)] hover:scale-105 active:scale-95 transition-all flex items-center justify-center group border border-white/20 disabled:opacity-70 disabled:hover:scale-100">
-						{isGenerating ? (
-							<>
-								<Loader2 className="w-4 h-4 mr-3 animate-spin" />
-								Generating Image...
-							</>
-						) : (
-							<>
-								<Share2 className="w-4 h-4 mr-3" />
-								Share Achievement
-							</>
-						)}
-					</button>
-							{/* Exercise List */}
-							<div className="w-full space-y-4">
-								<h3 className="text-[10px] font-black text-foreground/20 uppercase tracking-[0.3em] px-2 flex items-center justify-between">
-									<span>Workout Breakdown</span>
-									<span className="text-brand-primary">Total Focus</span>
-								</h3>
-								<div className="space-y-2">
-									{exerciseDetails.map((ex, i) => (
-										<motion.div
-											initial={{ x: -20, opacity: 0 }}
-											animate={{ x: 0, opacity: 1 }}
-											transition={{ delay: 0.6 + i * 0.1 }}
-											key={i}>
-											<GlassCard
-												className={cn(
-													"p-4 flex items-center justify-between transition-all duration-500",
-													ex.isPR 
-														? "bg-emerald-500/20 border-emerald-500/30" 
-														: "bg-white/5 border-white/5"
-												)}>
-												<div className="flex items-center gap-4">
-													<div className={cn(
-														"w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm",
-														ex.isPR ? "bg-emerald-500 text-white" : "bg-foreground/5 text-foreground/40"
+							<div className="space-y-3 w-full">
+								<button
+									onClick={handleShare}
+									disabled={isGenerating}
+									className="w-full bg-emerald-500 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-[0_10px_20px_rgba(0,0,0,0.1)] hover:scale-105 active:scale-95 transition-all flex items-center justify-center group border border-white/20 disabled:opacity-70 disabled:hover:scale-100">
+									{isGenerating ? (
+										<>
+											<Loader2 className="w-4 h-4 mr-3 animate-spin" />
+											Generating Image...
+										</>
+									) : (
+										<>
+											<Share2 className="w-4 h-4 mr-3" />
+											Share Achievement
+										</>
+									)}
+								</button>
+								{/* Exercise List */}
+								<div className="w-full space-y-4">
+									<h3 className="text-[10px] font-black text-foreground/20 uppercase tracking-[0.3em] px-2 flex items-center justify-between">
+										<span>Workout Breakdown</span>
+										<span className="text-brand-primary">Total Focus</span>
+									</h3>
+									<div className="space-y-2">
+										{exerciseDetails.map((ex, i) => (
+											<motion.div
+												initial={{ x: -20, opacity: 0 }}
+												animate={{ x: 0, opacity: 1 }}
+												transition={{ delay: 0.6 + i * 0.1 }}
+												key={i}>
+												<GlassCard
+													className={cn(
+														"p-4 flex items-center justify-between transition-all duration-500",
+														ex.isPR
+															? "bg-emerald-500/20 border-emerald-500/30"
+															: "bg-white/5 border-white/5"
 													)}>
-														{ex.isPR ? <Trophy className="w-5 h-5" /> : (i + 1)}
-													</div>
-													<div>
-														<p className={cn(
-															"text-sm font-black uppercase tracking-tight",
-															ex.isPR ? "text-emerald-400" : "text-foreground"
+													<div className="flex items-center gap-4">
+														<div className={cn(
+															"w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm",
+															ex.isPR ? "bg-emerald-500 text-white" : "bg-foreground/5 text-foreground/40"
 														)}>
-															{ex.name}
-														</p>
-														<p className={cn(
-															"text-[9px] font-bold uppercase tracking-widest mt-0.5",
-															ex.isPR ? "text-emerald-400/60" : "text-foreground/30"
-														)}>
-															{ex.sets.length} Sets • {Math.max(...ex.sets.map(s => s.weight))} kg max
-															{ex.muscleGroup && <span className="ml-2 opacity-50">{ex.muscleGroup}</span>}
-														</p>
+															{ex.isPR ? <Trophy className="w-5 h-5" /> : (i + 1)}
+														</div>
+														<div>
+															<p className={cn(
+																"text-sm font-black uppercase tracking-tight",
+																ex.isPR ? "text-emerald-400" : "text-foreground"
+															)}>
+																{ex.name}
+															</p>
+															<p className={cn(
+																"text-[9px] font-bold uppercase tracking-widest mt-0.5",
+																ex.isPR ? "text-emerald-400/60" : "text-foreground/30"
+															)}>
+																{ex.sets.length} Sets • {Math.max(...ex.sets.map(s => s.weight))} kg max
+																{ex.muscleGroup && <span className="ml-2 opacity-50">{ex.muscleGroup}</span>}
+															</p>
+														</div>
 													</div>
-												</div>
-												{ex.isPR && (
-													<div className="bg-emerald-500/10 p-2 rounded-lg">
-														<Trophy className="w-4 h-4 text-emerald-400" />
-													</div>
-												)}
-											</GlassCard>
-										</motion.div>
-									))}
+													{ex.isPR && (
+														<div className="bg-emerald-500/10 p-2 rounded-lg">
+															<Trophy className="w-4 h-4 text-emerald-400" />
+														</div>
+													)}
+												</GlassCard>
+											</motion.div>
+										))}
+									</div>
 								</div>
 							</div>
 						</div>
-					</div>
 
-					{/* Fixed Bottom Action Bar */}
-					<div className="w-full max-w-lg px-6 py-2 bg-gradient-to-t from-background via-background/95 to-transparent backdrop-blur-lg z-50 flex flex-col gap-4 border-t border-white/5">
-						<div className="flex gap-3">
-							<button
-								onClick={handleShare}
-								disabled={isGenerating}
-								className="flex-1 bg-white/[0.03] text-foreground py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] border border-white hover:bg-white/5 active:scale-95 transition-all flex items-center justify-center">
-								{isGenerating ? (
-									<Loader2 className="w-4 h-4 animate-spin" />
-								) : (
-									<>
-										<Share2 className="w-4 h-4 mr-2" />
-										Share
-									</>
-								)}
-							</button>
-							<button
-								onClick={handleDone}
-								className="flex-[2] bg-brand-primary text-black py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-[0_10px_30px_rgba(var(--brand-accent-rgb),0.2)] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center group">
-								Go to Home
-								<ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-							</button>
+						{/* Fixed Bottom Action Bar */}
+						<div className="w-full max-w-lg px-6 py-2 bg-gradient-to-t from-background via-background/95 to-transparent backdrop-blur-lg z-50 flex flex-col gap-4 border-t border-white/5">
+							<div className="flex gap-3">
+								<button
+									onClick={handleShare}
+									disabled={isGenerating}
+									className="flex-1 bg-white/[0.03] text-foreground py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] border border-white hover:bg-white/5 active:scale-95 transition-all flex items-center justify-center">
+									{isGenerating ? (
+										<Loader2 className="w-4 h-4 animate-spin" />
+									) : (
+										<>
+											<Share2 className="w-4 h-4 mr-2" />
+											Share
+										</>
+									)}
+								</button>
+								<button
+									onClick={handleDone}
+									className="flex-[2] bg-brand-primary text-black py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-[0_10px_30px_rgba(var(--brand-accent-rgb),0.2)] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center group">
+									Go to Home
+									<ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+								</button>
+							</div>
 						</div>
 					</div>
 				</motion.div>

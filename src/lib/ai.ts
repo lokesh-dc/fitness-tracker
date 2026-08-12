@@ -19,60 +19,111 @@ export function getGroqModel(): string | null {
   return model;
 }
 
-function resolveMuscleGroups(exercises: Exercise[]): string[] {
-  const groups = new Set<string>();
-  const allGroups = Object.keys(EXERCISE_LIST) as (keyof typeof EXERCISE_LIST)[];
+function getExerciseUnit(ex: Exercise): string {
+  return (ex as any).unit || "kg";
+}
 
+function getSessionUnit(exercises: Exercise[]): string | null {
+  const units = new Set(exercises.map(getExerciseUnit));
+  return units.size === 1 ? (units.values().next().value as string) : null;
+}
+
+function calcTotalVolume(exercises: Exercise[]): number {
+  return exercises.reduce(
+    (total, ex) =>
+      total + ex.sets.reduce((s, set) => s + (set.weight || 0) * (set.reps || 0), 0),
+    0,
+  );
+}
+
+function findHeaviestSet(
+  exercises: Exercise[],
+): { exerciseName: string; weight: number; reps: number } | null {
+  let heaviest: { exerciseName: string; weight: number; reps: number } | null = null;
   for (const ex of exercises) {
-    for (const group of allGroups) {
-      if (EXERCISE_LIST[group].includes(ex.name)) {
-        groups.add(group);
-        break;
+    for (const set of ex.sets) {
+      const weight = set.weight || 0;
+      if (!heaviest || weight > heaviest.weight) {
+        heaviest = { exerciseName: ex.name, weight, reps: set.reps || 0 };
       }
     }
   }
+  return heaviest;
+}
 
-  return Array.from(groups);
+function resolveMuscleGroupVolumes(exercises: Exercise[]): { group: string; volume: number }[] {
+  const allGroups = Object.keys(EXERCISE_LIST) as (keyof typeof EXERCISE_LIST)[];
+  const volumeByGroup = new Map<string, number>();
+
+  for (const ex of exercises) {
+    const group = allGroups.find((g) => EXERCISE_LIST[g].includes(ex.name));
+    if (!group) continue;
+    const exVolume = ex.sets.reduce((s, set) => s + (set.weight || 0) * (set.reps || 0), 0);
+    volumeByGroup.set(group, (volumeByGroup.get(group) || 0) + exVolume);
+  }
+
+  return Array.from(volumeByGroup.entries())
+    .map(([group, volume]) => ({ group, volume: Math.round(volume) }))
+    .sort((a, b) => b.volume - a.volume);
 }
 
 function buildPrompt(input: WorkoutSummaryInput): string {
-  const { splitName, exercises, durationSeconds, prsHit, bodyWeight } = input;
-  const muscleGroups = resolveMuscleGroups(exercises);
+  const { splitName, exercises, prsHit, bodyWeight } = input;
+  const muscleVolumes = resolveMuscleGroupVolumes(exercises);
+  const sessionUnit = getSessionUnit(exercises);
+  const totalVolume = calcTotalVolume(exercises);
+  const heaviest = findHeaviestSet(exercises);
 
   const lines = [
-    "You are a professional strength & conditioning coach. Summarize the completed workout below for an athlete.",
-    "Part 1 — Summary: concise, motivating, and specific. Use only the data provided. Format as a short paragraph of 3-5 sentences.",
-    "Part 2 — Cool-Down: based ONLY on the muscle groups listed below, recommend 3-5 cool-down stretches as a bulleted list. For each stretch give the name and the hold time (e.g. '30s per side').",
-    "Hard rules: Do NOT add any facts, statistics, research, general fitness advice, motivational quotes, or anything not directly related to this specific workout and its muscles. No medical advice. No exercises that target muscles NOT listed below.",
+    "You are a professional strength & conditioning coach. Recommend a cool-down for the completed workout below.",
+    "",
+    // Part 1 — Summary (disabled: we only want cool-down output now)
+    // "Part 1 — Summary (3-5 sentences, punchy and specific):",
+    // "- Reference at least two concrete numbers from the data below (total volume, heaviest set, duration, or a PR).",
+    // "- Do not use vague filler like 'consistent effort', 'solid session', or 'maintained good form' unless it is directly tied to a specific number below — if a claim can't be backed by data, cut it.",
+    // "- Determine the primary muscle focus from the muscle-group volume ranking below, NOT from the split label alone. The split label is just a name the athlete picked and may not reflect what was actually trained.",
+    // "- If personal records were broken, lead with them — name the exercise and the new number. That's the most exciting part of the session.",
+    "",
+    "Cool-Down: based ONLY on the muscle groups and exercises listed below, recommend 3-5 cool-down stretches as a bulleted list. For each stretch give the name and the hold time (e.g. '30s per side').",
+    "",
+    "Hard rules: Do NOT add any summary, facts, statistics, research, general fitness advice, motivational quotes, or anything not directly related to this specific workout and its muscles. No medical advice. No exercises or stretches for muscle groups NOT listed below.",
+    "",
   ];
 
   const exerciseLines = exercises
     .map((ex) => {
-      const sets = ex.sets
-        .map((s) => `${s.weight || 0}kg x ${s.reps || 0}`)
-        .join(", ");
+      const unit = getExerciseUnit(ex);
+      const sets = ex.sets.map((s) => `${s.weight || 0}${unit} x ${s.reps || 0}`).join(", ");
       return `- ${ex.name}: ${sets}`;
     })
     .join("\n");
 
-  lines.push(`Workout split: ${splitName || "General"}`);
+  lines.push(`Split label (as named by athlete): ${splitName || "General"}`);
   if (bodyWeight) lines.push(`Athlete body weight: ${bodyWeight}kg`);
-  if (durationSeconds) {
-    const mins = Math.round(durationSeconds / 60);
-    lines.push(`Duration: ${mins} minutes`);
+  if (sessionUnit) {
+    lines.push(`Total volume this session: ~${Math.round(totalVolume)}${sessionUnit}`);
+    if (heaviest) {
+      lines.push(`Heaviest set: ${heaviest.exerciseName} — ${heaviest.weight}${sessionUnit} x ${heaviest.reps}`);
+    }
   }
+
+  lines.push("");
   lines.push("Exercises performed:");
   lines.push(exerciseLines);
 
-  if (muscleGroups.length > 0) {
+  if (muscleVolumes.length > 0) {
+    lines.push("");
     lines.push(
-      `Muscle groups trained (for cool-down selection): ${muscleGroups.join(", ")}. If a muscle group is not listed, do not recommend stretches for it.`,
+      `Muscle groups trained, ranked by volume (use this — not the split label — to determine primary focus; use ONLY these for cool-down selection): ${muscleVolumes
+        .map((m) => `${m.group} (${m.volume}${sessionUnit || "kg"})`)
+        .join(", ")}.`,
     );
   }
 
   if (prsHit.length > 0) {
+    lines.push("");
     lines.push(
-      `Personal records broken: ${prsHit
+      `Personal records broken this session: ${prsHit
         .map((p) => `${p.exerciseName} (${p.newPRWeight}kg)`)
         .join(", ")}`,
     );
@@ -103,13 +154,13 @@ export async function generateWorkoutSummary(
     },
     body: JSON.stringify({
       model,
-      temperature: 0.7,
+      temperature: 0.6,
       max_tokens: 500,
       messages: [
         {
           role: "system",
           content:
-            "You are a data-driven strength and conditioning coach. Responses are short, punchy, and strictly grounded in the workout data provided. Never include facts, figures, studies, or advice that is not about this exact workout.",
+            "You are a data-driven strength and conditioning coach. Your ONLY job is to recommend a cool-down: 3-5 stretches for the muscles actually trained in the session, each with a hold time. Never write a workout summary, never include facts, figures, studies, general advice, or content not about this exact workout.",
         },
         { role: "user", content: buildPrompt(input) },
       ],

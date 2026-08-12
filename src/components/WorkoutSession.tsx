@@ -1019,6 +1019,11 @@ export default function WorkoutSession({
 						splitName={splitName}
 						onClose={() => setShowCelebration(false)}
 						targetUrl="/"
+						logId={savedLogId || undefined}
+						exercises={exercises}
+						durationSeconds={sessionStats.stats.elapsedSeconds}
+						prsHit={sessionStats.stats.prsHit}
+						bodyWeight={bodyWeight}
 					/>
 				)}
 
