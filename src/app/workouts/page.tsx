@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import { Trophy, Activity, Calendar, Info, Plus, Edit2 } from "lucide-react";
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { DeleteWorkoutButton } from "@/components/DeleteWorkoutButton";
 import { cn } from "@/lib/utils";
 import {
 	HistoryMobileStrip,
@@ -155,12 +156,15 @@ export default async function WorkoutsPage({
 											<Calendar className="w-4 h-4 text-brand-primary mr-2" />{" "}
 											Session Breakdown
 										</h3>
-										<Link
-											href={`/workout?date=${targetDateStr}&mode=MANUAL_LOG`}
-											className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-foreground/5 hover:bg-brand-primary/10 hover:text-brand-primary transition-all text-[10px] font-black uppercase tracking-widest text-foreground/40">
-											<Edit2 className="w-3 h-3" />
-											<span>Edit Session</span>
-										</Link>
+										<div className="flex items-center space-x-2">
+											<Link
+												href={`/workout?date=${targetDateStr}&mode=MANUAL_LOG`}
+												className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-foreground/5 hover:bg-brand-primary/10 hover:text-brand-primary transition-all text-[10px] font-black uppercase tracking-widest text-foreground/40">
+												<Edit2 className="w-3 h-3" />
+												<span>Edit Session</span>
+											</Link>
+											<DeleteWorkoutButton logId={log.id} />
+										</div>
 									</div>
 
 									{log.exercises?.length === 0 ? (

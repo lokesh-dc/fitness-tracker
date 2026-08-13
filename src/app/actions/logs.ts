@@ -689,6 +689,93 @@ export async function getWorkoutByDate(dateStr: string, overrideUserId?: string)
   }
 }
 
+export async function deleteWorkoutLog(logId: string): Promise<{ success: boolean }> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return { success: false };
+    const userId = new ObjectId((session.user as any).id);
+
+    const db = await getDb();
+
+    // Load the log first so we can scrub its data from ExerciseRecords
+    const log = await db.collection("WorkoutLog").findOne({
+      _id: new ObjectId(logId),
+      userId,
+    });
+    if (!log) return { success: false };
+
+    await db.collection("WorkoutLog").deleteOne({ _id: log._id });
+
+    // Remove this session's entries from each exercise's PR history and
+    // recompute currentPR / previousPR from whatever history remains.
+    const logDay = new Date(log.date).toDateString();
+    const exercises: any[] = log.exercises || [];
+
+    for (const ex of exercises) {
+      if (!ex.exerciseId) continue;
+      const record = await db.collection("ExerciseRecords").findOne({
+        userId,
+        exerciseId: ex.exerciseId,
+      });
+      if (!record) continue;
+
+      const remaining = (record.history || []).filter(
+        (h: any) => new Date(h.date).toDateString() !== logDay,
+      );
+
+      // No history left — the record is meaningless, drop it entirely
+      if (remaining.length === 0) {
+        await db.collection("ExerciseRecords").deleteOne({ _id: record._id });
+        continue;
+      }
+
+      // Recompute PR fields from remaining history (best weight, ties broken
+      // by reps — mirrors the logic in updateExerciseRecords)
+      const sorted = [...remaining].sort(
+        (a: any, b: any) =>
+          new Date(a.date).getTime() - new Date(b.date).getTime(),
+      );
+      let currentPR = 0;
+      let currentPRReps = 0;
+      let previousPR = 0;
+      let prDate: Date | null = null;
+
+      for (const h of sorted) {
+        const w = h.maxWeight || 0;
+        const r = h.maxReps || 0;
+        if (w > currentPR || (w === currentPR && r > currentPRReps)) {
+          previousPR = currentPR;
+          currentPR = w;
+          currentPRReps = r;
+          prDate = h.date;
+        }
+      }
+
+      await db.collection("ExerciseRecords").updateOne(
+        { _id: record._id },
+        {
+          $set: {
+            history: remaining,
+            currentPR,
+            currentPRReps,
+            previousPR,
+            prDate,
+            updatedAt: new Date(),
+          },
+        },
+      );
+    }
+
+    revalidatePath("/workouts");
+    revalidatePath("/");
+    revalidatePath("/analytics");
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting workout log:", error);
+    return { success: false };
+  }
+}
+
 export async function getUserStats() {
   try {
     const session = await getServerSession(authOptions);

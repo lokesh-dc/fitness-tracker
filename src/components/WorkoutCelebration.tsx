@@ -10,10 +10,10 @@ import {
 	ArrowRight,
 	Dumbbell,
 	Activity,
-	Sparkles,
 	Flame
 } from "lucide-react";
 import { WorkoutShareCard } from "./WorkoutShareCard";
+import { CoolDownStretches } from "./CoolDownStretches";
 import { type Exercise, type PRHit } from "@/types/workout";
 import { cn } from "@/lib/utils";
 import { GlassCard } from "./ui/GlassCard";
@@ -273,44 +273,13 @@ export function WorkoutCelebration({
 							)}
 
 							{(isSummaryLoading || aiSummary) && (
-								<div className="w-full bg-foreground/5 border border-foreground/10 rounded-2xl p-4 text-left">
-									<div className="flex items-center space-x-2 mb-2">
-										<Sparkles className="w-3.5 h-3.5 text-brand-primary animate-pulse" />
-										<p className="text-[8px] font-black text-foreground/50 uppercase tracking-widest">
-											AI Coach Summary
-										</p>
-									</div>
-									{isSummaryLoading && !aiSummary ? (
-										<div className="space-y-2">
-											<div className="h-2.5 rounded-full bg-foreground/10 animate-pulse" />
-											<div className="h-2.5 rounded-full bg-foreground/10 animate-pulse w-5/6" />
-											<div className="h-2.5 rounded-full bg-foreground/10 animate-pulse w-2/3" />
-										</div>
-									) : (
-										<p className="text-[11px] font-medium text-foreground/80 leading-relaxed whitespace-pre-line">
-											{aiSummary}
-										</p>
-									)}
-								</div>
+								<CoolDownStretches
+									summary={aiSummary}
+									loading={isSummaryLoading}
+								/>
 							)}
 
 							<div className="space-y-3 w-full">
-								<button
-									onClick={handleShare}
-									disabled={isGenerating}
-									className="w-full bg-emerald-500 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-[0_10px_20px_rgba(0,0,0,0.1)] hover:scale-105 active:scale-95 transition-all flex items-center justify-center group border border-white/20 disabled:opacity-70 disabled:hover:scale-100">
-									{isGenerating ? (
-										<>
-											<Loader2 className="w-4 h-4 mr-3 animate-spin" />
-											Generating Image...
-										</>
-									) : (
-										<>
-											<Share2 className="w-4 h-4 mr-3" />
-											Share Achievement
-										</>
-									)}
-								</button>
 								{/* Exercise List */}
 								<div className="w-full space-y-4">
 									<h3 className="text-[10px] font-black text-foreground/20 uppercase tracking-[0.3em] px-2 flex items-center justify-between">
@@ -366,30 +335,30 @@ export function WorkoutCelebration({
 								</div>
 							</div>
 						</div>
+					</div>
 
-						{/* Fixed Bottom Action Bar */}
-						<div className="w-full max-w-lg px-6 py-2 bg-gradient-to-t from-background via-background/95 to-transparent backdrop-blur-lg z-50 flex flex-col gap-4 border-t border-white/5">
-							<div className="flex gap-3">
-								<button
-									onClick={handleShare}
-									disabled={isGenerating}
-									className="flex-1 bg-white/[0.03] text-foreground py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] border border-white hover:bg-white/5 active:scale-95 transition-all flex items-center justify-center">
-									{isGenerating ? (
-										<Loader2 className="w-4 h-4 animate-spin" />
-									) : (
-										<>
-											<Share2 className="w-4 h-4 mr-2" />
-											Share
-										</>
-									)}
-								</button>
-								<button
-									onClick={handleDone}
-									className="flex-[2] bg-brand-primary text-black py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-[0_10px_30px_rgba(var(--brand-accent-rgb),0.2)] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center group">
-									Go to Home
-									<ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-								</button>
-							</div>
+					{/* Fixed Bottom Action Bar — always visible while content scrolls */}
+					<div className="w-full max-w-lg px-6 py-4 bg-gradient-to-t from-background via-background/95 to-background backdrop-blur-lg z-50 flex flex-col gap-4 border-t border-white/5">
+						<div className="flex gap-3">
+							<button
+								onClick={handleShare}
+								disabled={isGenerating}
+								className="flex-1 bg-white/[0.03] text-foreground py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] border border-white hover:bg-white/5 active:scale-95 transition-all flex items-center justify-center">
+								{isGenerating ? (
+									<Loader2 className="w-4 h-4 animate-spin" />
+								) : (
+									<>
+										<Share2 className="w-4 h-4 mr-2" />
+										Share
+									</>
+								)}
+							</button>
+							<button
+								onClick={handleDone}
+								className="flex-[2] bg-brand-primary text-black py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-[0_10px_30px_rgba(var(--brand-accent-rgb),0.2)] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center group">
+								Go to Home
+								<ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+							</button>
 						</div>
 					</div>
 				</motion.div>

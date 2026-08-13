@@ -32,6 +32,7 @@ import {
 import { getOnboardingProfile } from "@/app/actions/profile";
 import OnboardingBanner from "@/components/onboarding/OnboardingBanner";
 import { TomorrowPrompt } from "@/components/dashboard/TomorrowPrompt";
+import { CoolDownStretches } from "@/components/CoolDownStretches";
 
 export const dynamic = "force-dynamic";
 
@@ -173,6 +174,12 @@ export default async function DashboardPage() {
 								</div>
 							</GlassCard>
 						</section>
+
+						{todayWorkoutLog?.aiSummary && (
+							<section>
+								<CoolDownStretches summary={todayWorkoutLog.aiSummary} />
+							</section>
+						)}
 
 						<section className="space-y-4">
 							<div className="flex justify-between items-end">
