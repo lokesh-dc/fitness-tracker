@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
 	Trophy,
@@ -10,12 +10,14 @@ import {
 	ArrowRight,
 	Dumbbell,
 	Activity,
-	Flame,
+	Flame
 } from "lucide-react";
+import { WorkoutShareCard } from "./WorkoutShareCard";
+import { CoolDownStretches } from "./CoolDownStretches";
+import { type Exercise, type PRHit } from "@/types/workout";
 import { cn } from "@/lib/utils";
 import { GlassCard } from "./ui/GlassCard";
 import { motion, AnimatePresence } from "framer-motion";
-import { WorkoutShareCard } from "./WorkoutShareCard";
 
 interface ExerciseDetail {
 	name: string;
@@ -36,6 +38,11 @@ interface WorkoutCelebrationProps {
 	splitName?: string;
 	onClose: () => void;
 	targetUrl?: string;
+	logId?: string;
+	exercises?: Exercise[];
+	durationSeconds?: number;
+	prsHit?: PRHit[];
+	bodyWeight?: number;
 }
 
 export function WorkoutCelebration({
@@ -43,17 +50,62 @@ export function WorkoutCelebration({
 	exerciseDetails,
 	muscleGroups,
 	splitName,
-	onClose,
+	logId,
+	exercises,
+	durationSeconds,
+	prsHit = [],
+	bodyWeight,
 	targetUrl = "/",
 }: WorkoutCelebrationProps) {
 	const router = useRouter();
-	const [isVisible, setIsVisible] = useState(true);
+	const isVisible = true;
 	const [isGenerating, setIsGenerating] = useState(false);
+	const [aiSummary, setAiSummary] = useState<string | null>(null);
+	const [isSummaryLoading, setIsSummaryLoading] = useState(false);
 	const shareCardRef = useRef<HTMLDivElement>(null);
+	const summaryRequestedRef = useRef(false);
 
 	const handleDone = () => {
 		router.push(targetUrl);
 	};
+
+	useEffect(() => {
+		if (
+			!logId ||
+			!exercises ||
+			exercises.length === 0 ||
+			summaryRequestedRef.current
+		)
+			return;
+		summaryRequestedRef.current = true;
+		setIsSummaryLoading(true);
+
+		const payload = {
+			logId,
+			exercises,
+			splitName,
+			durationSeconds,
+			prsHit,
+			bodyWeight,
+		};
+
+		(async () => {
+			try {
+				const res = await fetch("/api/workout-summary", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(payload),
+				});
+				if (!res.ok) throw new Error("Failed to fetch summary");
+				const data = await res.json();
+				if (data.summary) setAiSummary(data.summary);
+			} catch (err) {
+				console.error("Error fetching AI summary:", err);
+			} finally {
+				setIsSummaryLoading(false);
+			}
+		})();
+	}, [logId, exercises, splitName, durationSeconds, prsHit, bodyWeight]);
 
 	const generateShareImage = async (): Promise<Blob | null> => {
 		if (!shareCardRef.current) return null;
@@ -81,7 +133,7 @@ export function WorkoutCelebration({
 
 			const file = new File([blob], "workout-summary.png", { type: "image/png" });
 			const shareText = `I just crushed my ${splitName || "workout"}! 🏋️‍♂️\n\nTracked with Fitness Tracker.`;
-			
+
 			if (navigator.share && navigator.canShare?.({ files: [file] })) {
 				await navigator.share({
 					title: "Session Crushed!",
@@ -97,7 +149,7 @@ export function WorkoutCelebration({
 				a.click();
 				document.body.removeChild(a);
 				URL.revokeObjectURL(url);
-				
+
 				await navigator.clipboard.writeText(shareText);
 				alert("Summary snapshot downloaded & text copied to clipboard!");
 			}
@@ -116,7 +168,7 @@ export function WorkoutCelebration({
 					animate={{ opacity: 1 }}
 					exit={{ opacity: 0 }}
 					className="fixed inset-0 z-[100] bg-background/80 backdrop-blur-xl flex flex-col items-center overflow-hidden m-0">
-					
+
 					{/* Hidden share card for capture */}
 					<WorkoutShareCard
 						ref={shareCardRef}
@@ -220,64 +272,73 @@ export function WorkoutCelebration({
 								</motion.div>
 							)}
 
-							{/* Exercise List */}
-							<div className="w-full space-y-4">
-								<h3 className="text-[10px] font-black text-foreground/20 uppercase tracking-[0.3em] px-2 flex items-center justify-between">
-									<span>Workout Breakdown</span>
-									<span className="text-brand-primary">Total Focus</span>
-								</h3>
-								<div className="space-y-2">
-									{exerciseDetails.map((ex, i) => (
-										<motion.div
-											initial={{ x: -20, opacity: 0 }}
-											animate={{ x: 0, opacity: 1 }}
-											transition={{ delay: 0.6 + i * 0.1 }}
-											key={i}>
-											<GlassCard
-												className={cn(
-													"p-4 flex items-center justify-between transition-all duration-500",
-													ex.isPR 
-														? "bg-emerald-500/20 border-emerald-500/30" 
-														: "bg-white/5 border-white/5"
-												)}>
-												<div className="flex items-center gap-4">
-													<div className={cn(
-														"w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm",
-														ex.isPR ? "bg-emerald-500 text-white" : "bg-foreground/5 text-foreground/40"
+							{(isSummaryLoading || aiSummary) && (
+								<CoolDownStretches
+									summary={aiSummary}
+									loading={isSummaryLoading}
+								/>
+							)}
+
+							<div className="space-y-3 w-full">
+								{/* Exercise List */}
+								<div className="w-full space-y-4">
+									<h3 className="text-[10px] font-black text-foreground/20 uppercase tracking-[0.3em] px-2 flex items-center justify-between">
+										<span>Workout Breakdown</span>
+										<span className="text-brand-primary">Total Focus</span>
+									</h3>
+									<div className="space-y-2">
+										{exerciseDetails.map((ex, i) => (
+											<motion.div
+												initial={{ x: -20, opacity: 0 }}
+												animate={{ x: 0, opacity: 1 }}
+												transition={{ delay: 0.6 + i * 0.1 }}
+												key={i}>
+												<GlassCard
+													className={cn(
+														"p-4 flex items-center justify-between transition-all duration-500",
+														ex.isPR
+															? "bg-emerald-500/20 border-emerald-500/30"
+															: "bg-white/5 border-white/5"
 													)}>
-														{ex.isPR ? <Trophy className="w-5 h-5" /> : (i + 1)}
-													</div>
-													<div>
-														<p className={cn(
-															"text-sm font-black uppercase tracking-tight",
-															ex.isPR ? "text-emerald-400" : "text-foreground"
+													<div className="flex items-center gap-4">
+														<div className={cn(
+															"w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm",
+															ex.isPR ? "bg-emerald-500 text-white" : "bg-foreground/5 text-foreground/40"
 														)}>
-															{ex.name}
-														</p>
-														<p className={cn(
-															"text-[9px] font-bold uppercase tracking-widest mt-0.5",
-															ex.isPR ? "text-emerald-400/60" : "text-foreground/30"
-														)}>
-															{ex.sets.length} Sets • {Math.max(...ex.sets.map(s => s.weight))} kg max
-															{ex.muscleGroup && <span className="ml-2 opacity-50">{ex.muscleGroup}</span>}
-														</p>
+															{ex.isPR ? <Trophy className="w-5 h-5" /> : (i + 1)}
+														</div>
+														<div>
+															<p className={cn(
+																"text-sm font-black uppercase tracking-tight",
+																ex.isPR ? "text-emerald-400" : "text-foreground"
+															)}>
+																{ex.name}
+															</p>
+															<p className={cn(
+																"text-[9px] font-bold uppercase tracking-widest mt-0.5",
+																ex.isPR ? "text-emerald-400/60" : "text-foreground/30"
+															)}>
+																{ex.sets.length} Sets • {Math.max(...ex.sets.map(s => s.weight))} kg max
+																{ex.muscleGroup && <span className="ml-2 opacity-50">{ex.muscleGroup}</span>}
+															</p>
+														</div>
 													</div>
-												</div>
-												{ex.isPR && (
-													<div className="bg-emerald-500/10 p-2 rounded-lg">
-														<Trophy className="w-4 h-4 text-emerald-400" />
-													</div>
-												)}
-											</GlassCard>
-										</motion.div>
-									))}
+													{ex.isPR && (
+														<div className="bg-emerald-500/10 p-2 rounded-lg">
+															<Trophy className="w-4 h-4 text-emerald-400" />
+														</div>
+													)}
+												</GlassCard>
+											</motion.div>
+										))}
+									</div>
 								</div>
 							</div>
 						</div>
 					</div>
 
-					{/* Fixed Bottom Action Bar */}
-					<div className="w-full max-w-lg px-6 py-2 bg-gradient-to-t from-background via-background/95 to-transparent backdrop-blur-lg z-50 flex flex-col gap-4 border-t border-white/5">
+					{/* Fixed Bottom Action Bar — always visible while content scrolls */}
+					<div className="w-full max-w-lg px-6 py-4 bg-gradient-to-t from-background via-background/95 to-background backdrop-blur-lg z-50 flex flex-col gap-4 border-t border-white/5">
 						<div className="flex gap-3">
 							<button
 								onClick={handleShare}

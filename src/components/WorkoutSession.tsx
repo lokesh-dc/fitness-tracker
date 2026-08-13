@@ -147,6 +147,7 @@ export default function WorkoutSession({
 	const [isSubmittingExercise, setIsSubmittingExercise] = useState(false);
 	const [showSuccess, setShowSuccess] = useState(false);
 	const [showCelebration, setShowCelebration] = useState(false);
+	const [savedLogId, setSavedLogId] = useState<string | null>(null);
 	const [plateauDetected, setPlateauDetected] = useState(false);
 	const [triggerConfetti, setTriggerConfetti] = useState(false);
 	const [showChangeWorkout, setShowChangeWorkout] = useState(false);
@@ -280,7 +281,7 @@ export default function WorkoutSession({
 		setIsSubmitting(true);
 		setShowCompleteConfirm(false);
 		try {
-			await saveWorkoutSession(
+			const savedLog = await saveWorkoutSession(
 				{
 					bodyWeight,
 					exercises: exercises.map((ex) => ({
@@ -297,6 +298,7 @@ export default function WorkoutSession({
 				updateTemplate,
 				date,
 			);
+			setSavedLogId(savedLog.id);
 			setShowSuccess(true);
 			setShowCelebration(true);
 		} catch (error) {
@@ -1017,6 +1019,11 @@ export default function WorkoutSession({
 						splitName={splitName}
 						onClose={() => setShowCelebration(false)}
 						targetUrl="/"
+						logId={savedLogId || undefined}
+						exercises={exercises}
+						durationSeconds={sessionStats.stats.elapsedSeconds}
+						prsHit={sessionStats.stats.prsHit}
+						bodyWeight={bodyWeight}
 					/>
 				)}
 
