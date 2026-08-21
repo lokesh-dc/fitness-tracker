@@ -33,6 +33,8 @@ import { getOnboardingProfile } from "@/app/actions/profile";
 import OnboardingBanner from "@/components/onboarding/OnboardingBanner";
 import { TomorrowPrompt } from "@/components/dashboard/TomorrowPrompt";
 import { CoolDownStretches } from "@/components/CoolDownStretches";
+import { WorkoutMergePrompt } from "@/components/dashboard/WorkoutMergePrompt";
+import { getYesterdayMissedWorkout } from "@/app/actions/merge";
 
 export const dynamic = "force-dynamic";
 
@@ -82,6 +84,7 @@ export default async function DashboardPage() {
 		randomQuote,
 		userProfile,
 		tomorrowPlan,
+		yesterdayMissed,
 	] = await Promise.all([
 		getPlanByDate().catch(() => null),
 		getActivePlanInfo().catch(() => null),
@@ -104,6 +107,11 @@ export default async function DashboardPage() {
 		getDailyQuote(),
 		getOnboardingProfile().catch(() => null),
 		getTomorrowPlanDetail().catch(() => null),
+		getYesterdayMissedWorkout().catch(() => ({
+			hasMissed: false,
+			splitName: "",
+			exerciseCount: 0,
+		})),
 	]);
 
 	const today = new Date();
@@ -146,15 +154,22 @@ export default async function DashboardPage() {
 					<div className="space-y-8">
 						{showOnboardingBanner && <OnboardingBanner />}
 						<NotificationPrompt />
-						<TomorrowPrompt
-							tomorrowPlan={tomorrowPlan ? {
-								planName: tomorrowPlan.planName,
-								splitName: tomorrowPlan.splitName,
-								totalExercises: tomorrowPlan.totalExercises,
-							} : null}
-							isTodayDone={!!isTodayDone}
-							isRestDay={!plan || (plan as any)?.exercises?.length === 0}
+					<TomorrowPrompt
+						tomorrowPlan={tomorrowPlan ? {
+							planName: tomorrowPlan.planName,
+							splitName: tomorrowPlan.splitName,
+							totalExercises: tomorrowPlan.totalExercises,
+						} : null}
+						isTodayDone={!!isTodayDone}
+						isRestDay={!plan || (plan as any)?.exercises?.length === 0}
+					/>
+
+					{yesterdayMissed?.hasMissed && !isTodayDone && (
+						<WorkoutMergePrompt
+							yesterdaySplitName={yesterdayMissed.splitName}
+							yesterdayExerciseCount={yesterdayMissed.exerciseCount}
 						/>
+					)}
 
 						<section>
 							<GlassCard className="relative overflow-hidden p-6 border-foreground/5 bg-gradient-to-br from-brand-primary/10 to-transparent">

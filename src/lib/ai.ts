@@ -1,4 +1,4 @@
-import { Exercise, PRHit } from "@/types/workout";
+import { Exercise, PRHit, WorkoutTemplate } from "@/types/workout";
 import { EXERCISE_LIST } from "@/lib/exercises";
 
 interface WorkoutSummaryInput {
@@ -180,4 +180,191 @@ export async function generateWorkoutSummary(
   const summary: string | undefined =
     data?.choices?.[0]?.message?.content?.trim();
   return summary || null;
+}
+
+// --- Workout Merge ---
+
+interface MergeWorkoutInput {
+  yesterdayTemplate: WorkoutTemplate;
+  todayTemplate: WorkoutTemplate;
+}
+
+export interface MergedWorkoutResult {
+  exercises: {
+    name: string;
+    targetSets: number;
+    targetReps: number;
+    unit: string;
+    lastWeight: number;
+  }[];
+  explanation: string;
+  estimatedMinutes: number;
+}
+
+function resolveExerciseMuscleGroup(name: string): string {
+  const allGroups = Object.keys(EXERCISE_LIST) as (keyof typeof EXERCISE_LIST)[];
+  for (const group of allGroups) {
+    if (EXERCISE_LIST[group].includes(name)) return group;
+  }
+  return "Other";
+}
+
+function buildMergePrompt(input: MergeWorkoutInput): string {
+  const { yesterdayTemplate, todayTemplate } = input;
+
+  const todayCount = todayTemplate.exercises.length;
+  // Target duration = today's workout only (~10 min per exercise + ~90s rest between sets)
+  const targetDuration = todayCount * 10;
+
+  // Build a numbered exercise list with weights
+  let idx = 1;
+
+  const formatEx = (ex: Exercise) => {
+    const weight = (ex as any).lastWeight || 0;
+    const weightStr = weight > 0 ? ` @ ${weight}kg` : "";
+    return `  [${idx++}] ${ex.name} — ${ex.targetSets}x${ex.targetReps} ${ex.unit || "reps"}${weightStr}`;
+  };
+
+  const yLines = yesterdayTemplate.exercises.map(formatEx);
+  const tLines = todayTemplate.exercises.map(formatEx);
+
+  return [
+    `Merge yesterday's missed workout with today's planned workout into ONE session.`,
+    `Target duration: ~${targetDuration} minutes (same as today's workout alone).`,
+    `Each exercise takes ~10 min including 90s rest between sets.`,
+    "",
+    "EXERCISE LIST (numbered):",
+    `YESTERDAY:`,
+    yLines.join("\n"),
+    `TODAY:`,
+    tLines.join("\n"),
+    "",
+    "OUTPUT FORMAT — one line per exercise you keep:",
+    "[number]: [sets]x[reps] @ [weight]kg",
+    "...",
+    "Then a blank line, then one sentence explaining your decisions.",
+    "",
+    "RULES:",
+    `- You have ~${targetDuration} min. Each exercise ≈ 10 min (90s rest between sets). Pick exercises that fit.`,
+    "- To KEEP an exercise: output its number with setsxreps and weight.",
+    "- To DROP an exercise: just don't include it.",
+    "- Same exercise in both → pick ONE, use higher set count (max +1 set).",
+    "- Same muscle, different exercises → keep compound, cut accessory sets by ~25%.",
+    "- Drop isolation exercises before compounds if over time.",
+    "- You may adjust sets/reps within ±25% of original.",
+    "- Weight should match the original's lastWeight (shown as @ Xkg).",
+    "",
+    "EXAMPLE OUTPUT:",
+    "[1]: 4x8 @ 80kg",
+    "[3]: 3x10 @ 40kg",
+    "[5]: 4x6 @ 100kg",
+    "",
+    "Kept heavy compounds from both days, dropped one isolation to fit time.",
+  ].join("\n");
+}
+
+export async function generateMergedWorkout(
+  input: MergeWorkoutInput,
+): Promise<MergedWorkoutResult | null> {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey || apiKey === "your_groq_api_key_here") {
+    console.warn("GROQ_API_KEY is not set. Skipping AI workout merge.");
+    return null;
+  }
+  const model = getGroqModel();
+  if (!model) {
+    console.warn("GROQ_MODEL is not set. Skipping AI workout merge.");
+    return null;
+  }
+
+  const response = await fetch(GROQ_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0.4,
+      max_tokens: 4096,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a strength coach merging two workouts into one catch-up session. Exercises are numbered [1], [2], etc. To keep an exercise, output [number]: setsxreps. To drop it, omit it. Then a blank line and one sentence explaining your decisions. Nothing else.",
+        },
+        { role: "user", content: buildMergePrompt(input) },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    console.error(
+      "Groq API error (merge):",
+      response.status,
+      await response.text().catch(() => ""),
+    );
+    return null;
+  }
+
+  const data = await response.json();
+  const content: string | undefined =
+    data?.choices?.[0]?.message?.content?.trim();
+  if (!content) return null;
+
+  // Strip <think>...</think> tags if the model outputs thinking
+  let cleaned = content.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+
+  // Strip markdown code fences if present
+  cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?\s*```\s*$/i, "").trim();
+
+  // Parse numbered format: "[1]: 3x10 @ 80kg" → map back to real exercise data
+  const lines = cleaned.split("\n").map(l => l.trim()).filter(Boolean);
+  const exercises: MergedWorkoutResult["exercises"] = [];
+  let explanation = "";
+
+  // Matches "[number]: NxR @ Xkg" or "[number]: NxR" (weight optional)
+  const numberedExerciseRegex = /\[(\d+)\]\s*:\s*(\d+)\s*x\s*(\d+)(?:\s*@\s*(\d+(?:\.\d+)?)\s*kg)?/i;
+
+  // Build lookup from the prompt's numbered list
+  const exerciseLookup = new Map<number, { name: string; unit: string; weight: number }>();
+  let lookupIdx = 1;
+  for (const ex of input.yesterdayTemplate.exercises) {
+    exerciseLookup.set(lookupIdx++, { name: ex.name, unit: ex.unit || "reps", weight: (ex as any).lastWeight || 0 });
+  }
+  for (const ex of input.todayTemplate.exercises) {
+    exerciseLookup.set(lookupIdx++, { name: ex.name, unit: ex.unit || "reps", weight: (ex as any).lastWeight || 0 });
+  }
+
+  for (const line of lines) {
+    if (line.startsWith("#") || line.startsWith("```")) continue;
+
+    const match = line.match(numberedExerciseRegex);
+    if (match) {
+      const ref = parseInt(match[1], 10);
+      const original = exerciseLookup.get(ref);
+      if (original) {
+        exercises.push({
+          name: original.name,
+          targetSets: parseInt(match[2], 10),
+          targetReps: parseInt(match[3], 10),
+          unit: original.unit,
+          lastWeight: match[4] ? parseFloat(match[4]) : original.weight,
+        });
+      }
+    } else if (exercises.length > 0) {
+      explanation += (explanation ? " " : "") + line;
+    }
+  }
+
+  if (exercises.length === 0) {
+    console.error("No exercises parsed from merge response. Raw:", cleaned);
+    return null;
+  }
+
+  return {
+    exercises,
+    explanation: explanation || "Workouts merged successfully.",
+    estimatedMinutes: exercises.length * 10,
+  };
 }
