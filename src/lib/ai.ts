@@ -201,14 +201,6 @@ export interface MergedWorkoutResult {
   estimatedMinutes: number;
 }
 
-function resolveExerciseMuscleGroup(name: string): string {
-  const allGroups = Object.keys(EXERCISE_LIST) as (keyof typeof EXERCISE_LIST)[];
-  for (const group of allGroups) {
-    if (EXERCISE_LIST[group].includes(name)) return group;
-  }
-  return "Other";
-}
-
 function buildMergePrompt(input: MergeWorkoutInput): string {
   const { yesterdayTemplate, todayTemplate } = input;
 
@@ -220,7 +212,7 @@ function buildMergePrompt(input: MergeWorkoutInput): string {
   let idx = 1;
 
   const formatEx = (ex: Exercise) => {
-    const weight = (ex as any).lastWeight || 0;
+    const weight = ex.lastWeight || 0;
     const weightStr = weight > 0 ? ` @ ${weight}kg` : "";
     return `  [${idx++}] ${ex.name} — ${ex.targetSets}x${ex.targetReps} ${ex.unit || "reps"}${weightStr}`;
   };
@@ -291,7 +283,7 @@ export async function generateMergedWorkout(
         {
           role: "system",
           content:
-            "You are a strength coach merging two workouts into one catch-up session. Exercises are numbered [1], [2], etc. To keep an exercise, output [number]: setsxreps. To drop it, omit it. Then a blank line and one sentence explaining your decisions. Nothing else.",
+            "You are a strength coach merging two workouts into one catch-up session. Exercises are numbered [1], [2], etc. To keep an exercise, output [number]: setsxreps @ weightkg. To drop it, omit it. Then a blank line and one sentence explaining your decisions. Nothing else.",
         },
         { role: "user", content: buildMergePrompt(input) },
       ],
@@ -323,17 +315,17 @@ export async function generateMergedWorkout(
   const exercises: MergedWorkoutResult["exercises"] = [];
   let explanation = "";
 
-  // Matches "[number]: NxR @ Xkg" or "[number]: NxR" (weight optional)
-  const numberedExerciseRegex = /\[(\d+)\]\s*:\s*(\d+)\s*x\s*(\d+)(?:\s*@\s*(\d+(?:\.\d+)?)\s*kg)?/i;
+  // Matches "[number]: NxR" with optional "@ Xkg" or "@ Xlbs" or just "@ X"
+  const numberedExerciseRegex = /\[(\d+)\]\s*:\s*(\d+)\s*x\s*(\d+)(?:\s*@\s*(\d+(?:\.\d+)?)\s*(?:kg|lbs?)?)?/i;
 
   // Build lookup from the prompt's numbered list
   const exerciseLookup = new Map<number, { name: string; unit: string; weight: number }>();
   let lookupIdx = 1;
   for (const ex of input.yesterdayTemplate.exercises) {
-    exerciseLookup.set(lookupIdx++, { name: ex.name, unit: ex.unit || "reps", weight: (ex as any).lastWeight || 0 });
+    exerciseLookup.set(lookupIdx++, { name: ex.name, unit: ex.unit || "reps", weight: ex.lastWeight || 0 });
   }
   for (const ex of input.todayTemplate.exercises) {
-    exerciseLookup.set(lookupIdx++, { name: ex.name, unit: ex.unit || "reps", weight: (ex as any).lastWeight || 0 });
+    exerciseLookup.set(lookupIdx++, { name: ex.name, unit: ex.unit || "reps", weight: ex.lastWeight || 0 });
   }
 
   for (const line of lines) {
@@ -346,8 +338,8 @@ export async function generateMergedWorkout(
       if (original) {
         exercises.push({
           name: original.name,
-          targetSets: parseInt(match[2], 10),
-          targetReps: parseInt(match[3], 10),
+          targetSets: Math.min(8, Math.max(1, parseInt(match[2], 10))),
+          targetReps: Math.min(30, Math.max(1, parseInt(match[3], 10))),
           unit: original.unit,
           lastWeight: match[4] ? parseFloat(match[4]) : original.weight,
         });
@@ -359,12 +351,23 @@ export async function generateMergedWorkout(
 
   if (exercises.length === 0) {
     console.error("No exercises parsed from merge response. Raw:", cleaned);
-    return null;
+    return { exercises: [], explanation: "AI decided no exercises fit the time budget.", estimatedMinutes: 0 };
   }
 
+  // Dedup: same exercise in both days → keep the one with higher sets
+  const seen = new Map<string, typeof exercises[number]>();
+  for (const ex of exercises) {
+    const key = ex.name.toLowerCase();
+    const existing = seen.get(key);
+    if (!existing || ex.targetSets > existing.targetSets) {
+      seen.set(key, ex);
+    }
+  }
+  const deduped = Array.from(seen.values());
+
   return {
-    exercises,
+    exercises: deduped,
     explanation: explanation || "Workouts merged successfully.",
-    estimatedMinutes: exercises.length * 10,
+    estimatedMinutes: deduped.length * 10,
   };
 }

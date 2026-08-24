@@ -39,6 +39,13 @@ export async function POST() {
       );
     }
 
+    if (result.exercises.length === 0) {
+      return NextResponse.json(
+        { error: "AI determined no exercises fit the time budget. Do today's workout normally.", empty: true },
+        { status: 200 },
+      );
+    }
+
     // Convert AI output to Exercise[]
     const exercises: Exercise[] = result.exercises.map((ex, idx) => ({
       exerciseId: `merged-${idx}-${Date.now()}`,

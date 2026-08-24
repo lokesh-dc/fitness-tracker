@@ -36,6 +36,12 @@ export function WorkoutMergePrompt({
         return;
       }
 
+      if (data.empty) {
+        setError(data.error || "AI says nothing fits today's time budget. Do today's workout normally.");
+        setIsLoading(false);
+        return;
+      }
+
       router.push(`/workout?mode=LIVE_SESSION&mergedId=${data.mergedId}`);
     } catch {
       setError("Network error. Try doing today's workout normally.");
