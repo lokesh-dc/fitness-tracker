@@ -116,6 +116,8 @@ export async function getPlanReport(planId: string) {
     const start = new Date(plan.startDate + "T00:00:00");
     const end = new Date(start);
     end.setDate(end.getDate() + plan.numWeeks * 7);
+    const lastPlanDay = new Date(end);
+    lastPlanDay.setDate(lastPlanDay.getDate() - 1);
 
     // Fetch all logs within this period, sorted by date ascending
     const logs = await db.collection("WorkoutLog").find({
@@ -124,25 +126,80 @@ export async function getPlanReport(planId: string) {
     }).sort({ date: 1 }).toArray();
     const totalSessions = logs.length;
     let totalVolume = 0;
+    let totalSets = 0;
+    let totalReps = 0;
     const exercisePRs: Record<string, { weight: number, name: string }> = {};
 
+    // Weekly volume buckets (one per plan week)
+    const weeklyVolumes = new Array(plan.numWeeks).fill(0);
+    const DAY_MS = 24 * 60 * 60 * 1000;
+
+    // Session durations
+    const durations: number[] = [];
+
     logs.forEach(log => {
+      const logDate = new Date(log.date);
+      const weekIdx = Math.floor(
+        (new Date(logDate.getFullYear(), logDate.getMonth(), logDate.getDate()).getTime() -
+          new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime()) / DAY_MS / 7
+      );
       log.exercises?.forEach((ex: any) => {
+        if (ex.isSkipped) return;
         ex.sets?.forEach((set: any) => {
-          totalVolume += set.weight * set.reps;
-          if (!exercisePRs[ex.exerciseId] || set.weight > exercisePRs[ex.exerciseId].weight) {
-            exercisePRs[ex.exerciseId] = { weight: set.weight, name: ex.name };
+          const w = Number(set.weight) || 0;
+          const r = Number(set.reps) || 0;
+          totalVolume += w * r;
+          totalSets += 1;
+          totalReps += r;
+          if (weekIdx >= 0 && weekIdx < plan.numWeeks) {
+            weeklyVolumes[weekIdx] += w * r;
+          }
+          if (!exercisePRs[ex.exerciseId] || w > exercisePRs[ex.exerciseId].weight) {
+            exercisePRs[ex.exerciseId] = { weight: w, name: ex.name };
           }
         });
       });
+      if (log.durationSeconds && log.durationSeconds > 0) {
+        durations.push(log.durationSeconds);
+      } else if (log.startedAt && log.completedAt) {
+        const diff = (new Date(log.completedAt).getTime() - new Date(log.startedAt).getTime()) / 1000;
+        if (diff > 0) durations.push(diff);
+      }
     });
 
-    const bodyWeights = logs.filter(l => l.bodyWeight).map(l => l.bodyWeight);
+    const avgDurationMinutes = durations.length > 0
+      ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length / 60)
+      : null;
+
+    const bodyWeightSeries = logs
+      .filter(l => l.bodyWeight)
+      .map(l => ({
+        date: new Date(l.date).toISOString().split("T")[0],
+        bodyWeight: l.bodyWeight as number,
+      }));
+
+    const bodyWeights = bodyWeightSeries.map(b => b.bodyWeight);
     const weightChange = bodyWeights.length > 1
       ? (bodyWeights[bodyWeights.length - 1] - bodyWeights[0])
       : 0;
 
-    const loggedDates = logs.map(l => new Date(l.date).toISOString().split('T')[0]);
+    // Unique sorted logged dates for streaks & adherence
+    const loggedDates = Array.from(new Set(logs.map(l => new Date(l.date).toISOString().split('T')[0]))).sort();
+
+    // Streaks: consecutive-day runs within the logged dates
+    let longestStreak = 0;
+    let runStreak = 0;
+    let prevDate: Date | null = null;
+    loggedDates.forEach(ds => {
+      const d = new Date(ds + "T00:00:00");
+      if (prevDate && Math.round((d.getTime() - prevDate.getTime()) / DAY_MS) === 1) {
+        runStreak += 1;
+      } else {
+        runStreak = 1;
+      }
+      longestStreak = Math.max(longestStreak, runStreak);
+      prevDate = d;
+    });
 
     // Fetch templates to find training days (only days with exercises)
     const templates = await db.collection("WorkoutTemplate").find({
@@ -153,16 +210,86 @@ export async function getPlanReport(planId: string) {
 
     const trainingDays = Array.from(new Set(templates.map(t => t.dayOfWeek)));
 
+    // Adherence: scheduled sessions up to today (or plan end, whichever is earlier)
+    const today = new Date();
+    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const adherenceCutoff = todayMidnight < lastPlanDay ? todayMidnight : lastPlanDay;
+    let scheduledSessions = 0;
+    if (trainingDays.length > 0) {
+      for (let d = new Date(start); d <= adherenceCutoff; d.setDate(d.getDate() + 1)) {
+        if (trainingDays.includes(d.getDay())) scheduledSessions += 1;
+      }
+    }
+    const adherencePercent = scheduledSessions > 0
+      ? Math.min(100, Math.round((totalSessions / scheduledSessions) * 100))
+      : 0;
+
+    // Muscle split within the plan window
+    const musclePipeline = [
+      { $match: { userId, date: { $gte: start, $lte: end } } },
+      { $unwind: "$exercises" },
+      { $match: { "exercises.isSkipped": { $ne: true } } },
+      { $unwind: "$exercises.sets" },
+      {
+        // Numeric guard: $gt only matches same BSON type, excluding string values
+        $match: {
+          "exercises.sets.weight": { $gt: 0 },
+          "exercises.sets.reps": { $gt: 0 },
+        },
+      },
+      {
+        $lookup: {
+          from: "Exercises",
+          localField: "exercises.name",
+          foreignField: "name",
+          as: "exerciseDetails",
+        },
+      },
+      { $unwind: { path: "$exerciseDetails", preserveNullAndEmptyArrays: true } },
+      {
+        $group: {
+          _id: "$exerciseDetails.muscleGroup",
+          totalVolume: {
+            $sum: { $multiply: ["$exercises.sets.weight", "$exercises.sets.reps"] },
+          },
+        },
+      },
+      { $sort: { totalVolume: -1 } },
+      { $limit: 5 },
+    ];
+    const muscleResults = await db.collection("WorkoutLog").aggregate(musclePipeline).toArray();
+    const muscleGrandTotal = muscleResults.reduce((acc, r) => acc + r.totalVolume, 0);
+    const muscleSplit = muscleResults
+      .filter(r => r._id)
+      .map(r => ({
+        muscleGroup: r._id as string,
+        totalVolume: Math.round(r.totalVolume),
+        percentageOfTotal: muscleGrandTotal > 0 ? Math.round((r.totalVolume / muscleGrandTotal) * 100) : 0,
+      }));
+
     return {
       planName: plan.name,
       startDate: plan.startDate,
       numWeeks: plan.numWeeks,
       totalSessions,
       totalVolume,
+      totalSets,
+      totalReps,
+      avgDurationMinutes,
+      sessionsPerWeek: plan.numWeeks > 0 ? Number((totalSessions / plan.numWeeks).toFixed(1)) : 0,
+      longestStreak,
+      adherence: {
+        completed: totalSessions,
+        scheduled: scheduledSessions,
+        percent: adherencePercent,
+      },
+      weeklyVolume: weeklyVolumes.map((volume, i) => ({ week: i + 1, volume })),
       topPRs: Object.values(exercisePRs).sort((a, b) => b.weight - a.weight).slice(0, 5),
       weightChange,
+      bodyWeightSeries,
       loggedDates,
       trainingDays,
+      muscleSplit,
     };
   } catch (error) {
     console.error("Error generating plan report:", error);
