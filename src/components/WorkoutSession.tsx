@@ -73,6 +73,7 @@ interface WorkoutSessionProps {
 	userDefaultRest?: number;
 	allExercises?: ExerciseDefinition[];
 	customExerciseNames?: string[] | null;
+	isMerged?: boolean;
 }
 
 export default function WorkoutSession({
@@ -85,6 +86,7 @@ export default function WorkoutSession({
 	userDefaultRest = 90,
 	allExercises = [],
 	customExerciseNames = null,
+	isMerged = false,
 }: WorkoutSessionProps) {
 	// Sync logic for initial weight and step
 	const effectiveBodyWeight =
@@ -295,7 +297,7 @@ export default function WorkoutSession({
 					name: splitName || "Workout Session",
 					startedAt: sessionStats.stats.startedAt || undefined,
 				},
-				updateTemplate,
+				updateTemplate && !isMerged,
 				date,
 			);
 			setSavedLogId(savedLog.id);
