@@ -47,10 +47,29 @@ export default async function PlanPage() {
 		!userProfile?.preferredTrainingDays ||
 		userProfile.preferredTrainingDays.length === 0;
 
-	const getPlanStatus = (startDateStr: string, numWeeks: number) => {
-		const start = new Date(startDateStr);
+	const getPlanStatus = (plan: PlanDocument) => {
+		if (plan.status === "draft")
+			return {
+				label: "Draft",
+				color: "text-amber-500",
+				bg: "bg-amber-500/10",
+			};
+		if (plan.status === "completed")
+			return {
+				label: "Completed",
+				color: "text-emerald-500",
+				bg: "bg-emerald-500/10",
+			};
+		if (plan.status === "active")
+			return {
+				label: "Running",
+				color: "text-brand-primary",
+				bg: "bg-brand-primary/10",
+			};
+
+		const start = new Date(plan.startDate);
 		const end = new Date(start);
-		end.setDate(end.getDate() + numWeeks * 7);
+		end.setDate(end.getDate() + plan.numWeeks * 7);
 
 		const now = new Date();
 
@@ -131,7 +150,7 @@ export default async function PlanPage() {
 						) : (
 							<div className="space-y-4">
 								{plans.map((plan: PlanDocument) => {
-									const status = getPlanStatus(plan.startDate, plan.numWeeks);
+									const status = getPlanStatus(plan);
 									const uniqueDays = templatesMap[plan.id] || 0;
 
 									return (

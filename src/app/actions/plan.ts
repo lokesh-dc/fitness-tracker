@@ -16,8 +16,16 @@ import {
 import { 
   ActivePlanProgress, 
   AdherenceScore, 
-  WeekScheduleDay, 
+  WeekScheduleDay,
+  Goal,
+  ExperienceLevel,
+  Equipment,
+  GeneratedProgramResult,
+  GeneratedDay,
+  MatchedDay,
 } from "@/types/workout";
+import { generateProgram as generateProgramAi } from "@/lib/ai/program-generator";
+import { matchGeneratedExercises as matchGeneratedExercisesLib } from "@/lib/exercise-matching";
 
 export async function getPlanByDate(date?: string | Date, overrideUserId?: string): Promise<WorkoutTemplate | null> {
   try {
@@ -40,7 +48,8 @@ export async function getPlanByDate(date?: string | Date, overrideUserId?: strin
     const activePlan = await db.collection("PlanDocument").findOne(
       {
         userId: new ObjectId(userId),
-        startDate: { $lte: targetDateStr }
+        startDate: { $lte: targetDateStr },
+        status: { $ne: 'draft' }
       },
       { sort: { startDate: -1 } }
     ) as (WithId<Document> & PlanDocument) | null;
@@ -298,7 +307,7 @@ export async function getPlanReport(planId: string) {
 }
 
 export async function savePlanTemplates(
-  planData: { startDate: string; numWeeks: number; name?: string; planId?: string; mobilityWarmupIds?: string[]; customMobilityWarmups?: MobilityMovement[] },
+  planData: { startDate: string; numWeeks: number; name?: string; planId?: string; status?: 'draft' | 'active' | 'completed'; mobilityWarmupIds?: string[]; customMobilityWarmups?: MobilityMovement[] },
   templates: Partial<WorkoutTemplate>[]
 ) {
   try {
@@ -319,6 +328,7 @@ export async function savePlanTemplates(
             name: planData.name || `Plan starting ${planData.startDate}`,
             startDate: planData.startDate,
             numWeeks: planData.numWeeks,
+            status: planData.status || 'active',
             mobilityWarmupIds: planData.mobilityWarmupIds || [],
             customMobilityWarmups: planData.customMobilityWarmups || [],
             updatedAt: new Date()
@@ -333,6 +343,7 @@ export async function savePlanTemplates(
         name: planData.name || `Plan starting ( ${planData.startDate}) `,
         startDate: planData.startDate,
         numWeeks: planData.numWeeks,
+        status: planData.status || 'active',
         mobilityWarmupIds: planData.mobilityWarmupIds || [],
         customMobilityWarmups: planData.customMobilityWarmups || [],
         createdAt: new Date(),
@@ -411,7 +422,7 @@ export async function getActivePlanInfo() {
 
     const db = await getDb();
     const activePlan = await db.collection("PlanDocument").findOne(
-      { userId },
+      { userId, status: { $ne: 'draft' } },
       { sort: { startDate: -1 } }
     ) as any;
 
@@ -727,7 +738,8 @@ export async function getActivePlansSummary(userId: string): Promise<ActivePlanP
     const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
 
     const allPlans = await db.collection("PlanDocument").find({ 
-      userId: new ObjectId(userId) 
+      userId: new ObjectId(userId),
+      status: { $ne: 'draft' }
     }).toArray();
 
     // Filter plans active during this week
@@ -810,7 +822,8 @@ export async function getPlanAdherenceScore(userId: string): Promise<AdherenceSc
   try {
     const db = await getDb();
     const activePlans = await db.collection("PlanDocument").find({
-      userId: new ObjectId(userId)
+      userId: new ObjectId(userId),
+      status: { $ne: 'draft' }
     }).toArray();
 
     // Filter to find plans that were active at some point in the last 8 weeks
@@ -909,7 +922,7 @@ export async function getWeekPlanSchedule(userId: string): Promise<WeekScheduleD
     const weekStart = startOfWeek(now, { weekStartsOn: 1 });
     const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
 
-    const allPlans = await db.collection("PlanDocument").find({ userId: new ObjectId(userId) }).toArray();
+    const allPlans = await db.collection("PlanDocument").find({ userId: new ObjectId(userId), status: { $ne: 'draft' } }).toArray();
     const activePlans = allPlans.filter(plan => {
       const planStart = parseISO(plan.startDate);
       const planEnd = addDays(planStart, plan.numWeeks * 7 - 1);
@@ -989,4 +1002,54 @@ export async function getWeekPlanSchedule(userId: string): Promise<WeekScheduleD
 
 function isSameDay(d1: Date, d2: Date) {
   return d1.toISOString().split('T')[0] === d2.toISOString().split('T')[0];
+}
+
+/**
+ * AI PROGRAM GENERATOR
+ */
+export async function generateProgram(input: {
+  goal: Goal;
+  daysPerWeek: number;
+  equipment: Equipment[];
+  experienceLevel: ExperienceLevel;
+  weeksCount: number;
+}): Promise<GeneratedProgramResult> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) throw new Error("Unauthorized");
+
+    if (!input.goal || !input.daysPerWeek || !input.experienceLevel || !input.weeksCount) {
+      return { success: false, error: "Missing required fields." };
+    }
+    if (input.daysPerWeek < 1 || input.daysPerWeek > 7) {
+      return { success: false, error: "Days per week must be between 1 and 7." };
+    }
+    if (input.weeksCount < 1 || input.weeksCount > 12) {
+      return { success: false, error: "Weeks must be between 1 and 12." };
+    }
+    if (input.equipment.length === 0) {
+      return { success: false, error: "Select at least one equipment option." };
+    }
+
+    return await generateProgramAi(input);
+  } catch (error) {
+    console.error("Error in generateProgram action:", error);
+    return { success: false, error: "Failed to generate program. Please try again." };
+  }
+}
+
+export async function matchGeneratedExercises(
+  days: GeneratedDay[],
+): Promise<MatchedDay[]> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return [];
+
+    if (!Array.isArray(days) || days.length === 0) return [];
+
+    return await matchGeneratedExercisesLib(days);
+  } catch (error) {
+    console.error("Error matching generated exercises:", error);
+    return [];
+  }
 }

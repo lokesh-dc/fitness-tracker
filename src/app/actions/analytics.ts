@@ -417,7 +417,7 @@ export async function getStreakData(overrideUserId?: string): Promise<{
       if (oldestLog < earliestDate) earliestDate = oldestLog;
     }
 
-    const allPlans = await db.collection("PlanDocument").find({ userId }).toArray();
+    const allPlans = await db.collection("PlanDocument").find({ userId, status: { $ne: 'draft' } }).toArray();
     for (const plan of allPlans) {
       const [y, m, d] = plan.startDate.split('-').map(Number);
       const pStart = new Date(y, m - 1, d);
@@ -577,7 +577,7 @@ export async function getWeekSnapshot(overrideUserId?: string): Promise<{
 
     // Get active plan from PlanDocument
     const activePlan = await db.collection("PlanDocument").findOne(
-      { userId, startDate: { $lte: now.toISOString().split('T')[0] } },
+      { userId, startDate: { $lte: now.toISOString().split('T')[0] }, status: { $ne: 'draft' } },
       { sort: { startDate: -1 } }
     );
 
@@ -645,7 +645,7 @@ export async function getNextPlannedWorkout(overrideUserId?: string): Promise<{
 
     // Find active plan
     const activePlan = await db.collection("PlanDocument").findOne(
-      { userId, startDate: { $lte: todayStr } },
+      { userId, startDate: { $lte: todayStr }, status: { $ne: 'draft' } },
       { sort: { startDate: -1 } }
     );
 
@@ -735,7 +735,7 @@ export async function getTomorrowPlanDetail(): Promise<{
     const todayStr = now.toISOString().split('T')[0];
 
     const activePlan = await db.collection("PlanDocument").findOne(
-      { userId, startDate: { $lte: todayStr } },
+      { userId, startDate: { $lte: todayStr }, status: { $ne: 'draft' } },
       { sort: { startDate: -1 } }
     );
     if (!activePlan) return null;
@@ -930,7 +930,8 @@ export async function getMissedWorkoutsThisMonth(userIdStr: string) {
     // Find the most recent active plan
     const activePlan = await db.collection('PlanDocument').findOne({
       userId,
-      startDate: { $lte: now.toISOString().split('T')[0] }
+      startDate: { $lte: now.toISOString().split('T')[0] },
+      status: { $ne: 'draft' }
     }, { sort: { startDate: -1 } });
 
     if (!activePlan) {

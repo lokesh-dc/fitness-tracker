@@ -299,7 +299,8 @@ export async function saveWorkoutSession(
       const activePlan = await db.collection("PlanDocument").findOne(
         {
           userId: new ObjectId(userId),
-          startDate: { $lte: targetDateStr }
+          startDate: { $lte: targetDateStr },
+          status: { $ne: 'draft' }
         },
         { sort: { startDate: -1 } }
       );
@@ -490,7 +491,8 @@ export async function saveSingleExerciseLog(
       const activePlan = await db.collection("PlanDocument").findOne(
         {
           userId: new ObjectId(userId),
-          startDate: { $lte: targetDateStr }
+          startDate: { $lte: targetDateStr },
+          status: { $ne: 'draft' }
         },
         { sort: { startDate: -1 } }
       );

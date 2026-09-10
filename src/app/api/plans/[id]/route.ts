@@ -24,16 +24,16 @@ export const GET = withAuth(async (req: AuthedRequest, { params }) => {
       .sort({ dayOfWeek: 1 })
       .toArray()
 
-    // Calculate status
+    // Prefer the persisted status (e.g. explicit drafts from the AI flow);
+    // otherwise compute from dates for backward compatibility.
     const start = new Date(doc.startDate)
     const end = new Date(start)
     end.setDate(end.getDate() + doc.numWeeks * 7)
     const now = new Date()
 
-    let status = 'active'
-    if (now < start) status = 'draft'
-    else if (now > end) status = 'completed'
-    else status = 'active'
+    const status =
+      doc.status ||
+      (now < start ? 'draft' : now > end ? 'completed' : 'active')
 
     const plan = {
       _id: doc._id.toString(),

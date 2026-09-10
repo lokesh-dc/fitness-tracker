@@ -37,10 +37,74 @@ export interface PlanDocument {
   name?: string;
   startDate: string;
   numWeeks: number;
+  status?: 'draft' | 'active' | 'completed';
   mobilityWarmupIds?: string[];
   customMobilityWarmups?: MobilityMovement[];
   createdAt: string | Date;
 }
+
+// --- AI Program Generator Types ---
+
+export type Goal = 'strength' | 'hypertrophy' | 'endurance';
+export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
+export type Equipment = 'barbell' | 'dumbbell' | 'machines' | 'bodyweight' | 'bands' | 'cables' | 'kettlebell';
+
+export const EQUIPMENT_OPTIONS: { value: Equipment; label: string }[] = [
+  { value: 'barbell', label: 'Barbell' },
+  { value: 'dumbbell', label: 'Dumbbell' },
+  { value: 'machines', label: 'Machines' },
+  { value: 'bodyweight', label: 'Bodyweight' },
+  { value: 'bands', label: 'Resistance Bands' },
+  { value: 'cables', label: 'Cables' },
+  { value: 'kettlebell', label: 'Kettlebell' },
+];
+
+export interface GeneratedExercise {
+  name: string;
+  muscleGroup: string;
+  targetSets: number;
+  targetReps: number | string;
+  restDuration?: number;
+}
+
+export interface GeneratedDay {
+  dayOfWeek: number;
+  name: string;
+  rationale: string;
+  exercises: GeneratedExercise[];
+}
+
+export interface GeneratedProgram {
+  days: GeneratedDay[];
+}
+
+export type GeneratedProgramResult =
+  | { success: true; program: GeneratedProgram }
+  | { success: false; error: string };
+
+export interface MatchedExercise {
+  aiName: string;
+  muscleGroup: string;
+  targetSets: number;
+  targetReps: number;
+  restDuration: number;
+  exerciseId: string | null;
+  exerciseName: string | null;
+  needsUserReview: boolean;
+  reviewCandidates?: { id: string; name: string; similarity: number }[];
+  isNew: boolean;
+}
+
+export interface MatchedDay {
+  dayOfWeek: number;
+  name: string;
+  rationale: string;
+  exercises: MatchedExercise[];
+}
+
+export type ExerciseReview =
+  | { kind: 'review'; candidates: { id: string; name: string; similarity: number }[]; aiName: string; muscleGroup: string }
+  | { kind: 'new'; aiName: string; muscleGroup: string };
 
 export interface MobilityMovement {
   id: string;
