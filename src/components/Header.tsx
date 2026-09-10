@@ -14,15 +14,15 @@ export function Header({ title, subtitle }: HeaderProps) {
 	const showProfile = pathname !== "/profile";
 
 	return (
-		<header className="fixed top-0 left-0 md:left-20 right-0 z-40 px-6 py-4 md:py-5 flex justify-between items-center bg-background/80 backdrop-blur-xl border-b border-foreground/[0.01]">
+		<header className="fixed top-0 left-0 md:left-20 right-0 z-40 px-5 py-3.5 md:py-4 flex justify-between items-center bg-background/85 backdrop-blur-2xl border-b border-foreground/[0.04]">
 			<div>
 				{subtitle && (
-					<p className="text-foreground/40 text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] mb-0.5">
+					<p className="text-foreground/35 text-[10px] font-semibold uppercase tracking-[0.18em] mb-0.5">
 						{subtitle}
 					</p>
 				)}
 				{title && (
-					<h1 className="text-xl md:text-2xl font-black text-foreground tracking-tight line-clamp-1 uppercase">
+					<h1 className="text-lg md:text-xl font-bold text-foreground tracking-tight line-clamp-1">
 						{title}
 					</h1>
 				)}

@@ -1,8 +1,6 @@
 "use client";
 
-import { GlassCard } from "@/components/ui/GlassCard";
-import { Flame, Calendar, CheckCircle2, Play } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Flame, CheckCircle2, Calendar } from "lucide-react";
 
 interface MobileWidgetStripProps {
   streak: number;
@@ -11,47 +9,77 @@ interface MobileWidgetStripProps {
   nextWorkout: string;
 }
 
-export function MobileWidgetStrip({ streak, workoutsThisMonth, sessionsDone, nextWorkout }: MobileWidgetStripProps) {
-  const cards = [
-    { title: "Streak", value: `${streak} Days`, icon: Flame, color: "text-brand-primary" },
-    { title: "This Month", value: `${workoutsThisMonth} Workouts`, icon: Calendar, color: "text-indigo-400" },
-    { title: "Weekly", value: sessionsDone, icon: CheckCircle2, color: "text-emerald-500" },
-    { title: "Next", value: nextWorkout, icon: Play, color: "text-brand-primary" },
+export function MobileWidgetStrip({
+  streak,
+  workoutsThisMonth,
+  sessionsDone,
+}: MobileWidgetStripProps) {
+  const stats = [
+    {
+      label: "Streak",
+      value: `${streak}`,
+      unit: streak === 1 ? "day" : "days",
+      icon: Flame,
+      accent: true,
+    },
+    {
+      label: "This week",
+      value: sessionsDone,
+      unit: "sessions",
+      icon: CheckCircle2,
+      accent: false,
+    },
+    {
+      label: "This month",
+      value: `${workoutsThisMonth}`,
+      unit: "workouts",
+      icon: Calendar,
+      accent: false,
+    },
   ];
 
   return (
-    <>
-      {cards.map((card, i) => {
-        const isStreak = card.title === "Streak";
-        const Container = isStreak ? "div" : GlassCard;
-        
+    <div className="grid grid-cols-3 gap-2.5">
+      {stats.map((stat) => {
+        const Icon = stat.icon;
         return (
-          <Container 
-            key={i} 
-            className={cn(
-              "min-w-[180px] h-[100px] p-4 flex flex-col justify-between snap-center shrink-0 transition-all rounded-2xl",
-              isStreak 
-                ? "bg-gradient-to-br from-brand-primary to-brand-secondary border-none shadow-[0_10px_20px_rgba(249,115,22,0.2)]" 
-                : "border-brand-primary/5"
-            )}
+          <div
+            key={stat.label}
+            className={`flex flex-col gap-1.5 rounded-2xl px-3 py-3 ${
+              stat.accent
+                ? "bg-brand-primary/12 border border-brand-primary/20"
+                : "bg-foreground/[0.04] border border-foreground/[0.06]"
+            }`}
           >
-            <div className="flex items-center justify-between">
-              <span className={cn(
-                "text-[8px] font-black uppercase tracking-widest",
-                isStreak ? "text-black/40" : "text-foreground/40"
-              )}>{card.title}</span>
-              <card.icon className={cn(
-                "w-3 h-3",
-                isStreak ? "text-black/80" : card.color
-              )} />
+            <div className="flex items-center gap-1.5">
+              <Icon
+                className={`w-3 h-3 shrink-0 ${
+                  stat.accent ? "text-brand-primary" : "text-foreground/35"
+                }`}
+              />
+              <span
+                className={`text-[10px] font-semibold uppercase tracking-[0.1em] ${
+                  stat.accent ? "text-brand-primary/70" : "text-foreground/35"
+                }`}
+              >
+                {stat.label}
+              </span>
             </div>
-            <span className={cn(
-              "text-sm font-black uppercase truncate",
-              isStreak ? "text-black" : "text-foreground"
-            )}>{card.value}</span>
-          </Container>
+            <div className="flex items-baseline gap-1">
+              <span
+                className={`text-xl font-bold tabular-nums leading-none ${
+                  stat.accent ? "text-brand-primary" : "text-foreground"
+                }`}
+              >
+                {stat.value}
+              </span>
+              <span className="text-[10px] text-foreground/30 font-medium">
+                {stat.unit}
+              </span>
+            </div>
+          </div>
         );
       })}
-    </>
+    </div>
   );
 }

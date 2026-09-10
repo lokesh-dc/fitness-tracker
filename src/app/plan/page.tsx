@@ -8,7 +8,7 @@ import { getOnboardingProfile } from "@/app/actions/profile";
 import PlanDesignerNudge from "@/components/onboarding/PlanDesignerNudge";
 import { GlassCard } from "@/components/ui/GlassCard";
 
-import { Plus, Calendar, ChevronRight } from "lucide-react";
+import { Plus, Calendar, ChevronRight, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -53,18 +53,21 @@ export default async function PlanPage() {
 				label: "Draft",
 				color: "text-amber-500",
 				bg: "bg-amber-500/10",
+				dot: "bg-amber-500",
 			};
 		if (plan.status === "completed")
 			return {
 				label: "Completed",
 				color: "text-emerald-500",
 				bg: "bg-emerald-500/10",
+				dot: "bg-emerald-500",
 			};
 		if (plan.status === "active")
 			return {
-				label: "Running",
+				label: "Active",
 				color: "text-brand-primary",
 				bg: "bg-brand-primary/10",
+				dot: "bg-brand-primary",
 			};
 
 		const start = new Date(plan.startDate);
@@ -75,28 +78,31 @@ export default async function PlanPage() {
 
 		if (now < start)
 			return {
-				label: "Not Started",
+				label: "Upcoming",
 				color: "text-foreground/40",
 				bg: "bg-foreground/5",
+				dot: "bg-foreground/20",
 			};
 		if (now > end)
 			return {
 				label: "Completed",
 				color: "text-emerald-500",
 				bg: "bg-emerald-500/10",
+				dot: "bg-emerald-500",
 			};
 		return {
-			label: "Running",
+			label: "Active",
 			color: "text-brand-primary",
 			bg: "bg-brand-primary/10",
+			dot: "bg-brand-primary",
 		};
 	};
 
 	return (
-		<div className="flex flex-col ">
-			<Header title="Your Plans" subtitle="Manage your cycles" />
+		<div className="flex flex-col">
+			<Header title="Plans" subtitle="Your training cycles" />
 
-			<main className="flex-1 px-6 space-y-8 w-full pb-12 transition-all duration-500 animate-in fade-in slide-in-from-bottom-4">
+			<main className="flex-1 px-4 md:px-6 pb-28 md:pb-12 w-full transition-all duration-500 animate-in fade-in slide-in-from-bottom-4">
 				<PageWithSidebar
 					sidebar={
 						<PlansSidebar
@@ -105,110 +111,141 @@ export default async function PlanPage() {
 							weekSchedule={weekSchedule}
 						/>
 					}
-					mobileWidgets={
-						<PlansMobileWidgets
-							activePlansSummary={activePlansSummary}
-							adherenceScore={adherenceScore}
-							weekSchedule={weekSchedule}
-						/>
-					}>
-					{showNudge && <PlanDesignerNudge />}
+					>
+					<div className="space-y-6">
+						{showNudge && <PlanDesignerNudge />}
 
-					{/* Call to action */}
-					<Link href="/plan/designer" className="block">
-						<GlassCard className="border-dashed border-brand-primary/30 bg-brand-primary/5 hover:bg-brand-primary/10 transition-all group flex items-center justify-between py-8">
-							<div className="flex items-center space-x-6">
-								<div className="w-14 h-14 rounded-2xl bg-brand-primary flex items-center justify-center shadow-[0_0_20px_rgba(249,115,22,0.3)] group-hover:scale-110 transition-transform">
-									<Plus className="w-8 h-8 text-black" />
+						{/* ── Mobile stats strip ── */}
+						<div className="lg:hidden -mt-1">
+							<PlansMobileWidgets
+								activePlansSummary={activePlansSummary}
+								adherenceScore={adherenceScore}
+								weekSchedule={weekSchedule}
+							/>
+						</div>
+
+						{/* ── Create new plan CTA ── */}
+						<Link href="/plan/designer" className="block">
+							<div className="relative overflow-hidden rounded-2xl bg-brand-primary p-5 flex items-center justify-between group transition-all hover:opacity-95 active:scale-[0.98]">
+								{/* Background shimmer */}
+								<div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
+								<div className="relative flex items-center gap-4">
+									<div className="w-10 h-10 rounded-xl bg-black/20 flex items-center justify-center shrink-0">
+										<Sparkles className="w-5 h-5 text-white" />
+									</div>
+									<div>
+										<p className="text-sm font-semibold text-black/90">
+											Design a new plan
+										</p>
+										<p className="text-[11px] text-black/50 mt-0.5">
+											AI-generated or build it yourself
+										</p>
+									</div>
 								</div>
-								<div>
-									<h2 className="text-lg font-black text-foreground uppercase tracking-tight">
-										Design a Plan
-									</h2>
-									<p className="text-xs font-bold text-foreground/40 uppercase tracking-widest">
-										Create a new training cycle
+								<ChevronRight className="relative w-4 h-4 text-black/50 group-hover:translate-x-0.5 transition-transform shrink-0" />
+							</div>
+						</Link>
+
+						{/* ── Plan list ── */}
+						<section className="space-y-4">
+							<h2 className="text-[11px] font-semibold text-foreground/40 uppercase tracking-[0.15em]">
+								Training cycles
+							</h2>
+
+							{!plans || plans.length === 0 ? (
+								<GlassCard className="flex flex-col items-center justify-center py-16 text-center border-foreground/5">
+									<Calendar className="w-8 h-8 text-foreground/20 mb-3" />
+									<p className="text-sm font-medium text-foreground/30">
+										No plans yet
 									</p>
-								</div>
-							</div>
-							<ChevronRight className="w-6 h-6 text-brand-primary" />
-						</GlassCard>
-					</Link>
+									<p className="text-xs text-foreground/20 mt-1">
+										Create your first training cycle above.
+									</p>
+								</GlassCard>
+							) : (
+								<div className="space-y-3">
+									{plans.map((plan: PlanDocument) => {
+										const status = getPlanStatus(plan);
+										const uniqueDays = templatesMap[plan.id] || 0;
+										const isActive = status.label === "Active";
 
-					{/* Plan list */}
-					<section className="space-y-6">
-						<h2 className="text-sm font-black text-foreground/40 uppercase tracking-[0.2em] ml-2">
-							Your Training Cycles
-						</h2>
-
-						{!plans || plans.length === 0 ? (
-							<div className="text-center py-20 opacity-30">
-								<Calendar className="w-12 h-12 mx-auto mb-4" />
-								<p className="text-xs font-bold uppercase tracking-widest">
-									No plans designed yet
-								</p>
-							</div>
-						) : (
-							<div className="space-y-4">
-								{plans.map((plan: PlanDocument) => {
-									const status = getPlanStatus(plan);
-									const uniqueDays = templatesMap[plan.id] || 0;
-
-									return (
-										<Link
-											key={plan.id}
-											href={`/plan/${plan.id}`}
-											className="block">
-											<GlassCard className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-brand-primary/50 transition-colors">
-												<div className="flex items-start space-x-4">
-													<div className="w-12 h-12 rounded-2xl bg-foreground/5 flex items-center justify-center text-foreground/40 group-hover:text-brand-primary transition-colors flex-shrink-0">
-														<Calendar className="w-6 h-6" />
-													</div>
-													<div className="flex flex-col gap-3">
-														<h3 className="text-base font-black text-foreground uppercase tracking-tight group-hover:text-brand-primary transition-colors">
-															{plan.name?.startsWith("Plan starting ")
-																? `Plan starting (${format(new Date(plan.startDate + "T00:00:00"), "d MMMM ''yy")})`
-																: plan.name ||
-																	`Plan starting (${format(new Date(plan.startDate + "T00:00:00"), "d MMMM ''yy")})`}
-														</h3>
-														<div className="flex flex-wrap items-center gap-3">
-															<span className="text-[10px] font-black text-foreground/60 uppercase tracking-widest bg-foreground/5  rounded-md">
-																{format(
-																	new Date(plan.startDate + "T00:00:00"),
-																	"d MMMM ''yy",
-																)}
-															</span>
-															<span className="text-gray-500">|</span>
-															<span className="text-[10px] font-black text-foreground/60 uppercase tracking-widest bg-foreground/5 rounded-md">
-																{plan.numWeeks} Weeks
-															</span>
-															<span className="text-gray-500">|</span>
-															<span className="text-[10px] font-black text-foreground/60 uppercase tracking-widest bg-foreground/5 rounded-md">
-																{uniqueDays} Days/Week
-															</span>
+										return (
+											<Link
+												key={plan.id}
+												href={`/plan/${plan.id}`}
+												className="block">
+												<GlassCard
+													className={cn(
+														"flex items-center justify-between gap-4 group transition-all hover:border-brand-primary/25 py-4",
+														isActive && "border-brand-primary/20",
+													)}>
+													{/* Left accent bar for active */}
+													<div className="flex items-center gap-4 min-w-0 flex-1">
+														{isActive && (
+															<div className="w-0.5 h-10 bg-brand-primary rounded-full shrink-0 -ml-1.5" />
+														)}
+														<div className="min-w-0 flex-1">
+															<h3
+																className={cn(
+																	"text-sm font-semibold truncate transition-colors",
+																	isActive
+																		? "text-foreground"
+																		: "text-foreground/70 group-hover:text-foreground",
+																)}>
+																{plan.name?.startsWith("Plan starting ")
+																	? `Started ${format(new Date(plan.startDate + "T00:00:00"), "d MMM ''yy")}`
+																	: plan.name ||
+																		`Started ${format(new Date(plan.startDate + "T00:00:00"), "d MMM ''yy")}`}
+															</h3>
+															<div className="flex items-center gap-3 mt-1.5">
+																<span className="text-[11px] text-foreground/35 tabular-nums">
+																	{format(
+																		new Date(plan.startDate + "T00:00:00"),
+																		"d MMM ''yy",
+																	)}
+																</span>
+																<span className="text-foreground/15 text-xs">·</span>
+																<span className="text-[11px] text-foreground/35">
+																	{plan.numWeeks}w
+																</span>
+																<span className="text-foreground/15 text-xs">·</span>
+																<span className="text-[11px] text-foreground/35">
+																	{uniqueDays}d/wk
+																</span>
+															</div>
 														</div>
 													</div>
-												</div>
 
-												<div
-													className={cn(
-														"px-3 py-1.5 rounded-lg flex items-center w-fit",
-														status.bg,
-													)}>
-													<span
-														className={cn(
-															"text-[10px] font-black uppercase tracking-widest",
-															status.color,
-														)}>
-														{status.label}
-													</span>
-												</div>
-											</GlassCard>
-										</Link>
-									);
-								})}
-							</div>
-						)}
-					</section>
+													<div className="flex items-center gap-2.5 shrink-0">
+														<div
+															className={cn(
+																"flex items-center gap-1.5 px-2.5 py-1 rounded-full",
+																status.bg,
+															)}>
+															<div
+																className={cn(
+																	"w-1.5 h-1.5 rounded-full",
+																	status.dot,
+																)}
+															/>
+															<span
+																className={cn(
+																	"text-[10px] font-semibold",
+																	status.color,
+																)}>
+																{status.label}
+															</span>
+														</div>
+														<ChevronRight className="w-3.5 h-3.5 text-foreground/20 group-hover:text-foreground/40 group-hover:translate-x-0.5 transition-all" />
+													</div>
+												</GlassCard>
+											</Link>
+										);
+									})}
+								</div>
+							)}
+						</section>
+					</div>
 				</PageWithSidebar>
 			</main>
 		</div>

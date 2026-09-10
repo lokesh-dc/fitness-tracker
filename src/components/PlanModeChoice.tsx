@@ -1,46 +1,54 @@
+"use client";
+
 import Link from "next/link";
-import { GlassCard } from "@/components/ui/GlassCard";
-import { Sparkles, PencilLine, ChevronRight } from "lucide-react";
+import { Sparkles, PencilLine, ArrowRight } from "lucide-react";
 
 export function PlanModeChoice() {
 	return (
-		<div className="grid gap-4">
+		<div className="flex flex-col gap-3">
+			{/* AI Option — primary */}
 			<Link href="/plan/generate" className="block group">
-				<GlassCard className="border-dashed border-brand-primary/30 bg-brand-primary/5 hover:bg-brand-primary/10 transition-all flex items-center justify-between py-8 group-hover:scale-[1.01]">
-					<div className="flex items-center space-x-6">
-						<div className="w-14 h-14 rounded-2xl bg-brand-primary flex items-center justify-center shadow-[0_0_20px_rgba(249,115,22,0.3)] group-hover:scale-110 transition-transform">
-							<Sparkles className="w-8 h-8 text-black" />
+				<div className="relative overflow-hidden rounded-2xl bg-brand-primary p-5 transition-all hover:opacity-95 active:scale-[0.98]">
+					<div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
+					<div className="relative flex items-center justify-between">
+						<div className="flex items-center gap-4">
+							<div className="w-10 h-10 rounded-xl bg-black/20 flex items-center justify-center shrink-0">
+								<Sparkles className="w-5 h-5 text-white" />
+							</div>
+							<div>
+								<h2 className="text-base font-semibold text-black/90">
+									Generate with AI
+								</h2>
+								<p className="text-[12px] text-black/50 mt-0.5 leading-snug max-w-[240px]">
+									Describe your goal — we build the full split for you
+								</p>
+							</div>
 						</div>
-						<div>
-							<h2 className="text-lg font-black text-foreground uppercase tracking-tight">
-								Generate with AI
-							</h2>
-							<p className="text-xs font-bold text-foreground/40 uppercase tracking-widest">
-								Describe your goal — we build the split
-							</p>
-						</div>
+						<ArrowRight className="w-4 h-4 text-black/40 group-hover:translate-x-0.5 transition-transform shrink-0" />
 					</div>
-					<ChevronRight className="w-6 h-6 text-brand-primary" />
-				</GlassCard>
+				</div>
 			</Link>
 
+			{/* Manual Option — secondary */}
 			<Link href="/plan/designer?mode=manual" className="block group">
-				<GlassCard className="border-dashed border-foreground/10 bg-foreground/5 hover:bg-foreground/10 transition-all flex items-center justify-between py-8 group-hover:scale-[1.01]">
-					<div className="flex items-center space-x-6">
-						<div className="w-14 h-14 rounded-2xl bg-foreground/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-							<PencilLine className="w-8 h-8 text-foreground/70" />
+				<div className="relative overflow-hidden rounded-2xl border border-foreground/8 bg-foreground/[0.03] p-5 transition-all hover:bg-foreground/[0.05] hover:border-foreground/12 active:scale-[0.98]">
+					<div className="flex items-center justify-between">
+						<div className="flex items-center gap-4">
+							<div className="w-10 h-10 rounded-xl bg-foreground/8 flex items-center justify-center shrink-0">
+								<PencilLine className="w-5 h-5 text-foreground/50" />
+							</div>
+							<div>
+								<h2 className="text-base font-semibold text-foreground/80">
+									Design manually
+								</h2>
+								<p className="text-[12px] text-foreground/40 mt-0.5 leading-snug">
+									Build each training day yourself, step by step
+								</p>
+							</div>
 						</div>
-						<div>
-							<h2 className="text-lg font-black text-foreground uppercase tracking-tight">
-								Design Manually
-							</h2>
-							<p className="text-xs font-bold text-foreground/40 uppercase tracking-widest">
-								Build each day step by step yourself
-							</p>
-						</div>
+						<ArrowRight className="w-4 h-4 text-foreground/20 group-hover:text-foreground/40 group-hover:translate-x-0.5 transition-all shrink-0" />
 					</div>
-					<ChevronRight className="w-6 h-6 text-foreground/30" />
-				</GlassCard>
+				</div>
 			</Link>
 		</div>
 	);

@@ -9,7 +9,6 @@ import {
 	Plus,
 	ChevronRight,
 	BarChart2,
-	Quote,
 	Coffee,
 	Trophy,
 	CheckCircle2,
@@ -126,23 +125,17 @@ export default async function DashboardPage() {
 		userProfile?.onboardingComplete !== true &&
 		userProfile?.bannerDismissed !== true;
 
+	const isRestDay = !plan || (plan as any)?.dayOfWeek === 0;
+
 	return (
 		<div className="flex flex-col">
 			<Header
-				title={`Hi, ${userName}! 👋`}
-				subtitle={format(today, "d MMMM ''yy")}
+				title={`Hi, ${userName}`}
+				subtitle={format(today, "EEEE, d MMMM")}
 			/>
 
-			<main className="flex-1 px-6 pb-12 w-full transition-all duration-500 animate-in fade-in slide-in-from-bottom-4">
+			<main className="flex-1 px-4 md:px-6 pb-28 md:pb-12 w-full transition-all duration-500 animate-in fade-in slide-in-from-bottom-4">
 				<PageWithSidebar
-					mobileWidgets={
-						<MobileWidgetStrip
-							streak={streakData?.currentStreak || 0}
-							workoutsThisMonth={monthDates.length}
-							sessionsDone={`${weekSnapshot?.sessionsCompleted || 0}/${weekSnapshot?.sessionsPlanned || "?"}`}
-							nextWorkout={nextWorkout?.name || "No Plan"}
-						/>
-					}
 					sidebar={
 						<HomeSidebar
 							streakData={streakData}
@@ -151,90 +144,54 @@ export default async function DashboardPage() {
 							nextWorkout={nextWorkout}
 						/>
 					}>
-					<div className="space-y-8">
-						{showOnboardingBanner && <OnboardingBanner />}
-						<NotificationPrompt />
-						<TomorrowPrompt
-							tomorrowPlan={tomorrowPlan ? {
-								planName: tomorrowPlan.planName,
-								splitName: tomorrowPlan.splitName,
-								totalExercises: tomorrowPlan.totalExercises,
-							} : null}
-							isTodayDone={!!isTodayDone}
-							isRestDay={!plan || (plan as any)?.exercises?.length === 0}
-						/>
-
-						{yesterdayMissed?.hasMissed && !isTodayDone && (
-							<WorkoutMergePrompt
-								yesterdaySplitName={yesterdayMissed.splitName}
-								yesterdayExerciseCount={yesterdayMissed.exerciseCount}
+					<div className="space-y-5">
+						{/* Inline stats strip — mobile only, integrated above content */}
+						<div className="lg:hidden">
+							<MobileWidgetStrip
+								streak={streakData?.currentStreak || 0}
+								workoutsThisMonth={monthDates.length}
+								sessionsDone={`${weekSnapshot?.sessionsCompleted || 0}/${weekSnapshot?.sessionsPlanned || "?"}`}
+								nextWorkout={nextWorkout?.name || "No Plan"}
 							/>
-						)}
+						</div>
 
+						{/* ── PRIMARY: Today's Workout ── */}
 						<section>
-							<GlassCard className="relative overflow-hidden p-6 border-foreground/5 bg-gradient-to-br from-brand-primary/10 to-transparent">
-								<Quote className="absolute -bottom-4 -right-4 w-24 h-24 text-brand-primary/10 -rotate-12" />
-								<div className="relative z-10">
-									<div className="flex items-center space-x-2 mb-3">
-										<div className="w-8 h-8 rounded-full bg-brand-primary/20 flex items-center justify-center">
-											<Quote className="w-4 h-4 text-brand-primary" />
-										</div>
-										<h3 className="text-xs font-black uppercase tracking-widest text-brand-primary">
-											Daily Motivation
-										</h3>
-									</div>
-									<p className="text-2xl font-semibold text-foreground leading-tight tracking-tight">
-										{randomQuote}
-									</p>
-								</div>
-							</GlassCard>
-						</section>
-
-						{todayWorkoutLog?.aiSummary && (
-							<section>
-								<CoolDownStretches summary={todayWorkoutLog.aiSummary} />
-							</section>
-						)}
-
-						<section className="space-y-4">
-							<div className="flex justify-between items-end">
-								<h2 className="text-lg font-bold text-foreground tracking-tight">
-									Your Plan
+							<div className="flex justify-between items-center mb-3">
+								<h2 className="text-[11px] font-semibold text-foreground/40 uppercase tracking-[0.15em]">
+									Today
 								</h2>
 								<Link
 									href="/plan"
-									className="text-xs font-bold text-brand-primary hover:underline">
-									View Plan
+									className="text-[11px] font-medium text-brand-primary/70 hover:text-brand-primary transition-colors">
+									View plan
 								</Link>
 							</div>
 
 							{isTodayDone ? (
 								<Link href="/workout?mode=MANUAL_LOG" className="block">
-									<GlassCard className="border-emerald-500/30 bg-emerald-500/5 p-6 flex items-center justify-between group overflow-hidden relative">
-										<div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-											<CheckCircle2 className="w-16 h-16 text-emerald-500" />
-										</div>
-										<div className="flex items-center space-x-4 relative z-10">
-											<div className="w-12 h-12 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)]">
-												<CheckCircle2 className="w-6 h-6 text-black" />
+									<GlassCard className="relative overflow-hidden flex items-center justify-between group border-emerald-500/20 bg-gradient-to-br from-emerald-500/8 to-transparent">
+										<div className="flex items-center gap-4">
+											<div className="w-11 h-11 rounded-2xl bg-emerald-500/15 flex items-center justify-center shrink-0">
+												<CheckCircle2 className="w-5 h-5 text-emerald-500" />
 											</div>
 											<div>
-												<h3 className="text-base font-black text-foreground uppercase tracking-tight">
-													Today's done! 🎉
-												</h3>
-												<p className="text-[10px] font-bold text-emerald-500/60 uppercase tracking-widest">
-													Do you want to change the log?
+												<p className="text-sm font-semibold text-foreground">
+													Workout logged
+												</p>
+												<p className="text-xs text-foreground/40 mt-0.5">
+													Tap to update today&apos;s log
 												</p>
 											</div>
 										</div>
-										<ChevronRight className="w-5 h-5 text-emerald-500 relative z-10 group-hover:translate-x-1 transition-transform" />
+										<ChevronRight className="w-4 h-4 text-foreground/20 group-hover:text-foreground/50 group-hover:translate-x-0.5 transition-all shrink-0" />
 									</GlassCard>
 								</Link>
 							) : plan && (plan as any).dayOfWeek !== 0 ? (
 								<Link href="/workout?mode=LIVE_SESSION" className="block">
 									<WorkoutListItem
-										title={`${(plan as any).splitName || `Day ${(plan as any).dayOfWeek}`} Training`}
-										subtitle={`Week ${(plan as any).weekNumber} • Master Plan`}
+										title={`${(plan as any).splitName || `Day ${(plan as any).dayOfWeek}`} training`}
+										subtitle={`Week ${(plan as any).weekNumber} · Master Plan`}
 										duration={`${(plan as any).exercises.length * 10} min`}
 										exercisesCount={(plan as any).exercises.length}
 										active
@@ -244,85 +201,128 @@ export default async function DashboardPage() {
 								<Link
 									href={`/plan/${activePlanInfo.id}/report`}
 									className="block">
-									<GlassCard className="border-emerald-500/30 bg-emerald-500/5 p-6 flex items-center justify-between group overflow-hidden relative">
-										<div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-											<Trophy className="w-16 h-16 text-emerald-500" />
-										</div>
-										<div className="flex items-center space-x-4 relative z-10">
-											<div className="w-12 h-12 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)]">
-												<Trophy className="w-6 h-6 text-black" />
+									<GlassCard className="relative overflow-hidden flex items-center justify-between group border-emerald-500/20 bg-gradient-to-br from-emerald-500/8 to-transparent">
+										<div className="flex items-center gap-4">
+											<div className="w-11 h-11 rounded-2xl bg-emerald-500/15 flex items-center justify-center shrink-0">
+												<Trophy className="w-5 h-5 text-emerald-500" />
 											</div>
 											<div>
-												<h3 className="text-base font-black text-foreground uppercase tracking-tight">
-													Cycle Completed!
-												</h3>
-												<p className="text-[10px] font-bold text-emerald-500/60 uppercase tracking-widest">
-													Tap to view your report
+												<p className="text-sm font-semibold text-foreground">
+													Cycle complete
+												</p>
+												<p className="text-xs text-foreground/40 mt-0.5">
+													View your full report
 												</p>
 											</div>
 										</div>
-										<ChevronRight className="w-5 h-5 text-emerald-500 relative z-10 group-hover:translate-x-1 transition-transform" />
+										<ChevronRight className="w-4 h-4 text-foreground/20 group-hover:text-foreground/50 group-hover:translate-x-0.5 transition-all shrink-0" />
 									</GlassCard>
 								</Link>
 							) : (
-								<div className="glass-card border-dashed border-foreground/10 flex flex-col items-center justify-center py-12 text-center">
-									<div className="w-12 h-12 rounded-2xl bg-foreground/5 flex items-center justify-center mb-4">
-										{(plan as any)?.dayOfWeek === 0 ? (
-											<Coffee className="w-6 h-6 text-foreground/40" />
+								<GlassCard className="flex items-center gap-4 border-foreground/5 bg-foreground/[0.02]">
+									<div className="w-11 h-11 rounded-2xl bg-foreground/5 flex items-center justify-center shrink-0">
+										{isRestDay ? (
+											<Coffee className="w-5 h-5 text-foreground/30" />
 										) : (
-											<Plus className="w-6 h-6 text-foreground/40" />
+											<Plus className="w-5 h-5 text-foreground/30" />
 										)}
 									</div>
-									<p className="text-foreground/60 text-sm font-medium mb-1">
-										{(plan as any)?.dayOfWeek === 0
-											? "It's a Rest Day! 🧘‍♂️"
-											: "No workout scheduled for today"}
-									</p>
-									<p className="text-foreground/40 text-xs">
-										{(plan as any)?.dayOfWeek === 0
-											? "Take some time to recover and prep for tomorrow."
-											: "Tap to create a new session or set up a plan."}
-									</p>
-								</div>
+									<div>
+										<p className="text-sm font-medium text-foreground/60">
+											{isRestDay
+												? "Rest day"
+												: "No workout scheduled"}
+										</p>
+										<p className="text-xs text-foreground/30 mt-0.5">
+											{isRestDay
+												? "Take time to recover and stretch."
+												: "Set up a plan to get started."}
+										</p>
+									</div>
+								</GlassCard>
 							)}
 						</section>
 
-						<section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<GlassCard className="flex items-center justify-between group cursor-pointer">
-								<div className="flex items-center space-x-4">
-									<div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center group-hover:bg-brand-primary/20 transition-colors">
-										<Plus className="w-5 h-5 text-brand-primary" />
+						{/* ── Contextual Prompts ── */}
+						{(showOnboardingBanner || yesterdayMissed?.hasMissed) && (
+							<section className="space-y-3">
+								{showOnboardingBanner && <OnboardingBanner />}
+								{yesterdayMissed?.hasMissed && !isTodayDone && (
+									<WorkoutMergePrompt
+										yesterdaySplitName={yesterdayMissed.splitName}
+										yesterdayExerciseCount={yesterdayMissed.exerciseCount}
+									/>
+								)}
+							</section>
+						)}
+
+						<NotificationPrompt />
+
+						{/* ── AI Cooldown (shown after workout) ── */}
+						{todayWorkoutLog?.aiSummary && (
+							<section>
+								<CoolDownStretches summary={todayWorkoutLog.aiSummary} />
+							</section>
+						)}
+
+						{/* ── Tomorrow preview ── */}
+						<TomorrowPrompt
+							tomorrowPlan={
+								tomorrowPlan
+									? {
+											planName: tomorrowPlan.planName,
+											splitName: tomorrowPlan.splitName,
+											totalExercises: tomorrowPlan.totalExercises,
+										}
+									: null
+							}
+							isTodayDone={!!isTodayDone}
+							isRestDay={isRestDay}
+						/>
+
+						{/* ── Daily quote — minimal, text-only ── */}
+						<section className="px-1">
+							<p className="text-sm leading-relaxed text-foreground/40 italic border-l-2 border-brand-primary/30 pl-4">
+								{randomQuote}
+							</p>
+						</section>
+
+						{/* ── Quick actions ── */}
+						<section>
+							<h2 className="text-[11px] font-semibold text-foreground/40 uppercase tracking-[0.15em] mb-3">
+								Quick actions
+							</h2>
+							<div className="grid grid-cols-2 gap-3">
+								<GlassCard className="flex items-center gap-3 group cursor-pointer py-4">
+									<div className="w-9 h-9 rounded-xl bg-foreground/5 flex items-center justify-center group-hover:bg-brand-primary/15 transition-colors shrink-0">
+										<Plus className="w-4 h-4 text-brand-primary" />
 									</div>
-									<div>
-										<h3 className="text-sm font-bold text-foreground">
-											Log Weight
-										</h3>
-										<p className="text-[10px] text-foreground/40 font-medium uppercase tracking-wider">
+									<div className="min-w-0">
+										<p className="text-sm font-semibold text-foreground leading-none">
+											Log weight
+										</p>
+										<p className="text-[11px] text-foreground/40 mt-1 truncate">
 											Update trend
 										</p>
 									</div>
-								</div>
-								<ChevronRight className="w-4 h-4 text-foreground/20 group-hover:text-foreground transition-colors" />
-							</GlassCard>
+								</GlassCard>
 
-							<Link href="/analytics" className="contents">
-								<GlassCard className="flex items-center justify-between group cursor-pointer">
-									<div className="flex items-center space-x-4">
-										<div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center group-hover:bg-brand-primary/20 transition-colors">
-											<BarChart2 className="w-5 h-5 text-brand-primary" />
+								<Link href="/analytics" className="contents">
+									<GlassCard className="flex items-center gap-3 group cursor-pointer py-4">
+										<div className="w-9 h-9 rounded-xl bg-foreground/5 flex items-center justify-center group-hover:bg-brand-primary/15 transition-colors shrink-0">
+											<BarChart2 className="w-4 h-4 text-brand-primary" />
 										</div>
-										<div>
-											<h3 className="text-sm font-bold text-foreground">
-												View Progress
-											</h3>
-											<p className="text-[10px] text-foreground/40 font-medium uppercase tracking-wider">
+										<div className="min-w-0">
+											<p className="text-sm font-semibold text-foreground leading-none">
+												Progress
+											</p>
+											<p className="text-[11px] text-foreground/40 mt-1 truncate">
 												All-time PRs
 											</p>
 										</div>
-									</div>
-									<ChevronRight className="w-4 h-4 text-foreground/20 group-hover:text-foreground transition-colors" />
-								</GlassCard>
-							</Link>
+									</GlassCard>
+								</Link>
+							</div>
 						</section>
 					</div>
 				</PageWithSidebar>
