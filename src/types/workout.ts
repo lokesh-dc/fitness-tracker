@@ -49,6 +49,21 @@ export type Goal = 'strength' | 'hypertrophy' | 'endurance';
 export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
 export type Equipment = 'barbell' | 'dumbbell' | 'machines' | 'bodyweight' | 'bands' | 'cables' | 'kettlebell';
 
+export type SplitStyle = 'full-body' | 'upper-lower' | 'ppl' | 'ppl-upper-lower' | 'bro';
+
+export const SPLIT_OPTIONS: {
+  value: SplitStyle;
+  label: string;
+  description: string;
+  bestFor: string;
+}[] = [
+  { value: 'full-body', label: 'Full Body', description: 'Every muscle group trained each session. Big frequency on fewer days.', bestFor: '2–3 days' },
+  { value: 'upper-lower', label: 'Upper / Lower', description: 'Upper body one day, lower body the next. The classic 4-day split.', bestFor: '4 days' },
+  { value: 'ppl', label: 'PPL (Push / Pull / Legs)', description: 'Push, pull and legs in rotation. The standard 3 or 6-day split.', bestFor: '3 or 6 days' },
+  { value: 'ppl-upper-lower', label: 'PPL + Upper / Lower', description: 'Hybrid 5-day split — Upper, Lower, Push, Pull, Legs.', bestFor: '5 days' },
+  { value: 'bro', label: 'Muscle Group (Bro)', description: 'One muscle group per day — chest, back, shoulders, arms, legs.', bestFor: '5–6 days' },
+];
+
 export const EQUIPMENT_OPTIONS: { value: Equipment; label: string }[] = [
   { value: 'barbell', label: 'Barbell' },
   { value: 'dumbbell', label: 'Dumbbell' },
@@ -93,6 +108,7 @@ export interface MatchedExercise {
   needsUserReview: boolean;
   reviewCandidates?: { id: string; name: string; similarity: number }[];
   isNew: boolean;
+  lastWeight?: number;
 }
 
 export interface MatchedDay {

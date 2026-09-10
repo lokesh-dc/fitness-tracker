@@ -20,12 +20,14 @@ import {
   Goal,
   ExperienceLevel,
   Equipment,
+  SplitStyle,
   GeneratedProgramResult,
   GeneratedDay,
   MatchedDay,
 } from "@/types/workout";
 import { generateProgram as generateProgramAi } from "@/lib/ai/program-generator";
 import { matchGeneratedExercises as matchGeneratedExercisesLib } from "@/lib/exercise-matching";
+import { attachLastWeights } from "@/lib/last-weight";
 
 export async function getPlanByDate(date?: string | Date, overrideUserId?: string): Promise<WorkoutTemplate | null> {
   try {
@@ -1007,9 +1009,51 @@ function isSameDay(d1: Date, d2: Date) {
 /**
  * AI PROGRAM GENERATOR
  */
+
+const DAILY_PLAN_GENERATION_LIMIT = 2;
+const AI_USAGE_COLLECTION = "AIGenerationLog";
+
+function aiUsageDate(d: Date = new Date()): string {
+  return d.toISOString().split("T")[0];
+}
+
+async function getGenerationUsage(userIdStr: string, kind: string): Promise<number> {
+  try {
+    const db = await getDb();
+    const doc = await db
+      .collection(AI_USAGE_COLLECTION)
+      .findOne({ userId: new ObjectId(userIdStr), kind, date: aiUsageDate() });
+    return typeof doc?.count === "number" && doc.count > 0 ? doc.count : 0;
+  } catch (error) {
+    console.error("Error reading AI generation usage:", error);
+    return 0;
+  }
+}
+
+async function incrementGenerationUsage(userIdStr: string, kind: string): Promise<void> {
+  try {
+    const db = await getDb();
+    await db
+      .collection(AI_USAGE_COLLECTION)
+      .updateOne(
+        { userId: new ObjectId(userIdStr), kind, date: aiUsageDate() },
+        {
+          $inc: { count: 1 },
+          $set: { updatedAt: new Date() },
+          $setOnInsert: { createdAt: new Date() },
+        },
+        { upsert: true },
+      );
+  } catch (error) {
+    console.error("Error incrementing AI generation usage:", error);
+  }
+}
+
 export async function generateProgram(input: {
   goal: Goal;
   daysPerWeek: number;
+  trainingDays: number[];
+  splitStyle: SplitStyle;
   equipment: Equipment[];
   experienceLevel: ExperienceLevel;
   weeksCount: number;
@@ -1030,11 +1074,66 @@ export async function generateProgram(input: {
     if (input.equipment.length === 0) {
       return { success: false, error: "Select at least one equipment option." };
     }
+    if (!["full-body", "upper-lower", "ppl", "ppl-upper-lower", "bro"].includes(input.splitStyle)) {
+      return { success: false, error: "Select a valid split type." };
+    }
+    if (
+      !Array.isArray(input.trainingDays) ||
+      input.trainingDays.length !== input.daysPerWeek ||
+      input.trainingDays.some((d) => !Number.isInteger(d) || d < 0 || d > 6)
+    ) {
+      return { success: false, error: "Selected training days don't match the frequency." };
+    }
 
-    return await generateProgramAi(input);
+    const userId = (session.user as any).id;
+    const used = await getGenerationUsage(userId, "plan");
+    if (used >= DAILY_PLAN_GENERATION_LIMIT) {
+      return {
+        success: false,
+        error: `Daily limit reached — you've generated ${DAILY_PLAN_GENERATION_LIMIT} programs today. Come back tomorrow for a fresh ${DAILY_PLAN_GENERATION_LIMIT}.`,
+      };
+    }
+
+    const result = await generateProgramAi(input);
+
+    if (result.success) {
+      await incrementGenerationUsage(userId, "plan");
+    }
+
+    return result;
   } catch (error) {
     console.error("Error in generateProgram action:", error);
     return { success: false, error: "Failed to generate program. Please try again." };
+  }
+}
+
+export async function getGenerationQuota(): Promise<{
+  used: number;
+  limit: number;
+  remaining: number;
+}> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return {
+        used: 0,
+        limit: DAILY_PLAN_GENERATION_LIMIT,
+        remaining: DAILY_PLAN_GENERATION_LIMIT,
+      };
+    }
+    const used = await getGenerationUsage((session.user as any).id, "plan");
+    return {
+      used,
+      limit: DAILY_PLAN_GENERATION_LIMIT,
+      remaining: Math.max(0, DAILY_PLAN_GENERATION_LIMIT - used),
+    };
+  } catch (error) {
+    console.error("Error in getGenerationQuota:", error);
+    return {
+      used: 0,
+      limit: DAILY_PLAN_GENERATION_LIMIT,
+      remaining: DAILY_PLAN_GENERATION_LIMIT,
+    };
   }
 }
 
@@ -1047,7 +1146,14 @@ export async function matchGeneratedExercises(
 
     if (!Array.isArray(days) || days.length === 0) return [];
 
-    return await matchGeneratedExercisesLib(days);
+    const matched = await matchGeneratedExercisesLib(days);
+
+    const userId = (session.user as any).id;
+    if (userId) {
+      return await attachLastWeights(userId, matched);
+    }
+
+    return matched;
   } catch (error) {
     console.error("Error matching generated exercises:", error);
     return [];

@@ -148,3 +148,24 @@ body.demo-active .fixed.pt-28 {
   color: white !important;
   box-shadow: 0 4px 12px color-mix(in srgb, var(--brand-accent), transparent 70%);
 }
+
+@keyframes breath {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+@keyframes genBar {
+  0% {
+    left: -35%;
+  }
+  100% {
+    left: 100%;
+  }
+}

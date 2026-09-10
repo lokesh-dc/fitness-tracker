@@ -23,7 +23,11 @@ export function Navigation() {
 	const isOnboarding = pathname === "/onboarding";
 
 	// Specific paths where navigation should be hidden
-	const isMobileNavHidden = pathname === "/workout" || isOnboarding || pathname === "/plan/designer";
+	const isMobileNavHidden =
+		pathname === "/workout" ||
+		isOnboarding ||
+		pathname === "/plan/designer" ||
+		pathname === "/plan/generate";
 
 
 	const navItems = [

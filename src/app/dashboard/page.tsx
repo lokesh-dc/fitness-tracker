@@ -154,22 +154,22 @@ export default async function DashboardPage() {
 					<div className="space-y-8">
 						{showOnboardingBanner && <OnboardingBanner />}
 						<NotificationPrompt />
-					<TomorrowPrompt
-						tomorrowPlan={tomorrowPlan ? {
-							planName: tomorrowPlan.planName,
-							splitName: tomorrowPlan.splitName,
-							totalExercises: tomorrowPlan.totalExercises,
-						} : null}
-						isTodayDone={!!isTodayDone}
-						isRestDay={!plan || (plan as any)?.exercises?.length === 0}
-					/>
-
-					{yesterdayMissed?.hasMissed && !isTodayDone && (
-						<WorkoutMergePrompt
-							yesterdaySplitName={yesterdayMissed.splitName}
-							yesterdayExerciseCount={yesterdayMissed.exerciseCount}
+						<TomorrowPrompt
+							tomorrowPlan={tomorrowPlan ? {
+								planName: tomorrowPlan.planName,
+								splitName: tomorrowPlan.splitName,
+								totalExercises: tomorrowPlan.totalExercises,
+							} : null}
+							isTodayDone={!!isTodayDone}
+							isRestDay={!plan || (plan as any)?.exercises?.length === 0}
 						/>
-					)}
+
+						{yesterdayMissed?.hasMissed && !isTodayDone && (
+							<WorkoutMergePrompt
+								yesterdaySplitName={yesterdayMissed.splitName}
+								yesterdayExerciseCount={yesterdayMissed.exerciseCount}
+							/>
+						)}
 
 						<section>
 							<GlassCard className="relative overflow-hidden p-6 border-foreground/5 bg-gradient-to-br from-brand-primary/10 to-transparent">
@@ -183,8 +183,8 @@ export default async function DashboardPage() {
 											Daily Motivation
 										</h3>
 									</div>
-									<p className="text-2xl font-black text-foreground leading-tight tracking-tight">
-										&quot; {randomQuote} &quot;
+									<p className="text-2xl font-semibold text-foreground leading-tight tracking-tight">
+										{randomQuote}
 									</p>
 								</div>
 							</GlassCard>

@@ -1,5 +1,5 @@
 import { getGroqModel } from "@/lib/ai";
-import { Goal, ExperienceLevel, Equipment, GeneratedProgram, GeneratedProgramResult } from "@/types/workout";
+import { Goal, ExperienceLevel, Equipment, SplitStyle, GeneratedProgram, GeneratedProgramResult } from "@/types/workout";
 import { buildProgramPrompt } from "./program-prompt";
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
@@ -148,6 +148,8 @@ function clampRest(value: unknown): number {
   return Math.min(300, Math.max(30, Math.round(n)));
 }
 
+const MIN_EXERCISES_PER_DAY = 4;
+
 function normalizeMuscleGroup(raw: string): string {
   const trimmed = raw.trim();
   if (VALID_MUSCLE_GROUPS.has(trimmed)) return trimmed;
@@ -166,6 +168,7 @@ function normalizeMuscleGroup(raw: string): string {
 function validateAndCleanProgram(
   raw: unknown,
   expectedDays: number,
+  trainingDays?: number[],
 ): GeneratedProgramResult {
   if (!isRecord(raw) || !Array.isArray(raw.days)) {
     return { success: false, error: "Invalid response format: missing 'days' array." };
@@ -206,7 +209,9 @@ function validateAndCleanProgram(
           }))
       : [];
 
-    if (exercises.length === 0) continue;
+    // Days that can't fill a ~60-minute session are rejected so the user isn't
+    // shown a 2-exercise "workout".
+    if (exercises.length < MIN_EXERCISES_PER_DAY) continue;
 
     cleanedDays.push({ dayOfWeek, name, rationale, exercises });
   }
@@ -225,16 +230,35 @@ function validateAndCleanProgram(
     };
   }
 
+  // Pin the generated days onto the user's chosen weekdays, preserving the
+  // order the AI produced. This keeps the schedule exactly as the user picked.
+  if (trainingDays && trainingDays.length === cleanedDays.length) {
+    return {
+      success: true,
+      program: {
+        days: cleanedDays.map((day, i) => ({ ...day, dayOfWeek: trainingDays[i] })),
+      },
+    };
+  }
+
   return { success: true, program: { days: cleanedDays } };
 }
 
 export async function generateProgram(input: {
   goal: Goal;
   daysPerWeek: number;
+  trainingDays: number[];
+  splitStyle: SplitStyle;
   equipment: Equipment[];
   experienceLevel: ExperienceLevel;
   weeksCount: number;
 }): Promise<GeneratedProgramResult> {
+  const effectiveTrainingDays =
+    input.trainingDays &&
+    input.trainingDays.length === input.daysPerWeek &&
+    input.trainingDays.every((d) => Number.isInteger(d) && d >= 0 && d <= 6)
+      ? input.trainingDays
+      : [1, 2, 3, 4, 5, 6, 0].slice(0, input.daysPerWeek);
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey || apiKey === "your_groq_api_key_here") {
     return { success: false, error: "AI service is not configured. Please try again later." };
@@ -245,7 +269,7 @@ export async function generateProgram(input: {
     return { success: false, error: "AI model is not configured. Please try again later." };
   }
 
-  const prompt = buildProgramPrompt(input);
+  const prompt = buildProgramPrompt({ ...input, trainingDays: effectiveTrainingDays });
 
   try {
     const response = await fetch(GROQ_URL, {
@@ -286,13 +310,13 @@ body: JSON.stringify({
     // Primary path: parse the tagged plain-text format (more robust than raw JSON).
     const textParsed = parseProgramText(cleaned);
     if (textParsed.ok) {
-      return validateAndCleanProgram(textParsed.data, input.daysPerWeek);
+      return validateAndCleanProgram(textParsed.data, input.daysPerWeek, effectiveTrainingDays);
     }
 
     // Fallback: if the model ignored instructions and emitted JSON anyway, extract it.
     const jsonData = tryExtractJson(cleaned);
     if (jsonData !== null) {
-      return validateAndCleanProgram(jsonData, input.daysPerWeek);
+      return validateAndCleanProgram(jsonData, input.daysPerWeek, effectiveTrainingDays);
     }
 
     console.error("Failed to parse AI program response. Raw:", cleaned.slice(0, 500));
