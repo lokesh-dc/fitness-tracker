@@ -3,10 +3,11 @@
 import { ObjectId } from "mongodb";
 import { revalidatePath } from "next/cache";
 import { getDb, getCurrentDayOfWeek, getCurrentWeekIndex } from "@/lib/db-utils";
-import { WorkoutLog, Exercise, SetLog } from "@/types/workout";
+import { WorkoutLog, Exercise, SetLog, ThisWeekWeightSummary, WeekDayWeight } from "@/types/workout";
 import { calculateEpley } from "@/lib/epley";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { format } from "date-fns";
 
 // export async function saveWorkoutSession(
 //   data: {
@@ -426,11 +427,147 @@ export async function saveBodyWeight(bodyWeight: number, date?: string | Date): 
     }
 
     revalidatePath("/");
+    revalidatePath("/dashboard");
   } catch (error) {
     console.error("Error saving body weight:", error);
     throw new Error("Failed to save body weight.");
   }
 }
+
+export async function getThisWeekWeightData(
+  overrideUserId?: string,
+  referenceDate?: string | Date
+): Promise<ThisWeekWeightSummary> {
+  try {
+    let userIdStr = overrideUserId;
+    if (!userIdStr) {
+      const session = await getServerSession(authOptions);
+      if (!session?.user) {
+        return {
+          days: [],
+          currentWeight: null,
+          startWeight: null,
+          changeKg: null,
+          changeDirection: null,
+          loggedCountThisWeek: 0,
+        };
+      }
+      userIdStr = (session.user as any).id;
+    }
+    const userId = new ObjectId(userIdStr);
+    const db = await getDb();
+
+    const now = referenceDate ? new Date(referenceDate) : new Date();
+    // Sunday-start week convention
+    const dayOfWeek = now.getDay();
+    const sunday = new Date(now);
+    sunday.setDate(now.getDate() - dayOfWeek);
+    sunday.setHours(0, 0, 0, 0);
+
+    const saturday = new Date(sunday);
+    saturday.setDate(sunday.getDate() + 6);
+    saturday.setHours(23, 59, 59, 999);
+
+    // Fetch all logs this week that have a valid bodyWeight
+    const weekLogs = await db
+      .collection("WorkoutLog")
+      .find({
+        userId,
+        date: { $gte: sunday, $lte: saturday },
+        bodyWeight: { $exists: true, $ne: null, $gt: 0 },
+      })
+      .sort({ date: 1 })
+      .project({ date: 1, bodyWeight: 1 })
+      .toArray();
+
+    // Map logs by yyyy-MM-dd
+    const weightByDateStr = new Map<string, number>();
+    for (const log of weekLogs) {
+      const dStr = format(new Date(log.date), "yyyy-MM-dd");
+      weightByDateStr.set(dStr, Math.round(Number(log.bodyWeight) * 10) / 10);
+    }
+
+    const todayStr = format(now, "yyyy-MM-dd");
+    const days: WeekDayWeight[] = [];
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(sunday);
+      d.setDate(sunday.getDate() + i);
+      const dateStr = format(d, "yyyy-MM-dd");
+      const isToday = dateStr === todayStr;
+      const isFuture = d > now && !isToday;
+      const weight = weightByDateStr.get(dateStr) ?? null;
+
+      days.push({
+        dayName: format(d, "EEE"),
+        dateStr,
+        weight,
+        isToday,
+        isFuture,
+      });
+    }
+
+    // Latest prior log before this week for baseline
+    const priorLog = await db
+      .collection("WorkoutLog")
+      .findOne(
+        {
+          userId,
+          date: { $lt: sunday },
+          bodyWeight: { $exists: true, $ne: null, $gt: 0 },
+        },
+        { sort: { date: -1 }, projection: { date: 1, bodyWeight: 1 } }
+      );
+
+    const priorWeight = priorLog?.bodyWeight
+      ? Math.round(Number(priorLog.bodyWeight) * 10) / 10
+      : null;
+
+    // Chronological logged weights this week
+    const loggedThisWeek = days
+      .filter((d) => d.weight !== null)
+      .map((d) => d.weight as number);
+
+    let currentWeight: number | null = null;
+    let startWeight: number | null = null;
+    let changeKg: number | null = null;
+    let changeDirection: "up" | "down" | "neutral" | null = null;
+
+    if (loggedThisWeek.length > 0) {
+      currentWeight = loggedThisWeek[loggedThisWeek.length - 1];
+      startWeight = priorWeight !== null ? priorWeight : loggedThisWeek[0];
+      const diff = Math.round((currentWeight - startWeight) * 10) / 10;
+      changeKg = diff;
+      changeDirection =
+        diff > 0.05 ? "up" : diff < -0.05 ? "down" : "neutral";
+    } else if (priorWeight !== null) {
+      currentWeight = priorWeight;
+      startWeight = priorWeight;
+      changeKg = 0;
+      changeDirection = "neutral";
+    }
+
+    return {
+      days,
+      currentWeight,
+      startWeight,
+      changeKg,
+      changeDirection,
+      loggedCountThisWeek: loggedThisWeek.length,
+    };
+  } catch (error) {
+    console.error("Error fetching this week weight data:", error);
+    return {
+      days: [],
+      currentWeight: null,
+      startWeight: null,
+      changeKg: null,
+      changeDirection: null,
+      loggedCountThisWeek: 0,
+    };
+  }
+}
+
 
 export async function saveSingleExerciseLog(
   exercise: Exercise,

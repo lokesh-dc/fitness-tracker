@@ -94,8 +94,8 @@ export function MuscleHeatmap({
 							<span
 								key={i}
 								className={cn(
-									"text-[10px] font-black absolute uppercase tracking-widest transition-opacity duration-500",
-									isActiveMonth ? "text-foreground/40" : "text-foreground/5",
+									"text-[10px] font-semibold absolute uppercase tracking-widest transition-opacity duration-500",
+									isActiveMonth ? "text-foreground/60" : "text-foreground/20",
 								)}
 								style={{ left: `${m.index * 52}px` }}>
 								{m.label}
@@ -106,7 +106,7 @@ export function MuscleHeatmap({
 
 				<div className="flex">
 					{/* Day Labels */}
-					<div className="flex flex-col justify-between px-4 py-2 text-[10px] font-black text-foreground/10 uppercase sticky left-0 z-20 bg-transparent backdrop-blur-sm">
+					<div className="flex flex-col justify-between px-4 py-2 text-[10px] font-semibold text-foreground/40 uppercase sticky left-0 z-20 bg-background/80 backdrop-blur-sm">
 						<span>Mon</span>
 						<span className="">Tue</span>
 						<span>Wed</span>
@@ -129,22 +129,22 @@ export function MuscleHeatmap({
 											day.isFuture
 												? "opacity-0"
 												: !day.isActive
-													? "bg-white/[0.02] border border-white/[0.02]"
+													? "bg-foreground/[0.02] border border-foreground/[0.03]"
 													: day.isTrained
-														? "bg-brand-primary shadow-[0_0_20px_rgba(249,115,22,0.2)] scale-100 z-10"
-														: "bg-white/5 hover:bg-white/10 border border-white/5",
+														? "bg-brand-primary text-white shadow-xs scale-100 z-10"
+														: "bg-foreground/[0.04] hover:bg-foreground/[0.08] border border-foreground/[0.06]",
 										)}>
 										<span
 											className={cn(
-												"text-[10px] font-bold transition-opacity duration-500",
+												"text-[10px] transition-opacity duration-500",
 												!day.isActive ? "opacity-0" : "opacity-100",
-												day.isTrained ? "text-black" : "text-foreground/20",
+												day.isTrained ? "text-white font-bold" : "text-foreground/40 font-medium",
 											)}>
 											{format(day.date, "d")}
 										</span>
 
 										{day.isActive && day.isTrained && (
-											<div className="absolute top-0 right-0 w-4 h-4 bg-white/20 rounded-bl-lg" />
+											<div className="absolute top-0 right-0 w-4 h-4 bg-white/25 rounded-bl-lg" />
 										)}
 									</div>
 								))}

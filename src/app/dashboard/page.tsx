@@ -1,5 +1,6 @@
 import { getPlanByDate, getActivePlanInfo } from "../actions/plan";
-import { getTodayWorkoutLog } from "../actions/logs";
+import { getTodayWorkoutLog, getThisWeekWeightData } from "../actions/logs";
+import { WeightTimelineWidget } from "@/components/dashboard/WeightTimelineWidget";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -8,7 +9,6 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import {
 	Plus,
 	ChevronRight,
-	BarChart2,
 	Coffee,
 	Trophy,
 	CheckCircle2,
@@ -84,6 +84,7 @@ export default async function DashboardPage() {
 		userProfile,
 		tomorrowPlan,
 		yesterdayMissed,
+		thisWeekWeight,
 	] = await Promise.all([
 		getPlanByDate().catch(() => null),
 		getActivePlanInfo().catch(() => null),
@@ -110,6 +111,14 @@ export default async function DashboardPage() {
 			hasMissed: false,
 			splitName: "",
 			exerciseCount: 0,
+		})),
+		getThisWeekWeightData().catch(() => ({
+			days: [],
+			currentWeight: null,
+			startWeight: null,
+			changeKg: null,
+			changeDirection: null,
+			loggedCountThisWeek: 0,
 		})),
 	]);
 
@@ -287,43 +296,8 @@ export default async function DashboardPage() {
 							</p>
 						</section>
 
-						{/* ── Quick actions ── */}
-						<section>
-							<h2 className="text-[11px] font-semibold text-foreground/40 uppercase tracking-[0.15em] mb-3">
-								Quick actions
-							</h2>
-							<div className="grid grid-cols-2 gap-3">
-								<GlassCard className="flex items-center gap-3 group cursor-pointer py-4">
-									<div className="w-9 h-9 rounded-xl bg-foreground/5 flex items-center justify-center group-hover:bg-brand-primary/15 transition-colors shrink-0">
-										<Plus className="w-4 h-4 text-brand-primary" />
-									</div>
-									<div className="min-w-0">
-										<p className="text-sm font-semibold text-foreground leading-none">
-											Log weight
-										</p>
-										<p className="text-[11px] text-foreground/40 mt-1 truncate">
-											Update trend
-										</p>
-									</div>
-								</GlassCard>
-
-								<Link href="/analytics" className="contents">
-									<GlassCard className="flex items-center gap-3 group cursor-pointer py-4">
-										<div className="w-9 h-9 rounded-xl bg-foreground/5 flex items-center justify-center group-hover:bg-brand-primary/15 transition-colors shrink-0">
-											<BarChart2 className="w-4 h-4 text-brand-primary" />
-										</div>
-										<div className="min-w-0">
-											<p className="text-sm font-semibold text-foreground leading-none">
-												Progress
-											</p>
-											<p className="text-[11px] text-foreground/40 mt-1 truncate">
-												All-time PRs
-											</p>
-										</div>
-									</GlassCard>
-								</Link>
-							</div>
-						</section>
+						{/* ── Weight Timeline Widget ── */}
+						<WeightTimelineWidget data={thisWeekWeight} />
 					</div>
 				</PageWithSidebar>
 			</main>

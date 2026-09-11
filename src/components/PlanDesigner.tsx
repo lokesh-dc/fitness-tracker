@@ -518,26 +518,80 @@ export function PlanDesigner({
 			<>
 				<div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
 					{/* Day Navigator */}
-					<div className="flex overflow-x-auto pb-2 space-x-2 no-scrollbar">
-						{DAYS.map((day, idx) => (
-							<button
-								key={day}
-								disabled={!trainingDays.includes(idx)}
-								onClick={() => setCurrentDay(idx)}
-								className={cn(
-									"px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border min-w-[120px] flex flex-col items-center",
-									!trainingDays.includes(idx) &&
-										"opacity-20 grayscale cursor-not-allowed",
-									currentDay === idx
-										? "bg-foreground text-background border-foreground shadow-lg"
-										: "bg-foreground/5 text-foreground/40 border-foreground/10",
-								)}>
-								{day}
-								<span className="text-[8px] mt-1 opacity-60">
-									{masterWeekData[idx].exercises.length} Exercises
-								</span>
-							</button>
-						))}
+					<div className="flex overflow-x-auto pb-2 space-x-2.5 no-scrollbar">
+						{DAYS.map((day, idx) => {
+							const isTrainingDay = trainingDays.includes(idx);
+							const isSelected = currentDay === idx;
+							const exerciseCount = masterWeekData[idx]?.exercises?.length || 0;
+							const splitName = masterWeekData[idx]?.splitName;
+
+							return (
+								<button
+									key={day}
+									type="button"
+									disabled={!isTrainingDay}
+									onClick={() => setCurrentDay(idx)}
+									className={cn(
+										"px-4 py-3 rounded-2xl text-left transition-all border min-w-[115px] md:min-w-[130px] flex flex-col justify-between shrink-0 relative overflow-hidden group",
+										!isTrainingDay &&
+											"opacity-35 border-dashed border-foreground/10 bg-foreground/[0.01] cursor-not-allowed",
+										isTrainingDay &&
+											!isSelected &&
+											"bg-foreground/[0.03] hover:bg-foreground/[0.06] border-foreground/[0.08] hover:border-foreground/20 text-foreground cursor-pointer",
+										isSelected &&
+											"bg-brand-primary text-white border-brand-primary shadow-lg shadow-brand-primary/25 ring-2 ring-brand-primary/30 cursor-default",
+									)}>
+									{/* Top Row: Short day name + active badge or status indicator */}
+									<div className="flex items-center justify-between w-full">
+										<span
+											className={cn(
+												"text-xs font-bold tracking-tight",
+												isSelected
+													? "text-white"
+													: isTrainingDay
+														? "text-foreground"
+														: "text-foreground/30",
+											)}>
+											{day.substring(0, 3)}
+										</span>
+										{isSelected && (
+											<span className="w-2 h-2 rounded-full bg-white shadow-xs animate-pulse" />
+										)}
+										{!isSelected && isTrainingDay && exerciseCount > 0 && (
+											<span className="w-1.5 h-1.5 rounded-full bg-brand-primary/80" />
+										)}
+									</div>
+
+									{/* Bottom Info: Full day or Split name or Exercise count */}
+									<div className="mt-2.5 w-full">
+										<p
+											className={cn(
+												"text-[11px] font-semibold truncate leading-tight",
+												isSelected
+													? "text-white/95"
+													: isTrainingDay
+														? "text-foreground/75"
+														: "text-foreground/25",
+											)}>
+											{isTrainingDay ? splitName || day : "Rest Day"}
+										</p>
+										<p
+											className={cn(
+												"text-[10px] mt-0.5 truncate font-medium",
+												isSelected
+													? "text-white/75"
+													: isTrainingDay
+														? "text-foreground/40"
+														: "text-foreground/20",
+											)}>
+											{isTrainingDay
+												? `${exerciseCount} ${exerciseCount === 1 ? "exercise" : "exercises"}`
+												: "Off"}
+										</p>
+									</div>
+								</button>
+							);
+						})}
 					</div>
 
 					{/* Split Name Editor */}

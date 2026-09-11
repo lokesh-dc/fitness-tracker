@@ -18,7 +18,7 @@ export default async function MuscleGroupsPage() {
         subtitle="Training distribution & performance analytics" 
       />
 
-      <main className="px-6 pb-12 transition-all duration-500 animate-in fade-in slide-in-from-bottom-4">
+      <main className="px-4 md:px-6 pb-28 md:pb-12 w-full transition-all duration-500 animate-in fade-in slide-in-from-bottom-4">
         <MuscleGroupsClient data={data} />
       </main>
     </div>

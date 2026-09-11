@@ -291,6 +291,23 @@ export interface BodyWeightTrend {
   changeDirection: 'up' | 'down' | 'neutral' | null;
 }
 
+export interface WeekDayWeight {
+  dayName: string;
+  dateStr: string;
+  weight: number | null;
+  isToday: boolean;
+  isFuture: boolean;
+}
+
+export interface ThisWeekWeightSummary {
+  days: WeekDayWeight[];
+  currentWeight: number | null;
+  startWeight: number | null;
+  changeKg: number | null;
+  changeDirection: 'up' | 'down' | 'neutral' | null;
+  loggedCountThisWeek: number;
+}
+
 export interface AllTimeStats {
   totalWorkouts: number;
   totalVolumeKg: number;

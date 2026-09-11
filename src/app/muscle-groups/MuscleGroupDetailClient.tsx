@@ -10,20 +10,19 @@ import PageWithSidebar from "@/components/layout/PageWithSidebar";
 import { MuscleGroupDetailSidebar } from "@/components/sidebar/MuscleGroupDetailSidebar";
 import { VolumeOverTimeChart } from "@/components/analytics/VolumeOverTimeChart";
 import { MuscleHeatmap } from "@/components/analytics/MuscleHeatmap";
-import { StrengthLeaderboard } from "@/components/analytics/StrengthLeaderboard";
 import { RepRangeDonut } from "@/components/analytics/RepRangeDonut";
 import { ExerciseDetailCard } from "@/components/analytics/ExerciseDetailCard";
 import { GlassCard } from "@/components/ui/GlassCard";
 import {
 	Trophy,
-	ArrowLeft,
 	Calendar,
-	LayoutGrid,
-	ListFilter,
+	Activity,
 	TrendingUp,
-	Star,
+	CheckCircle2,
+	Layers,
+	Flame,
+	Dumbbell,
 } from "lucide-react";
-import Link from "next/link";
 import {
 	subDays,
 	isAfter,
@@ -44,7 +43,7 @@ export default function MuscleGroupDetailClient({
 }: MuscleGroupDetailClientProps) {
 	const [timeRange, setTimeRange] = useState<TimeRange>("6M");
 	const [openExercise, setOpenExercise] = useState<string | null>(null);
-	const [sortBy, setSortBy] = useState<string>("Most Recent");
+	const [sortBy, setSortBy] = useState<string>("Highest 1RM");
 
 	const cutoff = useMemo(() => {
 		const now = new Date();
@@ -88,12 +87,12 @@ export default function MuscleGroupDetailClient({
 	// Sorting
 	const sortedExercises = useMemo(() => {
 		return [...filteredExercises].sort((a, b) => {
+			if (sortBy === "Highest 1RM")
+				return b.currentEstimatedOneRM - a.currentEstimatedOneRM;
+			if (sortBy === "Highest PR") return b.currentPR - a.currentPR;
 			if (sortBy === "Most Recent")
 				return b.lastLoggedDate.localeCompare(a.lastLoggedDate);
 			if (sortBy === "Most Sets") return b.totalSets - a.totalSets;
-			if (sortBy === "Highest PR") return b.currentPR - a.currentPR;
-			if (sortBy === "Highest 1RM")
-				return b.currentEstimatedOneRM - a.currentEstimatedOneRM;
 			return 0;
 		});
 	}, [filteredExercises, sortBy]);
@@ -115,41 +114,93 @@ export default function MuscleGroupDetailClient({
 	const timeRangeLabel = timeRange === "ALL" ? "All Time" : `Last ${timeRange}`;
 
 	return (
-		<div className="space-y-12">
-			{/* Page Header */}
-			<div className="space-y-6">
-				<Link
-					href="/muscle-groups"
-					className="flex items-center gap-2 text-xs font-black text-foreground/40 uppercase tracking-widest hover:text-foreground transition-colors group">
-					<ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-					Muscle Groups
-				</Link>
+		<div className="space-y-8">
+			{/* Filter Strip */}
+			<div className="flex items-center justify-between gap-4">
+				<span className="text-[11px] font-semibold text-foreground/40 uppercase tracking-[0.15em]">
+					Overview
+				</span>
 
-				<div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-					<div className="space-y-1">
-						<h1 className="text-3xl md:text-5xl font-black text-foreground uppercase tracking-tight">
-							{data.muscleGroup}
-						</h1>
-						<div className="flex items-center gap-3 text-[10px] md:text-xs font-bold text-foreground/40 uppercase tracking-widest">
-							<span>{data.totalExercises} tracked</span>
-							<span className="text-foreground/10">•</span>
-							<span>{data.totalSessions} sessions</span>
-						</div>
+				<div className="flex items-center gap-1 bg-foreground/[0.04] p-1 rounded-xl border border-foreground/[0.06] shrink-0">
+					{(["1M", "3M", "6M", "1Y", "ALL"] as TimeRange[]).map((range) => (
+						<button
+							key={range}
+							onClick={() => setTimeRange(range)}
+							className={cn(
+								"px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all",
+								timeRange === range
+									? "bg-brand-primary text-white shadow-xs"
+									: "text-foreground/50 hover:text-foreground/80 hover:bg-foreground/[0.04]"
+							)}>
+							{range}
+						</button>
+					))}
+				</div>
+			</div>
+
+			{/* Top KPI Stat Grid */}
+			<div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+				{/* Volume */}
+				<div className="flex flex-col gap-1.5 rounded-2xl p-3.5 bg-brand-primary/10 border border-brand-primary/20">
+					<div className="flex items-center gap-1.5">
+						<TrendingUp className="w-3.5 h-3.5 text-brand-primary shrink-0" />
+						<span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-brand-primary/70">
+							Total Volume
+						</span>
 					</div>
+					<div className="flex items-baseline gap-1">
+						<span className="text-xl font-bold tabular-nums text-brand-primary leading-none">
+							{filteredStats.volume.toLocaleString()}
+						</span>
+						<span className="text-[10px] text-brand-primary/50 font-medium">kg</span>
+					</div>
+				</div>
 
-					<div className="group-tabs no-scrollbar self-start md:self-auto">
-						{(["1M", "3M", "6M", "1Y", "ALL"] as TimeRange[]).map((range) => (
-							<button
-								key={range}
-								onClick={() => setTimeRange(range)}
-								className={cn(
-									"tab-item px-3 md:px-4 py-1.5 md:py-2 rounded-xl text-[9px] md:text-[10px]",
-									timeRange === range && "tab-item-active"
-								)}
-							>
-								{range}
-							</button>
-						))}
+				{/* Sets */}
+				<div className="flex flex-col gap-1.5 rounded-2xl p-3.5 bg-foreground/[0.03] border border-foreground/[0.06]">
+					<div className="flex items-center gap-1.5">
+						<Layers className="w-3.5 h-3.5 text-foreground/35 shrink-0" />
+						<span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-foreground/35">
+							Total Sets
+						</span>
+					</div>
+					<div className="flex items-baseline gap-1">
+						<span className="text-xl font-bold tabular-nums text-foreground leading-none">
+							{filteredStats.sets.toLocaleString()}
+						</span>
+						<span className="text-[10px] text-foreground/30 font-medium">sets</span>
+					</div>
+				</div>
+
+				{/* Sessions */}
+				<div className="flex flex-col gap-1.5 rounded-2xl p-3.5 bg-foreground/[0.03] border border-foreground/[0.06]">
+					<div className="flex items-center gap-1.5">
+						<CheckCircle2 className="w-3.5 h-3.5 text-foreground/35 shrink-0" />
+						<span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-foreground/35">
+							Sessions
+						</span>
+					</div>
+					<div className="flex items-baseline gap-1">
+						<span className="text-xl font-bold tabular-nums text-foreground leading-none">
+							{filteredStats.sessions}
+						</span>
+						<span className="text-[10px] text-foreground/30 font-medium">logged</span>
+					</div>
+				</div>
+
+				{/* Best Session */}
+				<div className="flex flex-col gap-1.5 rounded-2xl p-3.5 bg-foreground/[0.03] border border-foreground/[0.06]">
+					<div className="flex items-center gap-1.5">
+						<Trophy className="w-3.5 h-3.5 text-foreground/35 shrink-0" />
+						<span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-foreground/35">
+							Peak Session
+						</span>
+					</div>
+					<div className="flex items-baseline gap-1">
+						<span className="text-xl font-bold tabular-nums text-foreground leading-none">
+							{(data.bestSession?.totalVolume || 0).toLocaleString()}
+						</span>
+						<span className="text-[10px] text-foreground/30 font-medium">kg</span>
 					</div>
 				</div>
 			</div>
@@ -164,63 +215,34 @@ export default function MuscleGroupDetailClient({
 						allTimeFreq={allTimeFreq}
 					/>
 				}>
-				<div className="space-y-12 pb-20">
-					{/* Section 1: Key Stats Bar */}
-					<section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-						{[
-							{
-								label: "Sessions",
-								value: filteredStats.sessions,
-								sub: "In this period",
-							},
-							{
-								label: "Total Sets",
-								value: filteredStats.sets.toLocaleString(),
-								sub: "In this period",
-							},
-							{
-								label: "Total Volume",
-								value: `${filteredStats.volume.toLocaleString()} kg`,
-								sub: "In this period",
-							},
-							{
-								label: "Best Session",
-								value: `${data.bestSession?.totalVolume.toLocaleString() || 0} kg`,
-								sub: "All time peak",
-							},
-						].map((stat, i) => (
-							<GlassCard key={i} className="p-4 border-white/5">
-								<p className="text-[10px] font-black text-foreground/20 uppercase tracking-widest mb-1">
-									{stat.label}
-								</p>
-								<p className="text-xl font-black text-foreground">
-									{stat.value}
-								</p>
-								<p className="text-[9px] font-bold text-foreground/10 uppercase tracking-widest mt-0.5">
-									{stat.sub}
-								</p>
-							</GlassCard>
-						))}
-					</section>
-
-					{/* Section 2: Volume Over Time */}
-					<section className="space-y-6">
-						<h2 className="text-xl font-black text-foreground uppercase tracking-tight flex items-center gap-3">
-							<TrendingUp className="w-5 h-5 text-brand-primary" />
-							Volume Over Time
-						</h2>
-						<GlassCard className="p-6">
+				<div className="space-y-8 pb-12">
+					{/* Volume Over Time */}
+					<section className="space-y-3">
+						<div className="flex items-center gap-2">
+							<TrendingUp className="w-4 h-4 text-brand-primary" />
+							<h2 className="text-sm font-semibold text-foreground tracking-tight">
+								Volume Over Time
+							</h2>
+						</div>
+						<GlassCard className="p-4 md:p-5">
 							<VolumeOverTimeChart data={filteredWeeklyVolume} />
 						</GlassCard>
 					</section>
 
-					{/* Section 3: Training Frequency Heatmap */}
-					<section className="space-y-6">
-						<h2 className="text-xl font-black text-foreground uppercase tracking-tight flex items-center gap-3">
-							<Calendar className="w-5 h-5 text-brand-primary" />
-							Training Frequency — {timeRangeLabel}
-						</h2>
-						<GlassCard className="p-6">
+					{/* Training Frequency Heatmap */}
+					<section className="space-y-3">
+						<div className="flex items-center justify-between gap-4">
+							<div className="flex items-center gap-2">
+								<Calendar className="w-4 h-4 text-brand-primary" />
+								<h2 className="text-sm font-semibold text-foreground tracking-tight">
+									Training Frequency
+								</h2>
+							</div>
+							<span className="text-[10px] font-medium text-foreground/40">
+								{timeRangeLabel}
+							</span>
+						</div>
+						<GlassCard className="p-4 md:p-5">
 							<MuscleHeatmap
 								dates={data.heatmapDates}
 								muscleGroup={data.muscleGroup}
@@ -229,103 +251,123 @@ export default function MuscleGroupDetailClient({
 						</GlassCard>
 					</section>
 
+					{/* Training Character & Peak Session */}
+					<section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+						{/* Rep Range Distribution */}
+						<GlassCard className="p-4 md:p-5 flex flex-col justify-between gap-4">
+							<div className="flex items-center justify-between gap-2">
+								<div className="flex items-center gap-2">
+									<Activity className="w-4 h-4 text-brand-primary" />
+									<h3 className="text-sm font-semibold text-foreground tracking-tight">
+										Rep Range Focus
+									</h3>
+								</div>
+								<span className="text-[10px] text-foreground/40 font-medium">
+									{data.repRangeDistribution.total} sets
+								</span>
+							</div>
 
-					{/* Section 4: Strength Leaderboard */}
-					<section className="space-y-6">
-						<h2 className="text-xl font-black text-foreground uppercase tracking-tight flex items-center gap-3">
-							<Trophy className="w-5 h-5 text-brand-primary" />
-							Strength Leaderboard
-						</h2>
-						<StrengthLeaderboard exercises={data.exercises} />
-					</section>
+							<div className="flex items-center justify-center py-2">
+								<RepRangeDonut distribution={data.repRangeDistribution} size="sm" />
+							</div>
 
-					{/* Section 5: Rep Range Distribution */}
-					<section className="space-y-6">
-						<h2 className="text-xl font-black text-foreground uppercase tracking-tight flex items-center gap-3">
-							<LayoutGrid className="w-5 h-5 text-brand-primary" />
-							How You Train {data.muscleGroup}
-						</h2>
-						<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-							<GlassCard className="p-6 flex items-center justify-center relative">
-								<RepRangeDonut distribution={data.repRangeDistribution} />
-							</GlassCard>
-							<GlassCard className="p-6 flex flex-col justify-center">
-								<h3 className="text-sm font-black text-foreground/40 uppercase tracking-[0.2em] mb-4">
-									Interpretation
-								</h3>
-								<p className="text-lg font-bold text-foreground leading-relaxed italic">
+							{data.repRangeDistribution.interpretation && (
+								<p className="text-xs text-foreground/50 leading-relaxed italic bg-foreground/[0.02] p-3 rounded-xl border border-foreground/[0.04]">
 									&quot;{data.repRangeDistribution.interpretation}&quot;
 								</p>
-							</GlassCard>
-						</div>
-					</section>
+							)}
+						</GlassCard>
 
-					{/* Section 6: Best Session Card */}
-					{data.bestSession && (
-						<section className="space-y-6">
-							<h2 className="text-xl font-black text-foreground uppercase tracking-tight flex items-center gap-3">
-								<Star className="w-5 h-5 text-brand-primary" />
-								Best Session Ever
-							</h2>
-							<GlassCard className="p-6 relative group overflow-hidden">
-								<Trophy className="absolute -top-4 -right-4 w-24 h-24 text-brand-primary/5 -rotate-12 group-hover:rotate-0 transition-transform duration-700" />
-								<div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-									<div className="space-y-1">
-										<p className="text-[10px] font-black text-brand-primary uppercase tracking-widest">
-											{format(parseISO(data.bestSession.date), "MMMM d, yyyy")}
+						{/* Peak Session Highlight */}
+						<GlassCard className="p-4 md:p-5 flex flex-col justify-between gap-4">
+							<div className="flex items-center justify-between gap-2">
+								<div className="flex items-center gap-2">
+									<Trophy className="w-4 h-4 text-brand-primary" />
+									<h3 className="text-sm font-semibold text-foreground tracking-tight">
+										Best Session Ever
+									</h3>
+								</div>
+								{data.bestSession && (
+									<span className="text-[10px] text-brand-primary font-semibold">
+										{format(parseISO(data.bestSession.date), "MMM d, yyyy")}
+									</span>
+								)}
+							</div>
+
+							{data.bestSession ? (
+								<div className="space-y-4 py-2">
+									<div>
+										<p className="text-[10px] uppercase font-semibold text-foreground/30 tracking-wider">
+											Workout Name
 										</p>
-										<h3 className="text-2xl font-black text-foreground uppercase tracking-tight">
+										<p className="text-base font-bold text-foreground line-clamp-1 mt-0.5">
 											{data.bestSession.workoutName}
-										</h3>
+										</p>
 									</div>
-									<div className="flex items-center gap-8">
-										<div className="text-right">
-											<p className="text-[10px] font-black text-foreground/20 uppercase tracking-widest mb-1">
+
+									<div className="grid grid-cols-3 gap-2 pt-2 border-t border-foreground/[0.04]">
+										<div>
+											<p className="text-[9px] uppercase font-semibold text-foreground/30 tracking-wider">
 												Volume
 											</p>
-											<p className="text-xl font-black text-foreground">
+											<p className="text-sm font-bold text-foreground tabular-nums mt-0.5">
 												{data.bestSession.totalVolume.toLocaleString()} kg
 											</p>
 										</div>
-										<div className="text-right">
-											<p className="text-[10px] font-black text-foreground/20 uppercase tracking-widest mb-1">
+										<div>
+											<p className="text-[9px] uppercase font-semibold text-foreground/30 tracking-wider">
 												Sets
 											</p>
-											<p className="text-xl font-black text-foreground">
+											<p className="text-sm font-bold text-foreground tabular-nums mt-0.5">
 												{data.bestSession.totalSets}
 											</p>
 										</div>
-										<div className="text-right">
-											<p className="text-[10px] font-black text-foreground/20 uppercase tracking-widest mb-1">
+										<div>
+											<p className="text-[9px] uppercase font-semibold text-foreground/30 tracking-wider">
 												Exercises
 											</p>
-											<p className="text-xl font-black text-foreground">
+											<p className="text-sm font-bold text-foreground tabular-nums mt-0.5">
 												{data.bestSession.exerciseCount}
 											</p>
 										</div>
 									</div>
 								</div>
-							</GlassCard>
-						</section>
-					)}
+							) : (
+								<p className="text-xs text-foreground/30 py-8 text-center">
+									No peak session recorded yet
+								</p>
+							)}
 
-					{/* Section 7: Exercise Deep-Dive Cards */}
-					<section className="space-y-6">
-						<div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-							<h2 className="text-lg md:text-xl font-black text-foreground uppercase tracking-tight flex items-center gap-3">
-								<ListFilter className="w-5 h-5 text-brand-primary" />
-								All {data.muscleGroup} Exercises
-							</h2>
+							<div className="text-[10px] text-foreground/30">
+								All-time peak recorded for {data.muscleGroup}
+							</div>
+						</GlassCard>
+					</section>
 
-							<div className="group-tabs no-scrollbar self-start md:self-auto max-w-full">
-								{["Most Recent", "Most Sets", "Highest PR", "Highest 1RM"].map(
+					{/* Exercise Roster with Integrated Leaderboard & Deep Dive */}
+					<section className="space-y-4">
+						<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+							<div className="flex items-center gap-2">
+								<Dumbbell className="w-4 h-4 text-brand-primary" />
+								<h2 className="text-sm font-semibold text-foreground tracking-tight">
+									Exercises & Rankings
+								</h2>
+								<span className="text-xs text-foreground/30">
+									({sortedExercises.length})
+								</span>
+							</div>
+
+							<div className="flex items-center gap-1 bg-foreground/[0.04] p-1 rounded-xl border border-foreground/[0.06] overflow-x-auto no-scrollbar self-start sm:self-auto">
+								{["Highest 1RM", "Highest PR", "Most Recent", "Most Sets"].map(
 									(s) => (
 										<button
 											key={s}
 											onClick={() => setSortBy(s)}
 											className={cn(
-												"tab-item px-2 md:px-3 py-1.5 rounded-lg text-[8px] md:text-[9px] whitespace-nowrap",
-												sortBy === s && "tab-item-active"
+												"px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all whitespace-nowrap",
+												sortBy === s
+													? "bg-brand-primary text-white shadow-xs"
+													: "text-foreground/50 hover:text-foreground/80 hover:bg-foreground/[0.04]"
 											)}>
 											{s}
 										</button>
@@ -334,12 +376,13 @@ export default function MuscleGroupDetailClient({
 							</div>
 						</div>
 
-						<div className="space-y-4">
-							{sortedExercises.map((ex) => (
+						<div className="space-y-3">
+							{sortedExercises.map((ex, idx) => (
 								<ExerciseDetailCard
 									key={ex.exerciseName}
 									exercise={ex}
 									isOpen={openExercise === ex.exerciseName}
+									rank={idx + 1}
 									onToggle={() =>
 										setOpenExercise(
 											openExercise === ex.exerciseName ? null : ex.exerciseName,

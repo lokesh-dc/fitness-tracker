@@ -14,20 +14,20 @@ export function MuscleGroupBalanceWidget({ data }: TrainingBalanceWidgetProps) {
 
   return (
     <GlassCard>
-      <h3 className="text-sm font-black text-foreground uppercase tracking-widest mb-1">
+      <h3 className="text-sm font-semibold text-foreground tracking-tight mb-0.5">
         Training Balance
       </h3>
-      <p className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest mb-6">
+      <p className="text-[11px] font-medium text-foreground/40 mb-4">
         Last 4 weeks
       </p>
 
       <div className="h-48 w-full -ml-2">
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart cx="50%" cy="50%" outerRadius="80%" data={data}>
-            <PolarGrid stroke="#ffffff10" />
+            <PolarGrid stroke="var(--foreground)" strokeOpacity={0.08} />
             <PolarAngleAxis 
               dataKey="muscleGroup" 
-              tick={{ fill: "currentColor", fontSize: 8, fontWeight: 700, className: "text-foreground/30" }}
+              tick={{ fill: "currentColor", fontSize: 9, fontWeight: 600, className: "text-foreground/50" }}
             />
             <Radar
               name="Volume %"

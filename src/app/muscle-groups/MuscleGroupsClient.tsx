@@ -7,7 +7,7 @@ import { MuscleGroupGrid } from "@/components/analytics/MuscleGroupGrid";
 import { MuscleGroupSidebar } from "@/components/sidebar/MuscleGroupSidebar";
 import { subDays, isAfter, parseISO, startOfYear, addWeeks } from "date-fns";
 import { cn } from "@/lib/utils";
-import { Trophy, Info, AlertCircle } from "lucide-react";
+import { PieChart, TrendingUp, Target, Info } from "lucide-react";
 import Link from "next/link";
 
 type TimeRange = "1W" | "4W" | "1M" | "3M" | "6M" | "ALL";
@@ -87,21 +87,6 @@ export default function MuscleGroupsClient({ data }: MuscleGroupsClientProps) {
 		});
 	}, [data.muscleGroups, cutoff]);
 
-	const filteredProgress = useMemo(() => {
-		if (!cutoff) return data.exerciseProgress;
-
-		const filtered: ExerciseProgressMap = {};
-		Object.entries(data.exerciseProgress).forEach(([name, info]) => {
-			filtered[name] = {
-				...info,
-				dataPoints: info.dataPoints.filter((dp) =>
-					isAfter(parseISO(dp.date), cutoff!),
-				),
-			};
-		});
-		return filtered;
-	}, [data.exerciseProgress, cutoff]);
-
 	function formatWeek(date: Date) {
 		const year = date.getFullYear();
 		const oneJan = new Date(year, 0, 1);
@@ -114,27 +99,24 @@ export default function MuscleGroupsClient({ data }: MuscleGroupsClientProps) {
 
 	if (data.muscleGroups.length === 0) {
 		return (
-			<div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
-				<div className="bg-white/5 p-6 rounded-3xl mb-6">
-					<Info className="w-12 h-12 text-foreground/20" />
+			<div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4 py-16">
+				<div className="bg-foreground/[0.04] p-5 rounded-2xl mb-4 border border-foreground/[0.06]">
+					<Info className="w-8 h-8 text-foreground/25" />
 				</div>
-				<h2 className="text-2xl font-black text-foreground mb-2">
+				<h2 className="text-lg font-bold text-foreground mb-1.5">
 					No Training Data Yet
 				</h2>
-				<p className="text-foreground/40 max-w-md mb-8">
-					Start logging workouts to see your muscle group breakdown and
-					performance trends.
+				<p className="text-xs text-foreground/40 max-w-sm mb-6">
+					Start logging workouts to see your muscle group breakdown, volume distribution, and strength milestones.
 				</p>
 				<Link
 					href="/workout"
-					className="bg-brand-primary text-white px-8 py-3 rounded-2xl font-black uppercase tracking-widest hover:scale-105 transition-all">
+					className="bg-brand-primary text-white text-xs px-6 py-2.5 rounded-xl font-semibold tracking-wide hover:opacity-95 active:scale-95 transition-all">
 					Start a Workout
 				</Link>
 			</div>
 		);
 	}
-
-
 
 	return (
 		<PageWithSidebar
@@ -145,65 +127,91 @@ export default function MuscleGroupsClient({ data }: MuscleGroupsClientProps) {
 					neglectedMuscles={data.neglectedMuscles}
 				/>
 			}>
-			<div className="space-y-8 pb-20">
-
-				{/* Mobile Widget Strip Placeholder */}
-				<div className="lg:hidden flex overflow-x-auto gap-4 pb-4 no-scrollbar">
-					<div className="flex-shrink-0 bg-white/5 border border-white/5 rounded-2xl p-4 min-w-[200px]">
-						<p className="text-[10px] font-black text-foreground/30 uppercase tracking-widest mb-1">
-							Balance
-						</p>
-						<div className="flex gap-2">
-							{data.trainingBalance.slice(0, 2).map((b) => (
-								<span
-									key={b.muscleGroup}
-									className="text-[10px] font-black bg-brand-primary/10 text-brand-primary px-2 py-1 rounded-lg">
-									{b.muscleGroup} {b.volumePercent}%
+			<div className="space-y-6 md:space-y-8 pb-12">
+				{/* ── Mobile stats strip ── */}
+				<div className="lg:hidden grid grid-cols-3 gap-2.5">
+					{/* Balance */}
+					<div className="flex flex-col gap-1.5 rounded-2xl px-3 py-3 bg-brand-primary/10 border border-brand-primary/20">
+						<div className="flex items-center gap-1.5">
+							<PieChart className="w-3 h-3 text-brand-primary shrink-0" />
+							<span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-brand-primary/70">
+								Top Volume
+							</span>
+						</div>
+						<div className="flex items-baseline gap-1">
+							<span className="text-sm font-bold text-brand-primary truncate">
+								{data.trainingBalance[0]?.muscleGroup || "—"}
+							</span>
+							{data.trainingBalance[0] && (
+								<span className="text-[10px] text-brand-primary/60 font-medium">
+									{data.trainingBalance[0].volumePercent}%
 								</span>
-							))}
+							)}
 						</div>
 					</div>
-					{data.mostImproved && (
-						<div className="flex-shrink-0 bg-white/5 border border-white/5 rounded-2xl p-4 min-w-[200px]">
-							<p className="text-[10px] font-black text-foreground/30 uppercase tracking-widest mb-1">
+
+					{/* Most Improved */}
+					<div className="flex flex-col gap-1.5 rounded-2xl px-3 py-3 bg-foreground/[0.04] border border-foreground/[0.06]">
+						<div className="flex items-center gap-1.5">
+							<TrendingUp className="w-3 h-3 text-foreground/35 shrink-0" />
+							<span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-foreground/35">
 								Improved
-							</p>
-							<p className="text-sm font-black text-foreground">
-								{data.mostImproved.muscleGroup} (+
-								{data.mostImproved.percentChange}%)
-							</p>
+							</span>
 						</div>
-					)}
-					<div className="flex-shrink-0 bg-white/5 border border-white/5 rounded-2xl p-4 min-w-[150px]">
-						<p className="text-[10px] font-black text-foreground/30 uppercase tracking-widest mb-1">
-							Needs Focus
-						</p>
-						<p className="text-sm font-black text-foreground">
-							{data.neglectedMuscles.length} Muscles
-						</p>
+						<div className="flex items-baseline gap-1">
+							<span className="text-sm font-bold text-foreground truncate">
+								{data.mostImproved?.muscleGroup || "—"}
+							</span>
+							{data.mostImproved && (
+								<span className="text-[10px] text-emerald-500 font-semibold">
+									+{data.mostImproved.percentChange}%
+								</span>
+							)}
+						</div>
+					</div>
+
+					{/* Needs Focus */}
+					<div className="flex flex-col gap-1.5 rounded-2xl px-3 py-3 bg-foreground/[0.04] border border-foreground/[0.06]">
+						<div className="flex items-center gap-1.5">
+							<Target className="w-3 h-3 text-foreground/35 shrink-0" />
+							<span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-foreground/35">
+								Needs Focus
+							</span>
+						</div>
+						<div className="flex items-baseline gap-1">
+							<span className="text-xl font-bold tabular-nums text-foreground leading-none">
+								{data.neglectedMuscles.length}
+							</span>
+							<span className="text-[10px] text-foreground/30 font-medium">
+								{data.neglectedMuscles.length === 1 ? "group" : "groups"}
+							</span>
+						</div>
 					</div>
 				</div>
 
-				<section className="space-y-6">
-					<div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
-						<div className="space-y-1">
-							<h2 className="text-lg md:text-xl font-black text-foreground uppercase tracking-tight">
+				{/* ── Section Header & Filter ── */}
+				<section className="space-y-4">
+					<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+						<div>
+							<h2 className="text-base md:text-lg font-bold text-foreground tracking-tight">
 								Muscle Groups
 							</h2>
-							<p className="text-[10px] md:text-xs font-bold text-foreground/40 uppercase tracking-widest">
-								Click a group for detailed analysis
+							<p className="text-[11px] font-medium text-foreground/40 mt-0.5">
+								Select a muscle group to view deep dive analytics
 							</p>
 						</div>
 
-						<div className="group-tabs no-scrollbar self-start md:self-auto">
+						<div className="flex items-center gap-1 bg-foreground/[0.04] p-1 rounded-xl border border-foreground/[0.06] overflow-x-auto no-scrollbar self-start sm:self-auto">
 							{(["1W", "4W", "1M", "3M", "6M", "ALL"] as TimeRange[]).map(
 								(range) => (
 									<button
 										key={range}
 										onClick={() => setTimeRange(range)}
 										className={cn(
-											"tab-item px-3 md:px-4 py-1.5 md:py-2 rounded-xl text-[9px] md:text-[10px]",
-											timeRange === range && "tab-item-active",
+											"px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all whitespace-nowrap",
+											timeRange === range
+												? "bg-brand-primary text-white shadow-xs"
+												: "text-foreground/50 hover:text-foreground/80 hover:bg-foreground/[0.04]",
 										)}>
 										{range}
 									</button>
