@@ -1,4 +1,4 @@
-import { Goal, ExperienceLevel, Equipment, SplitStyle } from "@/types/workout";
+import { Goal, ExperienceLevel, Equipment, SplitStyle, DayAssignments } from "@/types/workout";
 
 const MUSCLE_GROUPS = [
   "Chest", "Back", "Shoulders", "Legs", "Biceps", "Triceps", "Forearms", "Core", "Cardio",
@@ -47,7 +47,7 @@ export function buildProgramPrompt(input: {
   equipment: Equipment[];
   experienceLevel: ExperienceLevel;
   weeksCount: number;
-  dayAssignments?: Record<number, string>;
+  dayAssignments?: DayAssignments;
 }): string {
   const { goal, daysPerWeek, trainingDays, splitStyle, equipment, experienceLevel, weeksCount, dayAssignments } = input;
 
@@ -64,9 +64,10 @@ export function buildProgramPrompt(input: {
         "",
         "Day-to-split assignments chosen by the athlete (MUST follow exactly — do not deviate):",
         ...trainingDays
-          .filter((d) => dayAssignments[d])
-          .map((d) => `  ${DAY_NAMES[d]} (${d}) → ${dayAssignments[d]}`),
+          .filter((d) => (dayAssignments[d] ?? []).length > 0)
+          .map((d) => `  ${DAY_NAMES[d]} (${d}) → ${dayAssignments[d].join(" + ")}`),
         "Each [DAY] split name MUST match exactly what is listed above for that dayOfWeek.",
+        "When a day lists multiple sessions (e.g. \"Legs + Core\"), name that [DAY] with the sessions joined by \" + \" and program exercises covering ALL of those sessions' muscle groups.",
       ]
     : [];
 
@@ -91,7 +92,7 @@ export function buildProgramPrompt(input: {
     "RESPONSE FORMAT — respond in plain text, NOT JSON:",
     "- Output ONLY lines starting with a tag: [DAY], [RATIONALE], or [EXERCISE]. One tag per line. No bullets, no numbering, no markdown, no JSON, no preamble, no closing remarks.",
     `- Exactly ${daysPerWeek} [DAY] lines, one for each scheduled weekday above (${dayNumbers}).`,
-    "- [DAY] <dayOfWeek> | <Split Name>  — dayOfWeek is the scheduled number (0=Sunday, 1=Monday, ... 6=Saturday); Split Name must match the selected split (e.g. \"Push\", \"Pull\", \"Legs\", \"Upper\", \"Lower\", \"Full Body\", or a muscle group).",
+    "- [DAY] <dayOfWeek> | <Split Name>  — dayOfWeek is the scheduled number (0=Sunday, 1=Monday, ... 6=Saturday); Split Name must match the selected split (e.g. \"Push\", \"Pull\", \"Legs\", \"Upper\", \"Lower\", \"Full Body\", or a muscle group). When a day combines several sessions (e.g. \"Legs + Core\"), print them joined by \" + \".",
     "- [RATIONALE] <1-2 sentences>  — why this day's split and exercises fit the goal, frequency, and experience level.",
     "- [EXERCISE] <Exercise Name> | <Muscle Group> | <Sets> | <Reps> | <Rest Seconds>  — one exercise per line.",
     "- Include 5-7 [EXERCISE] lines per day so every session lasts about an hour. Never fewer than 5.",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { GlassSlider } from "@/components/ui/GlassSlider";
 import {
@@ -10,10 +10,26 @@ import {
 	RefreshCcw,
 	AlertTriangle,
 	Dumbbell,
+	Flame,
+	Activity,
 	Wand2,
 	Check,
 	CalendarRange,
+	GripVertical,
 } from "lucide-react";
+import {
+	DndContext,
+	DragOverlay,
+	useDraggable,
+	useDroppable,
+	PointerSensor,
+	TouchSensor,
+	useSensor,
+	useSensors,
+	closestCorners,
+	type DragStartEvent,
+	type DragEndEvent,
+} from "@dnd-kit/core";
 import {
 	generateProgram,
 	matchGeneratedExercises,
@@ -25,6 +41,7 @@ import {
 	ExperienceLevel,
 	Equipment,
 	SplitStyle,
+	DayAssignments,
 	EQUIPMENT_OPTIONS,
 	SPLIT_OPTIONS,
 	SPLIT_FOR_DAYS,
@@ -99,6 +116,182 @@ function makeTempId(dayOfWeek: number, name: string) {
 		.slice(0, 40)}`;
 }
 
+// ---- Drag & drop primitives for the Day Assignment step ----
+
+const SESSION_COLORS: Record<string, string> = {
+	Push: "bg-orange-500/15 border-orange-500/40 text-orange-400",
+	Pull: "bg-blue-500/15 border-blue-500/40 text-blue-400",
+	Legs: "bg-green-500/15 border-green-500/40 text-green-400",
+	Upper: "bg-purple-500/15 border-purple-500/40 text-purple-400",
+	Lower: "bg-yellow-500/15 border-yellow-500/40 text-yellow-400",
+	"Full Body": "bg-brand-primary/15 border-brand-primary/40 text-brand-primary",
+	Chest: "bg-red-500/15 border-red-500/40 text-red-400",
+	Back: "bg-cyan-500/15 border-cyan-500/40 text-cyan-400",
+	Shoulders: "bg-indigo-500/15 border-indigo-500/40 text-indigo-400",
+	Arms: "bg-pink-500/15 border-pink-500/40 text-pink-400",
+	Core: "bg-teal-500/15 border-teal-500/40 text-teal-400",
+};
+
+function SessionChip({
+	label,
+	className,
+	children,
+}: {
+	label: string;
+	className?: string;
+	children?: ReactNode;
+}) {
+	const c =
+		SESSION_COLORS[label] ??
+		"bg-foreground/10 border-foreground/20 text-foreground/60";
+	return (
+		<div
+			className={cn(
+				"rounded-full border px-3.5 py-2 text-[10px] font-black uppercase tracking-wider whitespace-nowrap select-none",
+				c,
+				className,
+			)}>
+			{children ?? label}
+		</div>
+	);
+}
+
+/* eslint-disable react-hooks/refs --
+   @dnd-kit's drag & drop API relies on callback refs (setNodeRef) and
+   listener/attribute spreads attached during render; the built-in
+   react-hooks/refs rule flags this documented pattern as a false positive. */
+function DayChip({ dayNumber, label }: { dayNumber: number; label: string }) {
+	const draggable = useDraggable({
+		id: `chip-${dayNumber}-${label}`,
+		data: { kind: "day", label, fromDay: dayNumber },
+	});
+	return (
+		<div
+			ref={draggable.setNodeRef}
+			{...draggable.listeners}
+			{...draggable.attributes}
+			className={cn(
+				"cursor-grab active:cursor-grabbing touch-none",
+				draggable.isDragging && "opacity-30",
+			)}>
+			<SessionChip
+				label={label}
+				className="w-full text-center transition-transform hover:scale-[1.02] hover:shadow-sm"
+			/>
+		</div>
+	);
+}
+
+function DaySlot({
+	dayNumber,
+	abbr,
+	labels,
+}: {
+	dayNumber: number;
+	abbr: string;
+	labels: string[];
+}) {
+	const droppable = useDroppable({ id: `day-${dayNumber}` });
+	return (
+		<div
+			ref={droppable.setNodeRef}
+			className={cn(
+				"flex items-center gap-3 rounded-2xl px-4 py-3 border-2 transition-all",
+				droppable.isOver
+					? "border-brand-primary bg-brand-primary/10"
+					: "border-foreground/8 bg-foreground/3",
+			)}>
+			<p className="text-xs font-black text-foreground uppercase tracking-wide w-12 shrink-0">
+				{abbr}
+			</p>
+			{labels.length > 0 ? (
+				<div className="flex-1 flex flex-col gap-1.5 min-w-0">
+					{labels.map((label) => (
+						<DayChip key={label} dayNumber={dayNumber} label={label} />
+					))}
+				</div>
+			) : (
+				<div
+					className={cn(
+						"flex-1 rounded-xl border border-dashed text-[10px] font-bold uppercase tracking-widest text-center py-2.5 transition-all",
+						droppable.isOver
+							? "border-brand-primary/60 text-brand-primary"
+							: "border-foreground/15 text-foreground/30",
+					)}>
+					{droppable.isOver ? "Drop here" : "Empty · drag a session"}
+				</div>
+			)}
+		</div>
+	);
+}
+
+function PoolChip({ label }: { label: string }) {
+	const draggable = useDraggable({
+		id: `pool-${label}`,
+		data: { kind: "pool", label },
+	});
+	return (
+		<div
+			ref={draggable.setNodeRef}
+			{...draggable.listeners}
+			{...draggable.attributes}
+			className={cn(
+				"cursor-grab active:cursor-grabbing touch-none transition-transform hover:scale-[1.03]",
+				draggable.isDragging && "opacity-30",
+			)}>
+			<SessionChip label={label} className="flex items-center gap-1.5 ring-1 ring-white/5">
+				<GripVertical className="w-3 h-3 opacity-60" />
+				{label}
+			</SessionChip>
+		</div>
+	);
+}
+
+function PoolSection({
+	labels,
+	allowStacking,
+}: {
+	labels: string[];
+	allowStacking: boolean;
+}) {
+	const droppable = useDroppable({ id: "pool" });
+	return (
+		<div
+			ref={droppable.setNodeRef}
+			className={cn(
+				"rounded-2xl px-4 py-4 border-2 border-dashed transition-all",
+				droppable.isOver
+					? "border-brand-primary/60 bg-brand-primary/5"
+					: "border-foreground/8 bg-foreground/3",
+			)}>
+			<p className="text-[10px] font-black uppercase tracking-widest text-foreground/30 mb-3">
+				{allowStacking
+					? "Not placed yet · drop on a day to add it (stack several on one day)"
+					: "Not placed yet · drop on a day to place it (one session per day)"}
+			</p>
+			<div className="flex flex-wrap gap-2">
+				{labels.length === 0 ? (
+					<div className="text-xs text-foreground/40 font-medium leading-relaxed">
+						All sessions are placed — drag one back here to free it up.
+						{allowStacking && (
+							<>
+								<br />
+								<span className="text-foreground/30">
+									Tip: fewer days than sessions? Drop two sessions onto the same
+									day to cover everything.
+								</span>
+							</>
+						)}
+					</div>
+				) : (
+					labels.map((label) => <PoolChip key={label} label={label} />)
+				)}
+			</div>
+		</div>
+	);
+}
+/* eslint-enable react-hooks/refs */
+
 export function GenerateProgramForm({
 	initialExercises,
 }: {
@@ -115,7 +308,7 @@ export function GenerateProgramForm({
 		useState<ExperienceLevel>("intermediate");
 	const [weeksCount, setWeeksCount] = useState(4);
 	const [splitStyle, setSplitStyle] = useState<SplitStyle>("upper-lower");
-	const [dayAssignments, setDayAssignments] = useState<Record<number, string>>({});
+	const [dayAssignments, setDayAssignments] = useState<DayAssignments>({});
 	const splitLabel =
 		SPLIT_OPTIONS.find((s) => s.value === splitStyle)?.label || splitStyle;
 
@@ -134,6 +327,104 @@ export function GenerateProgramForm({
 		remaining: number;
 	} | null>(null);
 
+	type DragSource =
+		| { kind: "pool"; label: string }
+		| { kind: "day"; fromDay: number; label: string };
+	const [activeDrag, setActiveDrag] = useState<DragSource | null>(null);
+
+	const dndSensors = useSensors(
+		useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+		useSensor(TouchSensor, {
+			activationConstraint: { delay: 200, tolerance: 6 },
+		}),
+	);
+
+	const handleDragStart = (event: DragStartEvent) => {
+		const data = event.active.data.current as
+			| { kind?: "day" | "pool"; label?: string; fromDay?: number }
+			| undefined;
+		if (data?.kind === "day") {
+			setActiveDrag({
+				kind: "day",
+				fromDay: data.fromDay ?? 0,
+				label: data.label ?? "",
+			});
+		} else if (data?.kind === "pool") {
+			setActiveDrag({ kind: "pool", label: data.label ?? "" });
+		}
+	};
+
+	const handleDragEnd = (event: DragEndEvent) => {
+		const source = activeDrag;
+		setActiveDrag(null);
+		if (!source) return;
+
+		const targetId = event.over ? String(event.over.id) : "";
+		if (!targetId) return;
+
+		// Dropped back onto the pool → remove that session from the day
+		if (targetId === "pool") {
+			if (source.kind === "day") {
+				setDayAssignments((prev) => {
+					const next = { ...prev };
+					next[source.fromDay] = (next[source.fromDay] ?? []).filter(
+						(l) => l !== source.label,
+					);
+					if (next[source.fromDay].length === 0) delete next[source.fromDay];
+					return next;
+				});
+			}
+			return;
+		}
+
+		if (!targetId.startsWith("day-")) return;
+
+		const targetDay = Number(targetId.replace("day-", ""));
+
+		if (source.kind === "pool") {
+			// Drop the session onto the day. Without stacking available (equal or
+			// fewer sessions than days), an occupied day is replaced so every day
+			// keeps a single session.
+			setDayAssignments((prev) => {
+				const current = prev[targetDay] ?? [];
+				if (current.includes(source.label)) return prev;
+				if (!allowStacking && current.length > 0) {
+					return { ...prev, [targetDay]: [source.label] };
+				}
+				return { ...prev, [targetDay]: [...current, source.label] };
+			});
+			return;
+		}
+
+		// Dragging from one day to another → move the session (removes it from
+		// the source day, adds it to the target day). Without stacking this
+		// becomes a swap so no day ends up with two sessions.
+		const fromDay = source.fromDay;
+		if (fromDay === targetDay) return;
+		setDayAssignments((prev) => {
+			const next = { ...prev };
+			const fromLabels = (next[fromDay] ?? []).filter(
+				(l) => l !== source.label,
+			);
+			const targetLabels = next[targetDay] ?? [];
+			if (targetLabels.includes(source.label)) {
+				next[fromDay] = fromLabels;
+				if (fromLabels.length === 0) delete next[fromDay];
+				return next;
+			}
+			if (!allowStacking && targetLabels.length > 0) {
+				// Swap the two single sessions to keep one per day.
+				next[fromDay] = targetLabels;
+				next[targetDay] = [source.label, ...fromLabels];
+				return next;
+			}
+			next[fromDay] = fromLabels;
+			if (fromLabels.length === 0) delete next[fromDay];
+			next[targetDay] = [...targetLabels, source.label];
+			return next;
+		});
+	};
+
 	const handleDirty = useCallback(() => setPreviewDirty(true), []);
 
 	useEffect(() => {
@@ -148,8 +439,8 @@ export function GenerateProgramForm({
 		setSplitStyle(recommended);
 		const sorted = normalizeTrainingDays(trainingDays, daysPerWeek).sort((a, b) => a - b);
 		const labels = getDefaultDayLabels(recommended, sorted.length);
-		const assignments: Record<number, string> = {};
-		sorted.forEach((dow, i) => { assignments[dow] = labels[i]; });
+		const assignments: DayAssignments = {};
+		sorted.forEach((dow, i) => { assignments[dow] = [labels[i]]; });
 		setDayAssignments(assignments);
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [daysPerWeek]);
@@ -189,6 +480,12 @@ export function GenerateProgramForm({
 		trainingDays,
 		daysPerWeek,
 	);
+
+	// Day Assignment — stacking multiple sessions on one day is only allowed when
+	// there are more session types than training days (otherwise the grid stays
+	// one-session-per-day).
+	const sessionTypeCount = new Set(getDefaultDayLabels(splitStyle, 7)).size;
+	const allowStacking = sessionTypeCount > effectiveTrainingDays.length;
 
 	const runGeneration = async () => {
 		setIsGenerating(true);
@@ -408,10 +705,32 @@ export function GenerateProgramForm({
 
 		const stepContent = (() => {
 			switch (formStep) {
-				case 0:
+				case 0: {
+					const GOAL_ICONS = {
+						strength: Dumbbell,
+						hypertrophy: Flame,
+						endurance: Activity,
+					} as const;
+					const GOAL_DESCRIPTIONS: Record<Goal, string> = {
+						strength: "Heavier lifts & maximum raw power",
+						hypertrophy: "Leaner, fuller muscle growth",
+						endurance: "Stamina, work capacity & conditioning",
+					};
+					const EXPERIENCE_INDEX: Record<ExperienceLevel, number> = {
+						beginner: 0,
+						intermediate: 1,
+						advanced: 2,
+					};
+					const experienceIdx = EXPERIENCE_INDEX[experienceLevel];
+					const selectExperience = (idx: number) =>
+						setExperienceLevel(
+							EXPERIENCE_OPTIONS[
+								Math.max(0, Math.min(EXPERIENCE_OPTIONS.length - 1, idx))
+							].value,
+						);
 					return (
 						<GlassCard className="space-y-8 py-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-							<div className="max-w-md mx-auto space-y-8">
+							<div className="max-w-md mx-auto space-y-10">
 								<div className="text-center space-y-2">
 									<div className="w-16 h-16 bg-brand-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
 										<Sparkles className="w-8 h-8 text-brand-primary" />
@@ -424,47 +743,92 @@ export function GenerateProgramForm({
 									</p>
 								</div>
 
-								<div className="grid grid-cols-3 gap-2">
-									{GOAL_OPTIONS.map((opt) => (
-										<button
-											key={opt.value}
-											onClick={() => setGoal(opt.value)}
-											className={cn(
-												"py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest border-2 transition-all",
-												goal === opt.value
-													? "bg-brand-primary/10 border-brand-primary text-brand-primary"
-													: "bg-foreground/5 border-foreground/5 text-foreground/60 hover:border-foreground/20",
-											)}>
-											{opt.label}
-										</button>
-									))}
+								<div className="space-y-3">
+									{GOAL_OPTIONS.map((opt) => {
+										const Icon = GOAL_ICONS[opt.value];
+										const selected = goal === opt.value;
+										return (
+											<button
+												key={opt.value}
+												onClick={() => setGoal(opt.value)}
+												className={cn(
+													"w-full text-left p-4 sm:p-5 rounded-2xl border-2 transition-all flex items-center gap-4 group",
+													selected
+														? "bg-brand-primary/10 border-brand-primary"
+														: "bg-foreground/5 border-foreground/5 hover:border-foreground/20",
+												)}>
+												<div
+													className={cn(
+														"w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-all",
+														selected
+															? "bg-brand-primary text-black shadow-[0_0_25px_rgba(249,115,22,0.35)]"
+															: "bg-foreground/10 text-foreground/40 group-hover:text-foreground/70",
+													)}>
+													<Icon className="w-6 h-6" />
+												</div>
+												<div className="flex-1 min-w-0">
+													<p
+														className={cn(
+															"font-black text-sm uppercase tracking-wide",
+															selected ? "text-brand-primary" : "text-foreground",
+														)}>
+														{opt.label}
+													</p>
+													<p className="text-xs font-medium text-foreground/50 mt-0.5 leading-snug">
+														{GOAL_DESCRIPTIONS[opt.value]}
+													</p>
+												</div>
+											</button>
+										);
+									})}
 								</div>
 
 								<hr className="border-foreground/10" />
 
-								<div className="text-center space-y-2">
-									<h2 className="text-xl font-black text-foreground uppercase tracking-tight">
-										Experience level
-									</h2>
-								</div>
-								<div className="grid grid-cols-3 gap-2">
-									{EXPERIENCE_OPTIONS.map((opt) => (
-										<button
-											key={opt.value}
-											onClick={() => setExperienceLevel(opt.value)}
-											className={cn(
-												"py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest border-2 transition-all",
-												experienceLevel === opt.value
-													? "bg-brand-primary/10 border-brand-primary text-brand-primary"
-													: "bg-foreground/5 border-foreground/5 text-foreground/60 hover:border-foreground/20",
-											)}>
-											{opt.label}
-										</button>
-									))}
+								<div className="space-y-5">
+									<div className="text-center space-y-1.5">
+										<p className="text-[10px] font-black uppercase tracking-widest text-foreground/30">
+											Experience level
+										</p>
+										<p className="text-4xl font-black text-brand-primary">
+											{EXPERIENCE_OPTIONS[experienceIdx].label}
+										</p>
+									</div>
+
+									<GlassSlider
+										min={0}
+										max={EXPERIENCE_OPTIONS.length - 1}
+										step={1}
+										value={experienceIdx}
+										onChange={selectExperience}
+										displayValue={EXPERIENCE_OPTIONS[experienceIdx].label}
+										label="Experience Level"
+										hideHeader
+									/>
+
+									<div className="flex items-center justify-between px-2 pt-1">
+										{EXPERIENCE_OPTIONS.map((opt, i) => {
+											const active = i === experienceIdx;
+											return (
+												<button
+													key={opt.value}
+													onClick={() => selectExperience(i)}
+													className={cn(
+														"text-[9px] font-black uppercase tracking-widest transition-colors whitespace-nowrap",
+														active
+															? "text-brand-primary"
+															: "text-foreground/30 hover:text-foreground/60",
+													)}>
+													{opt.label}
+												</button>
+											);
+										})}
+									</div>
 								</div>
 							</div>
 						</GlassCard>
 					);
+				}
 
 				case 1:
 					return (
@@ -592,8 +956,8 @@ export function GenerateProgramForm({
 													// Recompute default day assignments for the new split
 													const sorted = [...effectiveTrainingDays].sort((a, b) => a - b);
 													const labels = getDefaultDayLabels(opt.value, sorted.length);
-													const assignments: Record<number, string> = {};
-													sorted.forEach((dow, i) => { assignments[dow] = labels[i]; });
+													const assignments: DayAssignments = {};
+													sorted.forEach((dow, i) => { assignments[dow] = [labels[i]]; });
 													setDayAssignments(assignments);
 												}}
 												className={cn(
@@ -636,25 +1000,19 @@ export function GenerateProgramForm({
 				}
 
 				case 3: {
-					// Day Assignment — map each selected day to its split session
+					// Day Assignment — drag & drop session types onto your training days
 					const sessionOptions = Array.from(
 						new Set(getDefaultDayLabels(splitStyle, 7)),
 					);
 					const sortedDays = [...effectiveTrainingDays].sort((a, b) => a - b);
-					// Session label → accent color index
-					const SESSION_COLORS: Record<string, string> = {
-						Push: "bg-orange-500/15 border-orange-500/40 text-orange-400",
-						Pull: "bg-blue-500/15 border-blue-500/40 text-blue-400",
-						Legs: "bg-green-500/15 border-green-500/40 text-green-400",
-						Upper: "bg-purple-500/15 border-purple-500/40 text-purple-400",
-						Lower: "bg-yellow-500/15 border-yellow-500/40 text-yellow-400",
-						"Full Body": "bg-brand-primary/15 border-brand-primary/40 text-brand-primary",
-						Chest: "bg-red-500/15 border-red-500/40 text-red-400",
-						Back: "bg-cyan-500/15 border-cyan-500/40 text-cyan-400",
-						Shoulders: "bg-indigo-500/15 border-indigo-500/40 text-indigo-400",
-						Arms: "bg-pink-500/15 border-pink-500/40 text-pink-400",
-						Core: "bg-teal-500/15 border-teal-500/40 text-teal-400",
-					};
+					// Session types currently placed somewhere across the week
+					const assignedLabels = sortedDays.flatMap(
+						(dow) => dayAssignments[dow] ?? [],
+					);
+					// Chips still available in the pool (single-instance semantics)
+					const availableSessions = sessionOptions.filter(
+						(label) => !assignedLabels.includes(label),
+					);
 					return (
 						<GlassCard className="space-y-8 py-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
 							<div className="max-w-md mx-auto space-y-6">
@@ -666,64 +1024,68 @@ export function GenerateProgramForm({
 										Assign your days
 									</h2>
 									<p className="text-sm text-foreground/40 font-medium">
-										Pre-filled from your split — tap any session pill to change it.
+										Drag sessions onto your days — stack more than one on a day,
+										drag between days to move, or drag back to free a spot.
 									</p>
 								</div>
 
-								<div className="space-y-2.5">
-									{sortedDays.map((dow) => {
-										const currentLabel = dayAssignments[dow] ?? sessionOptions[0];
-										return (
-											<div
+								<DndContext
+									sensors={dndSensors}
+									collisionDetection={closestCorners}
+									onDragStart={handleDragStart}
+									onDragEnd={handleDragEnd}>
+									<div className="space-y-2.5">
+										{sortedDays.map((dow) => (
+											<DaySlot
 												key={dow}
-												className="flex items-center gap-3 bg-foreground/3 border border-foreground/8 rounded-2xl px-4 py-3"
-											>
-												{/* Day name */}
-												<p className="text-sm font-black text-foreground uppercase tracking-wide w-12 shrink-0">
-													{WEEKDAY_ABBR[dow]}
-												</p>
-												{/* Session selector pills */}
-												<div className="flex gap-1.5 flex-wrap">
-													{sessionOptions.map((label) => {
-														const isActive = currentLabel === label;
-														const pillColor = SESSION_COLORS[label] ?? "bg-foreground/10 border-foreground/20 text-foreground/60";
-														return (
-															<button
-																key={label}
-																onClick={() =>
-																	setDayAssignments((prev) => ({ ...prev, [dow]: label }))
-																}
-																className={cn(
-																	"px-3 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-wider transition-all",
-																	isActive
-																		? pillColor + " scale-105 shadow-sm"
-																		: "bg-foreground/5 border-foreground/10 text-foreground/30 hover:text-foreground/60",
-																)}>
-																{label}
-															</button>
-														);
-													})}
-												</div>
-											</div>
-										);
-									})}
-								</div>
-
-								{/* Summary preview */}
-								<div className="bg-foreground/3 rounded-2xl px-4 py-3 border border-foreground/8">
-									<p className="text-[10px] font-black uppercase tracking-widest text-foreground/30 mb-2">Your week</p>
-									<div className="flex flex-wrap gap-1.5">
-										{sortedDays.map((dow) => {
-											const lbl = dayAssignments[dow] ?? "";
-											const c = SESSION_COLORS[lbl] ?? "bg-foreground/10 border-foreground/20 text-foreground/50";
-											return (
-												<span key={dow} className={cn("text-[9px] font-black uppercase tracking-widest border rounded-full px-2 py-0.5", c)}>
-													{WEEKDAY_ABBR[dow]} · {lbl}
-												</span>
-											);
-										})}
+												dayNumber={dow}
+												abbr={WEEKDAY_ABBR[dow]}
+												labels={dayAssignments[dow] ?? []}
+											/>
+										))}
 									</div>
-								</div>
+
+									<PoolSection labels={availableSessions} allowStacking={allowStacking} />
+
+									{/* Summary preview */}
+									<div className="bg-foreground/3 rounded-2xl px-4 py-3 border border-foreground/8">
+										<p className="text-[10px] font-black uppercase tracking-widest text-foreground/30 mb-2">
+											Your week
+										</p>
+										<div className="flex flex-wrap gap-1.5">
+											{sortedDays.map((dow) => {
+												const sessions = dayAssignments[dow] ?? [];
+												const lbl = sessions.join(" + ");
+												const c =
+													(sessions.length === 1
+														? SESSION_COLORS[sessions[0]]
+														: null) ??
+													"bg-brand-primary/10 border-brand-primary/40 text-brand-primary";
+												return (
+													<span
+														key={dow}
+														className={cn(
+															"text-[9px] font-black uppercase tracking-widest border rounded-full px-2 py-0.5",
+															c,
+														)}>
+														{WEEKDAY_ABBR[dow]} · {lbl || "—"}
+													</span>
+												);
+											})}
+										</div>
+									</div>
+
+									<DragOverlay dropAnimation={null}>
+										{activeDrag && (
+											<div className="rotate-2 scale-105">
+												<SessionChip
+													label={activeDrag.label}
+													className="shadow-2xl ring-1 ring-black/20"
+												/>
+											</div>
+										)}
+									</DragOverlay>
+								</DndContext>
 							</div>
 						</GlassCard>
 					);

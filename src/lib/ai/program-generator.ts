@@ -1,5 +1,5 @@
 import { getGroqModel } from "@/lib/ai";
-import { Goal, ExperienceLevel, Equipment, SplitStyle, GeneratedProgram, GeneratedProgramResult } from "@/types/workout";
+import { Goal, ExperienceLevel, Equipment, SplitStyle, DayAssignments, GeneratedProgram, GeneratedProgramResult } from "@/types/workout";
 import { buildProgramPrompt } from "./program-prompt";
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
@@ -252,7 +252,7 @@ export async function generateProgram(input: {
   equipment: Equipment[];
   experienceLevel: ExperienceLevel;
   weeksCount: number;
-  dayAssignments?: Record<number, string>;
+  dayAssignments?: DayAssignments;
 }): Promise<GeneratedProgramResult> {
   const effectiveTrainingDays =
     input.trainingDays &&

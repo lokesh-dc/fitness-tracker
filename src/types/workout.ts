@@ -140,6 +140,11 @@ export type GeneratedProgramResult =
   | { success: true; program: GeneratedProgram }
   | { success: false; error: string };
 
+/** dayOfWeek → ordered list of session labels for that training day.
+ *  A day can hold multiple sessions (e.g. a long split squeezed onto fewer days).
+ */
+export type DayAssignments = Record<number, string[]>;
+
 export interface MatchedExercise {
   aiName: string;
   muscleGroup: string;

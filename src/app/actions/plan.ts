@@ -21,6 +21,7 @@ import {
   ExperienceLevel,
   Equipment,
   SplitStyle,
+  DayAssignments,
   GeneratedProgramResult,
   GeneratedDay,
   MatchedDay,
@@ -1057,7 +1058,7 @@ export async function generateProgram(input: {
   equipment: Equipment[];
   experienceLevel: ExperienceLevel;
   weeksCount: number;
-  dayAssignments?: Record<number, string>;
+  dayAssignments?: DayAssignments;
 }): Promise<GeneratedProgramResult> {
   try {
     const session = await getServerSession(authOptions);
