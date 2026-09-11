@@ -2,10 +2,16 @@ import { getDb } from "@/lib/db-utils";
 import { GeneratedDay, MatchedDay, MatchedExercise } from "@/types/workout";
 
 const MUSCLE_GROUP_ALIASES: Record<string, string> = {
-  "quads": "Legs", "quadriceps": "Legs", "hamstrings": "Legs", "glutes": "Legs", "calves": "Legs",
-  "abs": "Core", "abdominals": "Core", "obliques": "Core",
-  "arms": "Biceps", "bicep": "Biceps", "tricep": "Triceps", "forearm": "Forearms",
-  "pecs": "Chest", "pectoral": "Chest", "lats": "Back", "lat": "Back", "traps": "Back",
+  "quads": "Legs", "quadricep": "Legs", "quad": "Legs",
+  "hamstrings": "Legs", "hamstring": "Legs",
+  "glutes": "Legs", "glute": "Legs",
+  "calves": "Legs", "calve": "Legs", "calf": "Legs",
+  "hips": "Legs", "hip": "Legs", "thigh": "Legs",
+  "abs": "Core", "abdominals": "Core", "abdominal": "Core", "obliques": "Core",
+  "arms": "Biceps", "bicep": "Biceps", "biceps": "Biceps", "tricep": "Triceps", "triceps": "Triceps",
+  "forearm": "Forearms", "forearms": "Forearms",
+  "pecs": "Chest", "pectoral": "Chest", "pec": "Chest",
+  "lats": "Back", "lat": "Back", "traps": "Back", "trap": "Back",
   "delts": "Shoulders", "deltoid": "Shoulders", "shoulder": "Shoulders",
   "cardio": "Cardio", "conditioning": "Cardio",
 };
@@ -50,50 +56,106 @@ function levenshteinDistance(a: string, b: string): number {
   return dp[m][n];
 }
 
-function similarity(a: string, b: string): number {
-  const maxLen = Math.max(a.length, b.length);
-  if (maxLen === 0) return 1;
-  return 1 - levenshteinDistance(a.toLowerCase(), b.toLowerCase()) / maxLen;
-}
-
 function normalizeExerciseName(name: string): string {
   return name
-    .replace(/\s*\([^)]*\)/g, "")
-    .replace(/\s*[-–]\s*.+/g, "")
     .toLowerCase()
-    .trim();
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
 }
 
-async function findCandidates(
-  muscleGroup: string,
-): Promise<{ id: string; name: string }[]> {
+function tokenize(name: string): string[] {
+  return normalizeExerciseName(name).split(" ").filter(Boolean);
+}
+
+// Per-token fuzzy equality: tolerates a typo in short words (hit/hip) and
+// minor spelling drift in longer ones (crunches/crunch, flyes/fly).
+function tokenSimilarity(a: string, b: string): number {
+  if (a === b) return 1;
+  const distance = levenshteinDistance(a, b);
+  const maxLen = Math.max(a.length, b.length);
+  if (maxLen <= 3) return distance <= 1 ? 0.85 : 0;
+  return 1 - distance / maxLen;
+}
+
+const TOKEN_MATCH_THRESHOLD = 0.75;
+
+// Order-insensitive, typo-tolerant token overlap. If every token of the AI
+// name matches the library name, score 1.0 (the AI commonly omits equipment /
+// descriptors that library names include, e.g. "Deadlift" vs "Deadlift (Barbell)").
+// Otherwise use a Dice coefficient so distinguishing words (Standing vs Seated)
+// keep a mismatch from being scored as identical.
+function tokenSetSimilarity(aTokens: string[], bTokens: string[]): number {
+  if (aTokens.length === 0 || bTokens.length === 0) return 0;
+  const used = new Array(bTokens.length).fill(false);
+  let matched = 0;
+  for (const word of aTokens) {
+    let best = 0;
+    let bestIdx = -1;
+    for (let j = 0; j < bTokens.length; j++) {
+      if (used[j]) continue;
+      const s = tokenSimilarity(word, bTokens[j]);
+      if (s > best) {
+        best = s;
+        bestIdx = j;
+      }
+    }
+    if (best >= TOKEN_MATCH_THRESHOLD && bestIdx >= 0) {
+      used[bestIdx] = true;
+      matched++;
+    }
+  }
+  if (matched === aTokens.length) return 1;
+  return (2 * matched) / (aTokens.length + bTokens.length);
+}
+
+function similarity(a: string, b: string): number {
+  const aNorm = normalizeExerciseName(a);
+  const bNorm = normalizeExerciseName(b);
+  const maxLen = Math.max(aNorm.length, bNorm.length);
+  if (maxLen === 0) return 1;
+  const charSimilarity = 1 - levenshteinDistance(aNorm, bNorm) / maxLen;
+  return Math.max(charSimilarity, tokenSetSimilarity(tokenize(aNorm), tokenize(bNorm)));
+}
+
+// Custom exercises can be tagged with labels that aren't in the 9 canonical
+// groups (e.g. "Glutes", "Calves"). Normalize the stored group and compare so
+// a custom "Hip Thrust" under "Glutes" still surfaces for a "Legs" AI line.
+async function getAllExercises(): Promise<
+  { id: string; name: string; muscleGroup: string }[]
+> {
   const db = await getDb();
   const exercises = await db
     .collection("Exercises")
-    .find({ muscleGroup })
-    .project({ name: 1 })
+    .find({})
+    .project({ name: 1, muscleGroup: 1 })
     .toArray();
 
   return exercises.map((ex) => ({
     id: ex._id.toString(),
     name: ex.name as string,
+    muscleGroup: ex.muscleGroup as string,
   }));
+}
+
+function filterCandidates(
+  allExercises: { id: string; name: string; muscleGroup: string }[],
+  muscleGroup: string,
+): { id: string; name: string }[] {
+  return allExercises
+    .filter((ex) => normalizeMuscleGroup(ex.muscleGroup) === muscleGroup)
+    .map((ex) => ({ id: ex.id, name: ex.name }));
 }
 
 function matchAgainstCandidates(
   aiName: string,
   candidates: { id: string; name: string }[],
 ): { id: string; name: string; similarity: number }[] {
-  const normalized = normalizeExerciseName(aiName);
-
-  const scored = candidates.map((c) => {
-    const candNormalized = normalizeExerciseName(c.name);
-    const score = Math.max(
-      similarity(normalized, candNormalized),
-      similarity(aiName.toLowerCase(), c.name.toLowerCase()),
-    );
-    return { id: c.id, name: c.name, similarity: score };
-  });
+  const scored = candidates.map((c) => ({
+    id: c.id,
+    name: c.name,
+    similarity: similarity(aiName, c.name),
+  }));
 
   return scored.sort((a, b) => b.similarity - a.similarity);
 }
@@ -152,6 +214,7 @@ function classifyExercise(
 export async function matchGeneratedExercises(
   days: GeneratedDay[],
 ): Promise<MatchedDay[]> {
+  const allExercises = await getAllExercises();
   const muscleGroupCache = new Map<string, { id: string; name: string }[]>();
 
   const results: MatchedDay[] = [];
@@ -164,7 +227,7 @@ export async function matchGeneratedExercises(
 
       let candidates = muscleGroupCache.get(normalizedGroup);
       if (!candidates) {
-        candidates = await findCandidates(normalizedGroup);
+        candidates = filterCandidates(allExercises, normalizedGroup);
         muscleGroupCache.set(normalizedGroup, candidates);
       }
 

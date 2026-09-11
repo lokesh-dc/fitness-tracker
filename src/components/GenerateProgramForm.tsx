@@ -698,6 +698,11 @@ export function GenerateProgramForm({
 	if (phase === "form") {
 		const isLastStep = formStep === STEP_LABELS.length - 1;
 		const canContinue = formStep !== 1 || trainingDays.length === daysPerWeek;
+		const blockedReason = quotaReached
+			? "Daily generation limit reached — come back tomorrow."
+			: !canContinue
+				? "Select all your training days to continue."
+				: null;
 
 		const handleContinue = () => {
 			setFormStep((s) => Math.min(STEP_LABELS.length - 1, s + 1));
@@ -1258,7 +1263,7 @@ export function GenerateProgramForm({
 							{formStep > 0 && (
 								<button
 									onClick={() => setFormStep((s) => Math.max(0, s - 1))}
-									className="glass-button px-5 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center">
+									className="glass-button px-5 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center">
 									<ArrowLeft className="w-4 h-4 mr-1.5" />
 									Back
 								</button>
@@ -1266,7 +1271,7 @@ export function GenerateProgramForm({
 							<button
 								onClick={isLastStep ? handleGenerate : handleContinue}
 								disabled={isGenerating || !canContinue || quotaReached}
-								className="flex-1 bg-brand-primary text-black py-5 rounded-2xl font-black text-sm uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(249,115,22,0.3)] flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:hover:scale-100">
+								className="flex-1 bg-brand-primary text-black py-3 rounded-2xl font-black text-sm uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(249,115,22,0.3)] flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:hover:scale-100">
 								{isGenerating ? (
 									<>
 										<Loader2 className="w-5 h-5 animate-spin mr-2" />
@@ -1282,6 +1287,12 @@ export function GenerateProgramForm({
 								)}
 							</button>
 						</div>
+						{blockedReason && !isGenerating && (
+							<p className="mt-2.5 flex items-center justify-center gap-1.5 text-[11px] font-semibold text-amber-400/90">
+								<AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+								{blockedReason}
+							</p>
+						)}
 					</div>
 				</div>
 				{generationOverlay}
@@ -1335,6 +1346,13 @@ export function GenerateProgramForm({
 						</button>
 					</div>
 				</div>
+				{quotaReached && !isGenerating && (
+					<p className="flex items-center text-[10px] font-bold text-amber-500 uppercase tracking-widest">
+						<AlertTriangle className="w-3 h-3 mr-1" />
+						Regeneration disabled — daily generation limit reached, come
+						back tomorrow.
+					</p>
+				)}
 				{previewDirty && (
 					<p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest flex items-center">
 						<AlertTriangle className="w-3 h-3 mr-1" /> Unsaved edits — navigate
