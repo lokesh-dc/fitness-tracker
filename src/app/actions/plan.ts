@@ -1057,6 +1057,7 @@ export async function generateProgram(input: {
   equipment: Equipment[];
   experienceLevel: ExperienceLevel;
   weeksCount: number;
+  dayAssignments?: Record<number, string>;
 }): Promise<GeneratedProgramResult> {
   try {
     const session = await getServerSession(authOptions);

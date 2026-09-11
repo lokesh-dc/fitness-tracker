@@ -56,13 +56,56 @@ export const SPLIT_OPTIONS: {
   label: string;
   description: string;
   bestFor: string;
+  minDays: number;
+  maxDays: number;
 }[] = [
-  { value: 'full-body', label: 'Full Body', description: 'Every muscle group trained each session. Big frequency on fewer days.', bestFor: '2–3 days' },
-  { value: 'upper-lower', label: 'Upper / Lower', description: 'Upper body one day, lower body the next. The classic 4-day split.', bestFor: '4 days' },
-  { value: 'ppl', label: 'PPL (Push / Pull / Legs)', description: 'Push, pull and legs in rotation. The standard 3 or 6-day split.', bestFor: '3 or 6 days' },
-  { value: 'ppl-upper-lower', label: 'PPL + Upper / Lower', description: 'Hybrid 5-day split — Upper, Lower, Push, Pull, Legs.', bestFor: '5 days' },
-  { value: 'bro', label: 'Muscle Group (Bro)', description: 'One muscle group per day — chest, back, shoulders, arms, legs.', bestFor: '5–6 days' },
+  { value: 'full-body', label: 'Full Body', description: 'Every muscle group trained each session. Big frequency on fewer days.', bestFor: '1–3 days', minDays: 1, maxDays: 3 },
+  { value: 'upper-lower', label: 'Upper / Lower', description: 'Upper body one day, lower body the next. The classic 4-day split.', bestFor: '4 days', minDays: 4, maxDays: 4 },
+  { value: 'ppl', label: 'PPL (Push / Pull / Legs)', description: 'Push, pull and legs in rotation. The standard 3 or 6-day split.', bestFor: '3 or 6 days', minDays: 3, maxDays: 6 },
+  { value: 'ppl-upper-lower', label: 'PPL + Upper / Lower', description: 'Hybrid 5-day split — Upper, Lower, Push, Pull, Legs.', bestFor: '5 days', minDays: 5, maxDays: 5 },
+  { value: 'bro', label: 'Muscle Group (Bro)', description: 'One muscle group per day — chest, back, shoulders, arms, legs.', bestFor: '5–6 days', minDays: 5, maxDays: 7 },
 ];
+
+/** Recommended split for each training day count (1–7). */
+export const SPLIT_FOR_DAYS: Record<number, SplitStyle> = {
+  1: 'full-body',
+  2: 'full-body',
+  3: 'ppl',
+  4: 'upper-lower',
+  5: 'ppl-upper-lower',
+  6: 'ppl',
+  7: 'bro',
+};
+
+/** Returns the ordered session labels for a given split + day count.
+ *  e.g. PPL, 3 days → ["Push","Pull","Legs"]
+ *       PPL+U/L, 5 days → ["Upper","Lower","Push","Pull","Legs"]
+ */
+export function getDefaultDayLabels(split: SplitStyle, days: number): string[] {
+  switch (split) {
+    case 'full-body':
+      return Array(days).fill('Full Body');
+    case 'upper-lower': {
+      const seq = ['Upper', 'Lower'];
+      return Array.from({ length: days }, (_, i) => seq[i % seq.length]);
+    }
+    case 'ppl': {
+      const seq = ['Push', 'Pull', 'Legs'];
+      return Array.from({ length: days }, (_, i) => seq[i % seq.length]);
+    }
+    case 'ppl-upper-lower':
+      // Always in this exact order
+      return ['Upper', 'Lower', 'Push', 'Pull', 'Legs'].slice(0, days);
+    case 'bro': {
+      const seq = ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core'];
+      return Array.from({ length: days }, (_, i) => seq[i % seq.length]);
+    }
+    default:
+      return Array(days).fill('Training');
+  }
+}
+
+
 
 export const EQUIPMENT_OPTIONS: { value: Equipment; label: string }[] = [
   { value: 'barbell', label: 'Barbell' },

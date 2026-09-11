@@ -27,6 +27,8 @@ import {
 	SplitStyle,
 	EQUIPMENT_OPTIONS,
 	SPLIT_OPTIONS,
+	SPLIT_FOR_DAYS,
+	getDefaultDayLabels,
 	GeneratedProgram,
 	MatchedDay,
 	ExerciseDefinition,
@@ -61,6 +63,7 @@ const STEP_LABELS = [
 	"Goal & Experience",
 	"Frequency & Days",
 	"Training Split",
+	"Day Assignment",
 	"Duration",
 	"Equipment",
 ];
@@ -112,6 +115,7 @@ export function GenerateProgramForm({
 		useState<ExperienceLevel>("intermediate");
 	const [weeksCount, setWeeksCount] = useState(4);
 	const [splitStyle, setSplitStyle] = useState<SplitStyle>("upper-lower");
+	const [dayAssignments, setDayAssignments] = useState<Record<number, string>>({});
 	const splitLabel =
 		SPLIT_OPTIONS.find((s) => s.value === splitStyle)?.label || splitStyle;
 
@@ -133,8 +137,22 @@ export function GenerateProgramForm({
 	const handleDirty = useCallback(() => setPreviewDirty(true), []);
 
 	useEffect(() => {
-		getGenerationQuota().then(setQuota).catch(() => {});
+		getGenerationQuota()
+			.then(setQuota)
+			.catch(() => {});
 	}, []);
+
+	// Auto-select the recommended split and reset day assignments whenever days change
+	useEffect(() => {
+		const recommended = SPLIT_FOR_DAYS[daysPerWeek] ?? "full-body";
+		setSplitStyle(recommended);
+		const sorted = normalizeTrainingDays(trainingDays, daysPerWeek).sort((a, b) => a - b);
+		const labels = getDefaultDayLabels(recommended, sorted.length);
+		const assignments: Record<number, string> = {};
+		sorted.forEach((dow, i) => { assignments[dow] = labels[i]; });
+		setDayAssignments(assignments);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [daysPerWeek]);
 
 	useEffect(() => {
 		if (!isGenerating) {
@@ -149,9 +167,7 @@ export function GenerateProgramForm({
 
 	const toggleEquipment = (value: Equipment) => {
 		setEquipment((prev) =>
-			prev.includes(value)
-				? prev.filter((e) => e !== value)
-				: [...prev, value],
+			prev.includes(value) ? prev.filter((e) => e !== value) : [...prev, value],
 		);
 	};
 
@@ -186,6 +202,7 @@ export function GenerateProgramForm({
 				equipment,
 				experienceLevel,
 				weeksCount,
+				dayAssignments,
 			});
 			if (!result.success) {
 				setError(result.error);
@@ -203,7 +220,9 @@ export function GenerateProgramForm({
 			setMatchedDays(matched);
 			setPreviewDirty(false);
 			setPhase("preview");
-			getGenerationQuota().then(setQuota).catch(() => {});
+			getGenerationQuota()
+				.then(setQuota)
+				.catch(() => {});
 		} catch {
 			setError("Failed to generate program. Please try again.");
 		} finally {
@@ -447,7 +466,7 @@ export function GenerateProgramForm({
 						</GlassCard>
 					);
 
-case 1:
+				case 1:
 					return (
 						<GlassCard className="space-y-8 py-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
 							<div className="max-w-md mx-auto space-y-8">
@@ -536,7 +555,14 @@ case 1:
 						</GlassCard>
 					);
 
-				case 2:
+				case 2: {
+					// Only show splits that are compatible with the selected day count
+					const compatibleSplits = SPLIT_OPTIONS.filter(
+						(opt) => daysPerWeek >= opt.minDays && daysPerWeek <= opt.maxDays,
+					);
+					// If current selection is not compatible, show all but mark
+					const displaySplits =
+						compatibleSplits.length > 0 ? compatibleSplits : SPLIT_OPTIONS;
 					return (
 						<GlassCard className="space-y-8 py-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
 							<div className="max-w-md mx-auto space-y-8">
@@ -548,28 +574,40 @@ case 1:
 										Pick a training split
 									</h2>
 									<p className="text-sm text-foreground/40 font-medium">
-										We&apos;ll structure each weekly session around it — about
-										an hour per workout.
+										Showing splits that fit your{" "}
+										<span className="text-brand-primary font-bold">{daysPerWeek}-day</span>{" "}
+										schedule.
 									</p>
 								</div>
 
 								<div className="space-y-3">
-									{SPLIT_OPTIONS.map((opt) => {
+									{displaySplits.map((opt) => {
 										const selected = splitStyle === opt.value;
-										const recommended = opt.bestFor.includes(
-											String(daysPerWeek),
-										);
+										const isRecommended = SPLIT_FOR_DAYS[daysPerWeek] === opt.value;
 										return (
 											<button
 												key={opt.value}
-												onClick={() => setSplitStyle(opt.value)}
+												onClick={() => {
+													setSplitStyle(opt.value);
+													// Recompute default day assignments for the new split
+													const sorted = [...effectiveTrainingDays].sort((a, b) => a - b);
+													const labels = getDefaultDayLabels(opt.value, sorted.length);
+													const assignments: Record<number, string> = {};
+													sorted.forEach((dow, i) => { assignments[dow] = labels[i]; });
+													setDayAssignments(assignments);
+												}}
 												className={cn(
-													"w-full text-left py-4 px-5 rounded-2xl border-2 transition-all",
+													"w-full text-left py-4 px-5 rounded-2xl border-2 transition-all relative",
 													selected
 														? "bg-brand-primary/10 border-brand-primary"
 														: "bg-foreground/5 border-foreground/5 hover:border-foreground/20",
 												)}>
-												<div className="flex items-center justify-between gap-3">
+												{isRecommended && (
+													<span className="absolute top-3 right-3 text-[9px] font-black uppercase tracking-widest bg-brand-primary text-black rounded-full px-2 py-0.5">
+														Recommended
+													</span>
+												)}
+												<div className="flex items-center justify-between gap-3 pr-16">
 													<div>
 														<p
 															className={cn(
@@ -583,16 +621,11 @@ case 1:
 														<p className="text-xs font-medium text-foreground/50 mt-1">
 															{opt.description}
 														</p>
+														<p className="text-[10px] font-bold uppercase tracking-widest text-foreground/30 mt-1.5">
+															Best for {opt.bestFor}
+														</p>
 													</div>
-													<span className="shrink-0 text-[10px] font-black uppercase tracking-widest bg-foreground/5 border border-foreground/10 text-foreground/60 rounded-full px-3 py-1.5 text-center">
-														{opt.bestFor}
-													</span>
 												</div>
-												<p className="text-[10px] font-bold uppercase tracking-widest text-brand-primary mt-2">
-													{recommended
-														? `Fits your ${daysPerWeek}-day schedule ✓`
-														: `Works best with ${opt.bestFor}`}
-												</p>
 											</button>
 										);
 									})}
@@ -600,8 +633,103 @@ case 1:
 							</div>
 						</GlassCard>
 					);
+				}
 
-				case 3:
+				case 3: {
+					// Day Assignment — map each selected day to its split session
+					const sessionOptions = Array.from(
+						new Set(getDefaultDayLabels(splitStyle, 7)),
+					);
+					const sortedDays = [...effectiveTrainingDays].sort((a, b) => a - b);
+					// Session label → accent color index
+					const SESSION_COLORS: Record<string, string> = {
+						Push: "bg-orange-500/15 border-orange-500/40 text-orange-400",
+						Pull: "bg-blue-500/15 border-blue-500/40 text-blue-400",
+						Legs: "bg-green-500/15 border-green-500/40 text-green-400",
+						Upper: "bg-purple-500/15 border-purple-500/40 text-purple-400",
+						Lower: "bg-yellow-500/15 border-yellow-500/40 text-yellow-400",
+						"Full Body": "bg-brand-primary/15 border-brand-primary/40 text-brand-primary",
+						Chest: "bg-red-500/15 border-red-500/40 text-red-400",
+						Back: "bg-cyan-500/15 border-cyan-500/40 text-cyan-400",
+						Shoulders: "bg-indigo-500/15 border-indigo-500/40 text-indigo-400",
+						Arms: "bg-pink-500/15 border-pink-500/40 text-pink-400",
+						Core: "bg-teal-500/15 border-teal-500/40 text-teal-400",
+					};
+					return (
+						<GlassCard className="space-y-8 py-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+							<div className="max-w-md mx-auto space-y-6">
+								<div className="text-center space-y-2">
+									<div className="w-16 h-16 bg-brand-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+										<CalendarRange className="w-8 h-8 text-brand-primary" />
+									</div>
+									<h2 className="text-xl font-black text-foreground uppercase tracking-tight">
+										Assign your days
+									</h2>
+									<p className="text-sm text-foreground/40 font-medium">
+										Pre-filled from your split — tap any session pill to change it.
+									</p>
+								</div>
+
+								<div className="space-y-2.5">
+									{sortedDays.map((dow) => {
+										const currentLabel = dayAssignments[dow] ?? sessionOptions[0];
+										return (
+											<div
+												key={dow}
+												className="flex items-center gap-3 bg-foreground/3 border border-foreground/8 rounded-2xl px-4 py-3"
+											>
+												{/* Day name */}
+												<p className="text-sm font-black text-foreground uppercase tracking-wide w-12 shrink-0">
+													{WEEKDAY_ABBR[dow]}
+												</p>
+												{/* Session selector pills */}
+												<div className="flex gap-1.5 flex-wrap">
+													{sessionOptions.map((label) => {
+														const isActive = currentLabel === label;
+														const pillColor = SESSION_COLORS[label] ?? "bg-foreground/10 border-foreground/20 text-foreground/60";
+														return (
+															<button
+																key={label}
+																onClick={() =>
+																	setDayAssignments((prev) => ({ ...prev, [dow]: label }))
+																}
+																className={cn(
+																	"px-3 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-wider transition-all",
+																	isActive
+																		? pillColor + " scale-105 shadow-sm"
+																		: "bg-foreground/5 border-foreground/10 text-foreground/30 hover:text-foreground/60",
+																)}>
+																{label}
+															</button>
+														);
+													})}
+												</div>
+											</div>
+										);
+									})}
+								</div>
+
+								{/* Summary preview */}
+								<div className="bg-foreground/3 rounded-2xl px-4 py-3 border border-foreground/8">
+									<p className="text-[10px] font-black uppercase tracking-widest text-foreground/30 mb-2">Your week</p>
+									<div className="flex flex-wrap gap-1.5">
+										{sortedDays.map((dow) => {
+											const lbl = dayAssignments[dow] ?? "";
+											const c = SESSION_COLORS[lbl] ?? "bg-foreground/10 border-foreground/20 text-foreground/50";
+											return (
+												<span key={dow} className={cn("text-[9px] font-black uppercase tracking-widest border rounded-full px-2 py-0.5", c)}>
+													{WEEKDAY_ABBR[dow]} · {lbl}
+												</span>
+											);
+										})}
+									</div>
+								</div>
+							</div>
+						</GlassCard>
+					);
+				}
+
+				case 4:
 					return (
 						<GlassCard className="space-y-8 py-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
 							<div className="max-w-md mx-auto space-y-8">
@@ -650,6 +778,7 @@ case 1:
 						</GlassCard>
 					);
 
+				case 5:
 				default:
 					return (
 						<GlassCard className="space-y-8 py-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -700,9 +829,7 @@ case 1:
 															? "border-brand-primary bg-brand-primary"
 															: "border-foreground/20",
 													)}>
-													{selected && (
-														<Check className="w-4 h-4 text-black" />
-													)}
+													{selected && <Check className="w-4 h-4 text-black" />}
 												</div>
 											</button>
 										);
@@ -746,23 +873,25 @@ case 1:
 
 				{stepContent}
 
-				{error && (
-					<div className="flex items-center justify-between gap-3 glass-card border border-rose-500/30 bg-rose-500/5 py-4 px-5">
-						<div className="flex items-center space-x-3">
-							<AlertTriangle className="w-5 h-5 text-rose-500 shrink-0" />
-							<p className="text-sm font-bold text-rose-400">{error}</p>
-						</div>
-						<button
-							onClick={() => setError(null)}
-							className="text-rose-400/60 hover:text-rose-400 text-[10px] font-black uppercase tracking-widest shrink-0">
-							Dismiss
-						</button>
-					</div>
-				)}
+
 
 				{/* Sticky footer */}
 				<div className="fixed bottom-0 left-0 md:left-20 right-0 z-50 pointer-events-none">
 					<div className="max-w-4xl mx-auto px-6 pb-6 pt-3 relative pointer-events-auto glass border-t border-foreground/5">
+						{/* Error banner — always visible above action buttons */}
+						{error && (
+							<div className="flex items-center justify-between gap-3 rounded-2xl border border-rose-500/40 bg-rose-500/10 py-3 px-4 mb-3 animate-in slide-in-from-bottom-2 duration-200">
+								<div className="flex items-center gap-2.5">
+									<AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+									<p className="text-sm font-semibold text-rose-300 leading-snug">{error}</p>
+								</div>
+								<button
+									onClick={() => setError(null)}
+									className="text-rose-400/50 hover:text-rose-300 transition-colors text-[10px] font-black uppercase tracking-widest shrink-0">
+									✕
+								</button>
+							</div>
+						)}
 						<div className="flex items-center gap-3">
 							{formStep > 0 && (
 								<button
@@ -776,22 +905,22 @@ case 1:
 								onClick={isLastStep ? handleGenerate : handleContinue}
 								disabled={isGenerating || !canContinue || quotaReached}
 								className="flex-1 bg-brand-primary text-black py-5 rounded-2xl font-black text-sm uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(249,115,22,0.3)] flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:hover:scale-100">
-							{isGenerating ? (
-								<>
-									<Loader2 className="w-5 h-5 animate-spin mr-2" />
-									Generating your program...
-								</>
-							) : isLastStep ? (
-								<>
-									<Wand2 className="w-5 h-5 mr-2" />
-									Generate My Program
-								</>
-							) : (
-								<>Continue</>
-							)}
-						</button>
+								{isGenerating ? (
+									<>
+										<Loader2 className="w-5 h-5 animate-spin mr-2" />
+										Generating your program...
+									</>
+								) : isLastStep ? (
+									<>
+										<Wand2 className="w-5 h-5 mr-2" />
+										Generate
+									</>
+								) : (
+									<>Continue</>
+								)}
+							</button>
+						</div>
 					</div>
-				</div>
 				</div>
 				{generationOverlay}
 			</div>
@@ -815,9 +944,7 @@ case 1:
 							</h2>
 							<p className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest">
 								{splitLabel} · {goal} ·{" "}
-								{effectiveTrainingDays
-									.map((d) => FULL_DAY_NAMES[d])
-									.join(", ")}{" "}
+								{effectiveTrainingDays.map((d) => FULL_DAY_NAMES[d]).join(", ")}{" "}
 								· {weeksCount} wks · {experienceLevel} ·{" "}
 								{equipment.map((e) => e).join(", ")}
 							</p>

@@ -47,8 +47,9 @@ export function buildProgramPrompt(input: {
   equipment: Equipment[];
   experienceLevel: ExperienceLevel;
   weeksCount: number;
+  dayAssignments?: Record<number, string>;
 }): string {
-  const { goal, daysPerWeek, trainingDays, splitStyle, equipment, experienceLevel, weeksCount } = input;
+  const { goal, daysPerWeek, trainingDays, splitStyle, equipment, experienceLevel, weeksCount, dayAssignments } = input;
 
   const dayList = trainingDays
     .map((d) => `${DAY_NAMES[d]} (${d})`)
@@ -56,6 +57,18 @@ export function buildProgramPrompt(input: {
   const dayNumbers = trainingDays.join(", ");
   const exampleDayA = trainingDays[0] ?? 1;
   const exampleDayB = trainingDays[1] ?? 3;
+
+  // Build explicit day-to-split assignment block if the user provided preferences
+  const dayAssignmentLines = dayAssignments && Object.keys(dayAssignments).length > 0
+    ? [
+        "",
+        "Day-to-split assignments chosen by the athlete (MUST follow exactly — do not deviate):",
+        ...trainingDays
+          .filter((d) => dayAssignments[d])
+          .map((d) => `  ${DAY_NAMES[d]} (${d}) → ${dayAssignments[d]}`),
+        "Each [DAY] split name MUST match exactly what is listed above for that dayOfWeek.",
+      ]
+    : [];
 
   return [
     `Design a ${weeksCount}-week training program for ${daysPerWeek} days per week.`,
@@ -68,6 +81,7 @@ export function buildProgramPrompt(input: {
     `Available equipment: ${equipment.join(", ")}. Only use exercises that can be performed with this equipment.`,
     "",
     `Split: ${SPLIT_INSTRUCTIONS[splitStyle]}`,
+    ...dayAssignmentLines,
     "",
     "Each training day must fill a full ~60-minute workout:",
     "- Include 5-7 exercises per day (never fewer than 5) with 3-4 working sets each — roughly 20-28 total sets per session.",
