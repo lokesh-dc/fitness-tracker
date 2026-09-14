@@ -16,7 +16,7 @@ export const GET = withAuth(async (req: AuthedRequest) => {
 
     // 2. Fetch all plan documents to find active one matching phase 0 schema
     const plansRaw = await db.collection('PlanDocument')
-      .find({ userId })
+      .find({ userId, status: { $ne: 'draft' } })
       .sort({ startDate: -1 })
       .toArray()
 

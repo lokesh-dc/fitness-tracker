@@ -51,9 +51,9 @@ export function RepRangeDonut({ distribution, size = "lg" }: RepRangeDonutProps)
               if (active && payload && payload.length) {
                 const d = payload[0].payload;
                 return (
-                  <div className="bg-black border border-white/10 p-2 rounded-xl">
-                    <p className="text-[10px] font-black text-white uppercase tracking-widest">{d.name}</p>
-                    <p className="text-[10px] font-bold text-brand-primary mt-0.5 uppercase">
+                  <div className="bg-background/95 backdrop-blur-xl border border-foreground/10 p-2.5 rounded-xl shadow-lg">
+                    <p className="text-[10px] font-semibold text-foreground uppercase tracking-wider">{d.name}</p>
+                    <p className="text-[10px] font-bold text-brand-primary mt-0.5">
                       {d.value} Sets ({Math.round((d.value / distribution.total) * 100)}%)
                     </p>
                   </div>
@@ -67,10 +67,10 @@ export function RepRangeDonut({ distribution, size = "lg" }: RepRangeDonutProps)
       
       {dominant && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-          <p className="text-[9px] font-black text-foreground/20 uppercase tracking-widest leading-none mb-1">
+          <p className="text-[9px] font-semibold text-foreground/40 uppercase tracking-widest leading-none mb-1">
             Dominant
           </p>
-          <p className={size === "lg" ? "text-xs font-black text-foreground uppercase tracking-tight max-w-[80px]" : "text-[10px] font-black text-foreground uppercase tracking-tight max-w-[60px]"}>
+          <p className={size === "lg" ? "text-xs font-bold text-foreground uppercase tracking-tight max-w-[80px]" : "text-[10px] font-bold text-foreground uppercase tracking-tight max-w-[60px]"}>
             {dominant.name.split(' (')[0]}
           </p>
         </div>

@@ -2,7 +2,7 @@ import { MuscleGroupSummary } from "@/types/workout";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { BarChart, Bar, ResponsiveContainer } from "recharts";
 import { cn } from "@/lib/utils";
-import { ChevronRight, ExternalLink } from "lucide-react";
+import { ChevronRight, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 
 interface MuscleGroupCardProps {
@@ -23,101 +23,104 @@ export function MuscleGroupCard({
 
 	const detailHref = `/muscle-groups/${summary.muscleGroup.toLowerCase().replace(/\s+/g, "-")}`;
 
+	const getRecencyBadge = () => {
+		if (daysAgo === null) {
+			return { label: "Never", color: "text-foreground/40 bg-foreground/[0.04] border-foreground/[0.06]" };
+		}
+		if (daysAgo === 0) {
+			return { label: "Today", color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20" };
+		}
+		if (daysAgo === 1) {
+			return { label: "Yesterday", color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20" };
+		}
+		if (daysAgo <= 7) {
+			return { label: `${daysAgo}d ago`, color: "text-foreground/60 bg-foreground/[0.04] border-foreground/[0.06]" };
+		}
+		if (daysAgo <= 14) {
+			return { label: `${daysAgo}d ago`, color: "text-amber-500 bg-amber-500/10 border-amber-500/20" };
+		}
+		return { label: `${daysAgo}d ago`, color: "text-rose-500 bg-rose-500/10 border-rose-500/20" };
+	};
+
+	const recency = getRecencyBadge();
+
 	return (
 		<Link href={detailHref} className="block group">
-			<GlassCard
-				className={cn(
-					"flex flex-col gap-1 relative overflow-hidden transition-all duration-300 hover:ring-2 hover:ring-brand-primary/50 hover:shadow-[0_0_20px_rgba(var(--brand-accent-rgb),0.2)]",
-				)}>
-				{isUnderTrained && (
-					<div
-						className="text-[10px] w-fit bg-orange-500/10 text-orange-500 px-2 py-1 rounded-lg"
-						title="Significantly less volume than others">
-						<span className="font-black uppercase tracking-widest">
-							Low Volume
-						</span>
-					</div>
-				)}
-				<div className="flex justify-between items-start mb-4">
-					<div className="group/title z-10">
-						<h3 className="text-lg md:text-xl font-black text-foreground uppercase tracking-tight group-hover/title:text-brand-primary transition-colors flex items-center gap-2">
-							{summary.muscleGroup}
-							<ExternalLink className="w-3 h-3 opacity-0 group-hover/title:opacity-100 transition-opacity" />
-						</h3>
-						<p className="text-[10px] md:text-xs font-bold text-foreground/40 uppercase tracking-widest mt-1">
-							Top: {summary.topExercise}
-						</p>
-					</div>
-				</div>
+			<GlassCard className="h-full p-4 md:p-5 flex flex-col justify-between transition-all duration-300 hover:border-brand-primary/30">
+				<div>
+					{/* Top bar: Muscle Group title + optional under-trained badge */}
+					<div className="flex justify-between items-start gap-2 mb-3">
+						<div className="min-w-0">
+							<h3 className="text-base md:text-lg font-bold text-foreground tracking-tight group-hover:text-brand-primary transition-colors flex items-center gap-1.5 truncate">
+								{summary.muscleGroup}
+								<ArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+							</h3>
+							<p className="text-[11px] font-medium text-foreground/40 truncate mt-0.5">
+								Top: {summary.topExercise}
+							</p>
+						</div>
 
-				<div className="grid grid-cols-2 gap-4 mb-6">
-					<div>
-						<p className="text-[9px] md:text-[10px] font-black text-foreground/30 uppercase tracking-widest mb-1">
-							Sets / Volume
-						</p>
-						<p className="text-base md:text-lg font-black text-foreground">
-							{summary.totalSets}{" "}
-							<span className="text-[9px] md:text-[10px] text-foreground/40 uppercase">
-								sets
+						{isUnderTrained && (
+							<span className="text-[10px] font-semibold bg-brand-primary/10 text-brand-primary border border-brand-primary/20 px-2 py-0.5 rounded-lg shrink-0">
+								Low Volume
 							</span>
-						</p>
-						<p className="text-[10px] md:text-xs font-bold text-foreground/60">
-							{summary.totalVolume.toLocaleString()}{" "}
-							<span className="text-[9px] md:text-[10px] uppercase">kg</span>
-						</p>
-					</div>
-					<div className="text-right">
-						<p className="text-[9px] md:text-[10px] font-black text-foreground/30 uppercase tracking-widest mb-1">
-							Frequency
-						</p>
-						<p className="text-base md:text-lg font-black text-foreground">
-							{summary.sessionCount}{" "}
-							<span className="text-[9px] md:text-[10px] text-foreground/40 uppercase">
-								times
-							</span>
-						</p>
-						<p
-							className={cn(
-								"text-[10px] md:text-xs font-bold uppercase",
-								daysAgo !== null && daysAgo > 14
-									? "text-red-500"
-									: daysAgo !== null && daysAgo > 7
-										? "text-orange-500"
-										: "text-foreground/60",
-							)}>
-							{daysAgo === 0
-								? "Today"
-								: daysAgo === 1
-									? "Yesterday"
-									: daysAgo === null
-										? "Never"
-										: `${daysAgo} days ago`}
-						</p>
-					</div>
-				</div>
-
-				<div className="h-10 w-full mb-2">
-					<ResponsiveContainer width="100%" height="100%">
-						<BarChart data={summary.weeklyData}>
-							<Bar
-								dataKey="totalVolume"
-								fill="var(--brand-accent)"
-								radius={[2, 2, 0, 0]}
-								opacity={0.6}
-							/>
-						</BarChart>
-					</ResponsiveContainer>
-				</div>
-
-				<div className="flex items-center justify-between mt-4 pt-4 border-t border-white/5 hover:bg-white/[0.02] -mx-6 px-6 transition-colors group/footer">
-					<span className="text-[10px] font-black text-foreground/20 group-hover/footer:text-brand-primary uppercase tracking-widest transition-colors">
-						View Deep Dive Analytics
-					</span>
-					<ChevronRight
-						className={cn(
-							"w-4 h-4 transition-transform duration-300 text-foreground/20 group-hover/footer:text-brand-primary group-hover/footer:translate-x-1",
 						)}
-					/>
+					</div>
+
+					{/* 2-Column Metrics */}
+					<div className="grid grid-cols-2 gap-3 mb-4">
+						<div className="space-y-0.5">
+							<p className="text-[10px] font-semibold text-foreground/35 uppercase tracking-wider">
+								Volume & Sets
+							</p>
+							<p className="text-sm md:text-base font-bold text-foreground tabular-nums leading-tight">
+								{summary.totalVolume.toLocaleString()}{" "}
+								<span className="text-[10px] font-medium text-foreground/40">kg</span>
+							</p>
+							<p className="text-[11px] font-medium text-foreground/50">
+								{summary.totalSets} sets
+							</p>
+						</div>
+
+						<div className="text-right space-y-0.5">
+							<p className="text-[10px] font-semibold text-foreground/35 uppercase tracking-wider">
+								Activity
+							</p>
+							<p className="text-sm md:text-base font-bold text-foreground tabular-nums leading-tight">
+								{summary.sessionCount}{" "}
+								<span className="text-[10px] font-medium text-foreground/40">
+									{summary.sessionCount === 1 ? "session" : "sessions"}
+								</span>
+							</p>
+							<div className="flex justify-end">
+								<span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-md border inline-block mt-0.5", recency.color)}>
+									{recency.label}
+								</span>
+							</div>
+						</div>
+					</div>
+
+					{/* Sparkline Volume History */}
+					{summary.weeklyData && summary.weeklyData.length > 0 && (
+						<div className="h-8 w-full mb-3">
+							<ResponsiveContainer width="100%" height="100%">
+								<BarChart data={summary.weeklyData}>
+									<Bar
+										dataKey="totalVolume"
+										fill="var(--brand-accent, #ff5722)"
+										radius={[2, 2, 0, 0]}
+										opacity={0.75}
+									/>
+								</BarChart>
+							</ResponsiveContainer>
+						</div>
+					)}
+				</div>
+
+				{/* Card Footer */}
+				<div className="flex items-center justify-between pt-3 border-t border-foreground/[0.04] text-[11px] font-semibold text-foreground/40 group-hover:text-brand-primary transition-colors">
+					<span>Deep dive analytics</span>
+					<ChevronRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1" />
 				</div>
 			</GlassCard>
 		</Link>

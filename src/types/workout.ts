@@ -37,10 +37,138 @@ export interface PlanDocument {
   name?: string;
   startDate: string;
   numWeeks: number;
+  status?: 'draft' | 'active' | 'completed';
   mobilityWarmupIds?: string[];
   customMobilityWarmups?: MobilityMovement[];
   createdAt: string | Date;
 }
+
+// --- AI Program Generator Types ---
+
+export type Goal = 'strength' | 'hypertrophy' | 'endurance';
+export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
+export type Equipment = 'barbell' | 'dumbbell' | 'machines' | 'bodyweight' | 'bands' | 'cables' | 'kettlebell';
+
+export type SplitStyle = 'full-body' | 'upper-lower' | 'ppl' | 'ppl-upper-lower' | 'bro';
+
+export const SPLIT_OPTIONS: {
+  value: SplitStyle;
+  label: string;
+  description: string;
+  bestFor: string;
+  minDays: number;
+  maxDays: number;
+}[] = [
+  { value: 'full-body', label: 'Full Body', description: 'Every muscle group trained each session. Big frequency on fewer days.', bestFor: '1–3 days', minDays: 1, maxDays: 3 },
+  { value: 'upper-lower', label: 'Upper / Lower', description: 'Upper body one day, lower body the next. The classic 4-day split.', bestFor: '4 days', minDays: 4, maxDays: 4 },
+  { value: 'ppl', label: 'PPL (Push / Pull / Legs)', description: 'Push, pull and legs in rotation. The standard 3 or 6-day split.', bestFor: '3 or 6 days', minDays: 3, maxDays: 6 },
+  { value: 'ppl-upper-lower', label: 'PPL + Upper / Lower', description: 'Hybrid 5-day split — Upper, Lower, Push, Pull, Legs.', bestFor: '5 days', minDays: 5, maxDays: 5 },
+  { value: 'bro', label: 'Muscle Group (Bro)', description: 'One muscle group per day — chest, back, shoulders, arms, legs.', bestFor: '5–6 days', minDays: 5, maxDays: 7 },
+];
+
+/** Recommended split for each training day count (1–7). */
+export const SPLIT_FOR_DAYS: Record<number, SplitStyle> = {
+  1: 'full-body',
+  2: 'full-body',
+  3: 'ppl',
+  4: 'upper-lower',
+  5: 'ppl-upper-lower',
+  6: 'ppl',
+  7: 'bro',
+};
+
+/** Returns the ordered session labels for a given split + day count.
+ *  e.g. PPL, 3 days → ["Push","Pull","Legs"]
+ *       PPL+U/L, 5 days → ["Upper","Lower","Push","Pull","Legs"]
+ */
+export function getDefaultDayLabels(split: SplitStyle, days: number): string[] {
+  switch (split) {
+    case 'full-body':
+      return Array(days).fill('Full Body');
+    case 'upper-lower': {
+      const seq = ['Upper', 'Lower'];
+      return Array.from({ length: days }, (_, i) => seq[i % seq.length]);
+    }
+    case 'ppl': {
+      const seq = ['Push', 'Pull', 'Legs'];
+      return Array.from({ length: days }, (_, i) => seq[i % seq.length]);
+    }
+    case 'ppl-upper-lower':
+      // Always in this exact order
+      return ['Upper', 'Lower', 'Push', 'Pull', 'Legs'].slice(0, days);
+    case 'bro': {
+      const seq = ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core'];
+      return Array.from({ length: days }, (_, i) => seq[i % seq.length]);
+    }
+    default:
+      return Array(days).fill('Training');
+  }
+}
+
+
+
+export const EQUIPMENT_OPTIONS: { value: Equipment; label: string }[] = [
+  { value: 'barbell', label: 'Barbell' },
+  { value: 'dumbbell', label: 'Dumbbell' },
+  { value: 'machines', label: 'Machines' },
+  { value: 'bodyweight', label: 'Bodyweight' },
+  { value: 'bands', label: 'Resistance Bands' },
+  { value: 'cables', label: 'Cables' },
+  { value: 'kettlebell', label: 'Kettlebell' },
+];
+
+export interface GeneratedExercise {
+  name: string;
+  muscleGroup: string;
+  targetSets: number;
+  targetReps: number | string;
+  restDuration?: number;
+}
+
+export interface GeneratedDay {
+  dayOfWeek: number;
+  name: string;
+  rationale: string;
+  exercises: GeneratedExercise[];
+}
+
+export interface GeneratedProgram {
+  days: GeneratedDay[];
+}
+
+export type GeneratedProgramResult =
+  | { success: true; program: GeneratedProgram }
+  | { success: false; error: string };
+
+/** dayOfWeek → ordered list of session labels for that training day.
+ *  A day can hold multiple sessions (e.g. a long split squeezed onto fewer days).
+ */
+export type DayAssignments = Record<number, string[]>;
+
+export interface MatchedExercise {
+  aiName: string;
+  muscleGroup: string;
+  targetSets: number;
+  targetReps: number;
+  restDuration: number;
+  exerciseId: string | null;
+  exerciseName: string | null;
+  needsUserReview: boolean;
+  reviewCandidates?: { id: string; name: string; similarity: number }[];
+  isNew: boolean;
+  lastWeight?: number;
+}
+
+export interface MatchedDay {
+  dayOfWeek: number;
+  name: string;
+  rationale: string;
+  exercises: MatchedExercise[];
+}
+
+export type ExerciseReview =
+  | { kind: 'review'; candidates: { id: string; name: string; similarity: number }[]; aiName: string; muscleGroup: string }
+  | { kind: 'new'; aiName: string; muscleGroup: string };
 
 export interface MobilityMovement {
   id: string;
@@ -209,6 +337,23 @@ export interface BodyWeightTrend {
   firstWeight: number | null;
   changeKg: number | null;
   changeDirection: 'up' | 'down' | 'neutral' | null;
+}
+
+export interface WeekDayWeight {
+  dayName: string;
+  dateStr: string;
+  weight: number | null;
+  isToday: boolean;
+  isFuture: boolean;
+}
+
+export interface ThisWeekWeightSummary {
+  days: WeekDayWeight[];
+  currentWeight: number | null;
+  startWeight: number | null;
+  changeKg: number | null;
+  changeDirection: 'up' | 'down' | 'neutral' | null;
+  loggedCountThisWeek: number;
 }
 
 export interface AllTimeStats {

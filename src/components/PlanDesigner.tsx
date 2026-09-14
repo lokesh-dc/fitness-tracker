@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import {
 	Plus,
@@ -17,6 +17,7 @@ import {
 	Settings2,
 	Info,
 	Check,
+	Sparkles,
 } from "lucide-react";
 import { GlassSlider } from "@/components/ui/GlassSlider";
 
@@ -25,8 +26,7 @@ import { cn } from "@/lib/utils";
 import { savePlanTemplates } from "@/app/actions/plan";
 import { getExerciseHistory } from "@/app/actions/analytics";
 import { Exercise, ExerciseDefinition } from "@/types/workout";
-import { MuscleGroup } from "@/lib/exercises";
-import { PlanDocument, WorkoutTemplate, MobilityMovement } from "@/types/workout";
+import { PlanDocument, WorkoutTemplate, MobilityMovement, ExerciseReview } from "@/types/workout";
 import { addCustomExercise } from "@/app/actions/exercises";
 import { WarmupSetsPanel } from "./WarmupSetsPanel";
 import { MOBILITY_MOVEMENTS } from "@/lib/mobility-warmup-data";
@@ -47,15 +47,25 @@ export function PlanDesigner({
 	initialData,
 	editPlanId,
 	initialExercises = [],
+	initialStep,
+	dayRationales = {},
+	exerciseReviews = {},
+	showDraftOption = false,
+	onDirtyStateChange,
 }: {
 	initialData?: { plan: PlanDocument; templates: WorkoutTemplate[] } | null;
 	editPlanId?: string;
 	initialExercises?: ExerciseDefinition[];
+	initialStep?: SetupStep;
+	dayRationales?: Record<number, string>;
+	exerciseReviews?: Record<string, ExerciseReview>;
+	showDraftOption?: boolean;
+	onDirtyStateChange?: (dirty: boolean) => void;
 }) {
 	const router = useRouter();
 
 	const [step, setStep] = useState<SetupStep>(
-		editPlanId && initialData ? "days" : "config",
+		initialStep || (editPlanId && initialData ? "days" : "config"),
 	);
 	const [startDate, setStartDate] = useState(
 		initialData?.plan?.startDate || new Date().toISOString().split("T")[0],
@@ -71,7 +81,16 @@ export function PlanDesigner({
 		return [1, 2, 3, 5, 6]; // Default Mon, Tue, Wed, Fri, Sat
 	});
 
-	const [currentDay, setCurrentDay] = useState(1);
+	const [currentDay, setCurrentDay] = useState(() => {
+		if (initialStep === "exercises" && initialData?.templates) {
+			const days = initialData.templates
+				.filter((t) => t.weekNumber === 1 && t.exercises.length > 0)
+				.map((t) => t.dayOfWeek)
+				.sort((a, b) => a - b);
+			return days[0] ?? 1;
+		}
+		return 1;
+	});
 
 	const [isSaving, setIsSubmitting] = useState(false);
 	const [showSuccess, setShowSuccess] = useState(false);
@@ -135,6 +154,22 @@ export function PlanDesigner({
 		}
 		return defaultData;
 	});
+
+	const [dayRationalesState, setDayRationalesState] =
+		useState<Record<number, string>>(dayRationales);
+
+	const [pendingReviews, setPendingReviews] =
+		useState<Record<string, ExerciseReview>>(exerciseReviews);
+
+	const dirtyMountedRef = useRef(false);
+	useEffect(() => {
+		if (!dirtyMountedRef.current) {
+			dirtyMountedRef.current = true;
+			return;
+		}
+		onDirtyStateChange?.(true);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [masterWeekData, trainingDays, startDate, numWeeks]);
 
 	const currentDayData = masterWeekData[currentDay];
 
@@ -267,7 +302,52 @@ export function PlanDesigner({
 		setCustomExerciseInput("");
 	};
 
-	const handleSave = async () => {
+	const resolveExerciseReview = (
+		tempId: string,
+		exerciseId: string,
+		name: string,
+	) => {
+		const newExs = currentDayData.exercises.map((e) =>
+			e.exerciseId === tempId ? { ...e, exerciseId, name } : e,
+		);
+		updateDayData(currentDay, { exercises: newExs });
+		setPendingReviews((prev) => {
+			const next = { ...prev };
+			delete next[tempId];
+			return next;
+		});
+	};
+
+	const handleCreateNewExercise = async (
+		tempId: string,
+		aiName: string,
+		muscleGroup: string,
+	) => {
+		const result = await addCustomExercise({
+			name: aiName,
+			muscleGroup,
+			unit: "reps",
+		});
+		if (result) {
+			if (
+				!availableExercises.some(
+					(e) => e.name.toLowerCase() === result.name.toLowerCase(),
+				)
+			) {
+				setAvailableExercises((prev) => [...prev, result]);
+			}
+			resolveExerciseReview(tempId, result.id || tempId, result.name);
+		}
+	};
+
+	const handleSave = async (status?: 'draft' | 'active') => {
+		if (Object.keys(pendingReviews).length > 0) {
+			alert(
+				"Please resolve the pending exercise matches in the preview before saving.",
+			);
+			return;
+		}
+
 		setIsSubmitting(true);
 		try {
 			const allTemplates: Partial<WorkoutTemplate>[] = [];
@@ -289,7 +369,7 @@ export function PlanDesigner({
 			}
 
 			await savePlanTemplates(
-				{ startDate, numWeeks, planId: editPlanId || undefined, mobilityWarmupIds: warmupIds, customMobilityWarmups: customWarmups },
+				{ startDate, numWeeks, planId: editPlanId || undefined, status, mobilityWarmupIds: warmupIds, customMobilityWarmups: customWarmups },
 				allTemplates,
 			);
 			setShowSuccess(true);
@@ -438,26 +518,80 @@ export function PlanDesigner({
 			<>
 				<div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
 					{/* Day Navigator */}
-					<div className="flex overflow-x-auto pb-2 space-x-2 no-scrollbar">
-						{DAYS.map((day, idx) => (
-							<button
-								key={day}
-								disabled={!trainingDays.includes(idx)}
-								onClick={() => setCurrentDay(idx)}
-								className={cn(
-									"px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border min-w-[120px] flex flex-col items-center",
-									!trainingDays.includes(idx) &&
-										"opacity-20 grayscale cursor-not-allowed",
-									currentDay === idx
-										? "bg-foreground text-background border-foreground shadow-lg"
-										: "bg-foreground/5 text-foreground/40 border-foreground/10",
-								)}>
-								{day}
-								<span className="text-[8px] mt-1 opacity-60">
-									{masterWeekData[idx].exercises.length} Exercises
-								</span>
-							</button>
-						))}
+					<div className="flex overflow-x-auto pb-2 space-x-2.5 no-scrollbar">
+						{DAYS.map((day, idx) => {
+							const isTrainingDay = trainingDays.includes(idx);
+							const isSelected = currentDay === idx;
+							const exerciseCount = masterWeekData[idx]?.exercises?.length || 0;
+							const splitName = masterWeekData[idx]?.splitName;
+
+							return (
+								<button
+									key={day}
+									type="button"
+									disabled={!isTrainingDay}
+									onClick={() => setCurrentDay(idx)}
+									className={cn(
+										"px-4 py-3 rounded-2xl text-left transition-all border min-w-[115px] md:min-w-[130px] flex flex-col justify-between shrink-0 relative overflow-hidden group",
+										!isTrainingDay &&
+											"opacity-35 border-dashed border-foreground/10 bg-foreground/[0.01] cursor-not-allowed",
+										isTrainingDay &&
+											!isSelected &&
+											"bg-foreground/[0.03] hover:bg-foreground/[0.06] border-foreground/[0.08] hover:border-foreground/20 text-foreground cursor-pointer",
+										isSelected &&
+											"bg-brand-primary text-white border-brand-primary shadow-lg shadow-brand-primary/25 ring-2 ring-brand-primary/30 cursor-default",
+									)}>
+									{/* Top Row: Short day name + active badge or status indicator */}
+									<div className="flex items-center justify-between w-full">
+										<span
+											className={cn(
+												"text-xs font-bold tracking-tight",
+												isSelected
+													? "text-white"
+													: isTrainingDay
+														? "text-foreground"
+														: "text-foreground/30",
+											)}>
+											{day.substring(0, 3)}
+										</span>
+										{isSelected && (
+											<span className="w-2 h-2 rounded-full bg-white shadow-xs animate-pulse" />
+										)}
+										{!isSelected && isTrainingDay && exerciseCount > 0 && (
+											<span className="w-1.5 h-1.5 rounded-full bg-brand-primary/80" />
+										)}
+									</div>
+
+									{/* Bottom Info: Full day or Split name or Exercise count */}
+									<div className="mt-2.5 w-full">
+										<p
+											className={cn(
+												"text-[11px] font-semibold truncate leading-tight",
+												isSelected
+													? "text-white/95"
+													: isTrainingDay
+														? "text-foreground/75"
+														: "text-foreground/25",
+											)}>
+											{isTrainingDay ? splitName || day : "Rest Day"}
+										</p>
+										<p
+											className={cn(
+												"text-[10px] mt-0.5 truncate font-medium",
+												isSelected
+													? "text-white/75"
+													: isTrainingDay
+														? "text-foreground/40"
+														: "text-foreground/20",
+											)}>
+											{isTrainingDay
+												? `${exerciseCount} ${exerciseCount === 1 ? "exercise" : "exercises"}`
+												: "Off"}
+										</p>
+									</div>
+								</button>
+							);
+						})}
 					</div>
 
 					{/* Split Name Editor */}
@@ -474,6 +608,33 @@ export function PlanDesigner({
 							className="w-full bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-3 text-foreground font-bold outline-none focus:border-brand-primary transition-colors"
 						/>
 					</GlassCard>
+
+					{/* Rationale Note (AI preview) */}
+					{dayRationalesState[currentDay] && (
+						<div className="relative glass-card border-brand-primary/20 bg-brand-primary/5 py-3 px-4 pr-10 space-y-1">
+							<div className="flex items-center space-x-2">
+								<Sparkles className="w-3.5 h-3.5 text-brand-primary" />
+								<h4 className="text-[9px] font-black text-brand-primary uppercase tracking-widest">
+									Why this split
+								</h4>
+							</div>
+							<p className="text-xs font-medium text-foreground/70 leading-relaxed">
+								{dayRationalesState[currentDay]}
+							</p>
+							<button
+								onClick={() =>
+									setDayRationalesState((prev) => {
+										const next = { ...prev };
+										delete next[currentDay];
+										return next;
+									})
+								}
+								className="absolute top-3 right-3 p-1 text-foreground/30 hover:text-foreground/70 transition-colors"
+								aria-label="Dismiss rationale">
+								<X className="w-4 h-4" />
+							</button>
+						</div>
+					)}
 
 					<div className="space-y-4">
 						<div className="flex justify-between items-center px-2">
@@ -495,7 +656,9 @@ export function PlanDesigner({
 								</p>
 							</div>
 						) : (
-							currentDayData.exercises.map((ex, idx) => (
+							currentDayData.exercises.map((ex, idx) => {
+								const review = pendingReviews[ex.exerciseId];
+								return (
 								<GlassCard
 									key={ex.exerciseId}
 									className="space-y-4 relative border-l-4 border-l-brand-primary">
@@ -504,10 +667,15 @@ export function PlanDesigner({
 											<div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center">
 												<Dumbbell className="w-5 h-5 text-brand-primary" />
 											</div>
-											<div>
+											<div className="flex-1 min-w-0">
 												<h4 className="font-black text-foreground uppercase tracking-tight">
 													{ex.name}
 												</h4>
+												{review?.kind === "new" && (
+													<span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-md bg-amber-500/10 text-[8px] font-black uppercase tracking-wider text-amber-500 border border-amber-500/20">
+														New — not in library
+													</span>
+												)}
 												<div className="flex items-center space-x-2 text-[8px] font-black uppercase text-foreground/40">
 													<span className="flex items-center">
 														<Info className="w-2 h-2 mr-1" /> Best: {ex.pr || 0}
@@ -541,6 +709,67 @@ export function PlanDesigner({
 											</button>
 										</div>
 									</div>
+
+									{review?.kind === "review" && (
+										<div className="space-y-2 bg-foreground/5 border border-brand-primary/20 rounded-xl p-3">
+											<p className="text-[9px] font-black text-brand-primary uppercase tracking-widest">
+												Which exercise did you mean?
+											</p>
+											<div className="flex flex-wrap gap-2">
+												{review.candidates?.map((c) => (
+													<button
+														key={c.id}
+														onClick={() =>
+															resolveExerciseReview(ex.exerciseId, c.id, c.name)
+														}
+														className="px-3 py-2 rounded-lg border border-foreground/10 bg-foreground/5 text-[10px] font-bold text-foreground/80 hover:border-brand-primary hover:text-brand-primary hover:bg-brand-primary/5 transition-all">
+														{c.name}{" "}
+														<span className="text-foreground/40 font-medium">
+															({Math.round(c.similarity * 100)}%)
+														</span>
+													</button>
+												))}
+											</div>
+											<button
+												onClick={() =>
+													setPendingReviews((prev) => ({
+														...prev,
+														[ex.exerciseId]: {
+															kind: "new",
+															aiName: review.aiName,
+															muscleGroup: review.muscleGroup,
+														},
+													}))
+												}
+												className="text-[10px] font-bold text-foreground/40 hover:text-amber-500 underline underline-offset-2 transition-colors">
+												None of these — create as new exercise
+											</button>
+										</div>
+									)}
+
+									{review?.kind === "new" && (
+										<div className="flex items-center justify-between gap-3 bg-amber-500/5 border border-amber-500/20 rounded-xl p-3">
+											<p className="text-[10px] font-bold text-foreground/60">
+												&quot;{review.aiName}&quot; isn&apos;t in your library —
+												create it as a custom exercise under{" "}
+												<span className="text-brand-primary uppercase font-black">
+													{review.muscleGroup}
+												</span>
+												?
+											</p>
+											<button
+												onClick={() =>
+													handleCreateNewExercise(
+														ex.exerciseId,
+														review.aiName,
+														review.muscleGroup,
+													)
+												}
+												className="shrink-0 bg-amber-500/20 border border-amber-500/30 text-amber-500 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-500 hover:text-black transition-all">
+												Create Exercise
+											</button>
+										</div>
+									)}
 
 									<div className="grid grid-cols-3 gap-4">
 										<div className="space-y-1">
@@ -643,7 +872,8 @@ export function PlanDesigner({
 										mode="PLAN_DESIGNER"
 									/>
 								</GlassCard>
-							))
+								);
+								})
 						)}
 					</div>
 				</div>
@@ -830,8 +1060,20 @@ export function PlanDesigner({
 									className="flex-1 glass-button py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] border-foreground/10">
 									Back
 								</button>
+								{showDraftOption && (
+									<button
+										onClick={() => handleSave('draft')}
+										disabled={isSaving}
+										className="flex-1 glass-button py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] border-foreground/10 hover:border-brand-primary/40">
+										{isSaving ? (
+											<Loader2 className="w-5 h-5 animate-spin" />
+										) : (
+											"Save as Draft"
+										)}
+									</button>
+								)}
 								<button
-									onClick={handleSave}
+									onClick={() => handleSave(showDraftOption ? 'active' : undefined)}
 									disabled={isSaving}
 									className="flex-[2] bg-brand-primary text-black py-5 rounded-2xl font-black text-sm uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(249,115,22,0.3)] flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] transition-all">
 									{isSaving ? (
@@ -839,7 +1081,7 @@ export function PlanDesigner({
 									) : showSuccess ? (
 										<CheckCircle2 className="w-5 h-5" />
 									) : (
-										"Finalize Plan"
+										showDraftOption ? "Save as Plan" : "Finalize Plan"
 									)}
 								</button>
 							</>
