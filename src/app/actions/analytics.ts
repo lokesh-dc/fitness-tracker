@@ -10,6 +10,7 @@ import {
   WeeklyVolumeComparison,
   BodyWeightTrend,
   AllTimeStats,
+  ThisMonthStats,
   AccountSummary,
   MuscleGroupPageData,
   MuscleGroupSummary,
@@ -1356,6 +1357,73 @@ export async function getAllTimeStats(userId: string): Promise<AllTimeStats> {
       totalVolumeKg: 0,
       totalPRsBroken: 0,
       longestStreakDays: 0,
+    };
+  }
+}
+
+export async function getThisMonthStats(userId: string): Promise<ThisMonthStats> {
+  try {
+    const db = await getDb();
+    const uid = new ObjectId(userId);
+
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    monthEnd.setHours(23, 59, 59, 999);
+
+    const [workoutStats, prsThisMonth] = await Promise.all([
+      db.collection('WorkoutLog').aggregate([
+        { $match: { userId: uid, date: { $gte: monthStart, $lte: monthEnd } } },
+        { $unwind: '$exercises' },
+        { $match: { 'exercises.isSkipped': { $ne: true } } },
+        { $unwind: '$exercises.sets' },
+        {
+          $match: {
+            'exercises.sets.weight': { $gt: 0 },
+            'exercises.sets.reps': { $gt: 0 },
+          }
+        },
+        {
+          $group: {
+            _id: '$_id',
+            sessionVolume: {
+              $sum: {
+                $multiply: [
+                  '$exercises.sets.weight',
+                  '$exercises.sets.reps'
+                ]
+              }
+            }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            workouts: { $sum: 1 },
+            totalVolumeKg: { $sum: '$sessionVolume' }
+          }
+        }
+      ]).toArray(),
+
+      db.collection('ExerciseRecords').countDocuments({
+        userId: uid,
+        prDate: { $gte: monthStart, $lte: monthEnd },
+      }),
+    ]);
+
+    const stats = workoutStats[0];
+
+    return {
+      workoutsThisMonth: stats?.workouts ?? 0,
+      volumeThisMonth: Math.round(stats?.totalVolumeKg ?? 0),
+      prsThisMonth: prsThisMonth ?? 0,
+    };
+  } catch (error) {
+    console.error("Error in getThisMonthStats:", error);
+    return {
+      workoutsThisMonth: 0,
+      volumeThisMonth: 0,
+      prsThisMonth: 0,
     };
   }
 }

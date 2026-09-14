@@ -363,6 +363,12 @@ export interface AllTimeStats {
   longestStreakDays: number;
 }
 
+export interface ThisMonthStats {
+  workoutsThisMonth: number;
+  volumeThisMonth: number;
+  prsThisMonth: number;
+}
+
 export interface AccountSummary {
   memberSince: Date;
   monthsTraining: number;

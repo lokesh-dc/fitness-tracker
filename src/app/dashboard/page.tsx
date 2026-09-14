@@ -1,6 +1,7 @@
 import { getPlanByDate, getActivePlanInfo } from "../actions/plan";
 import { getTodayWorkoutLog, getThisWeekWeightData } from "../actions/logs";
 import { WeightTimelineWidget } from "@/components/dashboard/WeightTimelineWidget";
+import { AnalyticsSummaryWidget } from "@/components/dashboard/AnalyticsSummaryWidget";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -27,6 +28,8 @@ import {
 	getWeekSnapshot,
 	getNextPlannedWorkout,
 	getTomorrowPlanDetail,
+	getThisMonthStats,
+	getWeeklyVolumeComparison,
 } from "@/app/actions/analytics";
 import { getOnboardingProfile } from "@/app/actions/profile";
 import OnboardingBanner from "@/components/onboarding/OnboardingBanner";
@@ -85,6 +88,8 @@ export default async function DashboardPage() {
 		tomorrowPlan,
 		yesterdayMissed,
 		thisWeekWeight,
+		monthStats,
+		weeklyVolume,
 	] = await Promise.all([
 		getPlanByDate().catch(() => null),
 		getActivePlanInfo().catch(() => null),
@@ -119,6 +124,18 @@ export default async function DashboardPage() {
 			changeKg: null,
 			changeDirection: null,
 			loggedCountThisWeek: 0,
+		})),
+		getThisMonthStats(userId).catch(() => ({
+			workoutsThisMonth: 0,
+			volumeThisMonth: 0,
+			prsThisMonth: 0,
+		})),
+		getWeeklyVolumeComparison(userId).catch(() => ({
+			thisWeekVolume: 0,
+			lastWeekVolume: 0,
+			differenceKg: 0,
+			differencePercent: 0,
+			trendDirection: "neutral" as const,
 		})),
 	]);
 
@@ -296,8 +313,14 @@ export default async function DashboardPage() {
 							</p>
 						</section>
 
-						{/* ── Weight Timeline Widget ── */}
+{/* ── Weight Timeline Widget ── */}
 						<WeightTimelineWidget data={thisWeekWeight} />
+
+						{/* ── Analytics Snapshot ── */}
+						<AnalyticsSummaryWidget
+							stats={monthStats}
+							weeklyVolume={weeklyVolume}
+						/>
 					</div>
 				</PageWithSidebar>
 			</main>

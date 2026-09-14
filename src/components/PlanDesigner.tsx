@@ -18,6 +18,7 @@ import {
 	Info,
 	Check,
 	Sparkles,
+	AlertTriangle,
 } from "lucide-react";
 import { GlassSlider } from "@/components/ui/GlassSlider";
 
@@ -172,6 +173,22 @@ export function PlanDesigner({
 	}, [masterWeekData, trainingDays, startDate, numWeeks]);
 
 	const currentDayData = masterWeekData[currentDay];
+
+	const pendingDayCounts: Record<number, number> = {};
+	let pendingReviewTotal = 0;
+	for (let d = 0; d < 7; d++) {
+		let count = 0;
+		for (const ex of masterWeekData[d].exercises) {
+			if (pendingReviews[ex.exerciseId]) count++;
+		}
+		if (count > 0) {
+			pendingDayCounts[d] = count;
+			pendingReviewTotal += count;
+		}
+	}
+	const pendingDays = Object.keys(pendingDayCounts)
+		.map(Number)
+		.sort((a, b) => a - b);
 
 	const toggleDay = (idx: number) => {
 		setTrainingDays((prev) =>
@@ -337,13 +354,17 @@ export function PlanDesigner({
 				setAvailableExercises((prev) => [...prev, result]);
 			}
 			resolveExerciseReview(tempId, result.id || tempId, result.name);
+		} else {
+			alert("Failed to create the exercise. Please try again.");
 		}
 	};
 
 	const handleSave = async (status?: 'draft' | 'active') => {
-		if (Object.keys(pendingReviews).length > 0) {
+		if (pendingReviewTotal > 0) {
+			const dayNames = pendingDays.map((d) => DAYS[d]).join(", ");
+			if (pendingDays.length > 0) setCurrentDay(pendingDays[0]);
 			alert(
-				"Please resolve the pending exercise matches in the preview before saving.",
+				`${pendingReviewTotal} exercise match${pendingReviewTotal === 1 ? "" : "es"} still need attention on ${dayNames}. They are highlighted in red in the workout list — resolve them before saving.`,
 			);
 			return;
 		}
@@ -554,12 +575,15 @@ export function PlanDesigner({
 											)}>
 											{day.substring(0, 3)}
 										</span>
-										{isSelected && (
+										{pendingDayCounts[idx] > 0 ? (
+											<span className="relative flex w-2 h-2">
+												<span className="relative inline-flex w-2 h-2 rounded-full bg-rose-500 ring-2 ring-rose-500/30" />
+											</span>
+										) : isSelected ? (
 											<span className="w-2 h-2 rounded-full bg-white shadow-xs animate-pulse" />
-										)}
-										{!isSelected && isTrainingDay && exerciseCount > 0 && (
+										) : isTrainingDay && exerciseCount > 0 ? (
 											<span className="w-1.5 h-1.5 rounded-full bg-brand-primary/80" />
-										)}
+										) : null}
 									</div>
 
 									{/* Bottom Info: Full day or Split name or Exercise count */}
@@ -661,7 +685,12 @@ export function PlanDesigner({
 								return (
 								<GlassCard
 									key={ex.exerciseId}
-									className="space-y-4 relative border-l-4 border-l-brand-primary">
+									className={cn(
+										"space-y-4 relative border-l-4",
+										review
+											? "border-l-rose-500 ring-1 ring-rose-500/25 bg-rose-500/[0.03]"
+											: "border-l-brand-primary",
+									)}>
 									<div className="flex justify-between items-start">
 										<div className="flex items-center space-x-3">
 											<div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center">
@@ -671,9 +700,12 @@ export function PlanDesigner({
 												<h4 className="font-black text-foreground uppercase tracking-tight">
 													{ex.name}
 												</h4>
-												{review?.kind === "new" && (
-													<span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-md bg-amber-500/10 text-[8px] font-black uppercase tracking-wider text-amber-500 border border-amber-500/20">
-														New — not in library
+												{review && (
+													<span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-md bg-rose-500/15 border border-rose-500/30 text-[8px] font-black uppercase tracking-wider text-rose-400">
+														<AlertTriangle className="w-2.5 h-2.5 mr-1" />
+														{review.kind === "new"
+															? "Needs creation"
+															: "Needs matching"}
 													</span>
 												)}
 												<div className="flex items-center space-x-2 text-[8px] font-black uppercase text-foreground/40">
@@ -699,10 +731,21 @@ export function PlanDesigner({
 											</button>
 											<button
 												onClick={() => {
+													const removed = currentDayData.exercises[idx];
 													const newExs = currentDayData.exercises.filter(
 														(_, i) => i !== idx,
 													);
 													updateDayData(currentDay, { exercises: newExs });
+													if (
+														removed &&
+														pendingReviews[removed.exerciseId]
+													) {
+														setPendingReviews((prev) => {
+															const next = { ...prev };
+															delete next[removed.exerciseId];
+															return next;
+														});
+													}
 												}}
 												className="p-2 text-foreground/20 hover:text-rose-500">
 												<Trash2 className="w-4 h-4" />
@@ -1025,6 +1068,17 @@ export function PlanDesigner({
 				<div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
 
 				<div className="max-w-4xl mx-auto p-6 relative pointer-events-auto">
+					{step === "exercises" && pendingReviewTotal > 0 && (
+						<div className="mb-3 flex items-center gap-3 bg-rose-500/10 border border-rose-500/30 rounded-xl px-4 py-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+							<AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+							<p className="text-[10px] font-black text-rose-300 uppercase tracking-widest">
+								{pendingReviewTotal} exercise match
+								{pendingReviewTotal === 1 ? "" : "es"} still need
+								attention — highlighted in red on{" "}
+								{pendingDays.map((d) => DAYS[d].substring(0, 3)).join(", ")}
+							</p>
+						</div>
+					)}
 					<div className="flex gap-4">
 						{step === "config" ? (
 							<button
