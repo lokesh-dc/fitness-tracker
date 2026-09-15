@@ -73,7 +73,7 @@ export default async function WorkoutPage({
 					initialBodyWeight={initialBodyWeight}
 					initialWorkoutLog={initialWorkoutLog}
 					initialPRs={initialPRs}
-					date={isFuturePrep ? undefined : (isMerged ? today : date)}
+					date={isFuturePrep ? undefined : date}
 					mode={isMerged ? 'LIVE_SESSION' : explicitMode}
 					userDefaultRest={userSettings.defaultRestDuration}
 					allExercises={allExercises}

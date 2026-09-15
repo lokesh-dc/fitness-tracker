@@ -175,13 +175,19 @@ export default function WorkoutSession({
 	const weekNumber = template?.weekNumber || 1;
 	const userId = template?.userId || "";
 
+	// Server falls back to UTC dates; use the client's local date for live sessions
+	// so workouts completed after midnight (IST) aren't stamped as yesterday.
+	const effectiveDate = useMemo(() => {
+		return date ?? format(new Date(), "yyyy-MM-dd");
+	}, [date]);
+
 	const sessionStats = useSessionStats(
 		exercises,
 		initialWorkoutLog?.id || "",
 		"", // userId handled serverside
 		splitName || "Workout",
 		splitName,
-		date,
+		effectiveDate,
 		userDefaultRest,
 		initialWorkoutLog?.startedAt,
 	);
@@ -375,7 +381,7 @@ export default function WorkoutSession({
 					startedAt: sessionStats.stats.startedAt || undefined,
 				},
 				updateTemplate && !isMerged,
-				date,
+				effectiveDate,
 			);
 			setSavedLogId(savedLog.id);
 			setShowSuccess(true);
@@ -392,7 +398,7 @@ export default function WorkoutSession({
 		if (!bodyWeight || bodyWeight <= 0) return;
 		setIsSubmittingWeight(true);
 		try {
-			await saveBodyWeight(bodyWeight, date);
+			await saveBodyWeight(bodyWeight, effectiveDate);
 			setStep(2);
 		} catch (error) {
 			console.error(error);
@@ -408,7 +414,7 @@ export default function WorkoutSession({
 		try {
 			let hasNewPR = false;
 			const exercise = exercises[activeExerciseIndex];
-			await saveSingleExerciseLog(exercise, updateTemplate, date);
+			await saveSingleExerciseLog(exercise, updateTemplate, effectiveDate);
 
 			const maxWeightThisSession = Math.max(
 				...exercise.sets.map((s) => s.weight || 0),
@@ -477,7 +483,7 @@ export default function WorkoutSession({
 	const handleChangeWorkout = async (selectedNames: string[]) => {
 		try {
 			if (selectedNames.length === 0 && template?.exercises) {
-				await deleteCustomWorkoutPlan(date);
+				await deleteCustomWorkoutPlan(effectiveDate);
 				const restoredExercises: Exercise[] = template.exercises.map((ex) => {
 					const loggedEx = initialWorkoutLog?.exercises?.find(
 						(le: any) => le.exerciseId === ex.exerciseId,
@@ -502,13 +508,13 @@ export default function WorkoutSession({
 			}
 
 			if (selectedNames.length === 0) {
-				await deleteCustomWorkoutPlan(date);
+				await deleteCustomWorkoutPlan(effectiveDate);
 				setExercises([]);
 				setHasChangedWorkout(false);
 				return;
 			}
 
-			await saveCustomWorkoutPlan(selectedNames, date);
+			await saveCustomWorkoutPlan(selectedNames, effectiveDate);
 
 			const currentNames = exercises.map((ex) => ex.name);
 			const namesToKeep = currentNames.filter((n) =>
@@ -548,7 +554,7 @@ export default function WorkoutSession({
 
 	const handleRemoveCustomWorkout = async () => {
 		try {
-			await deleteCustomWorkoutPlan(date);
+			await deleteCustomWorkoutPlan(effectiveDate);
 			if (template?.exercises) {
 				const restoredExercises: Exercise[] = template.exercises.map((ex) => {
 					const loggedEx = initialWorkoutLog?.exercises?.find(
@@ -601,7 +607,7 @@ export default function WorkoutSession({
 		setIsSubmittingExercise(true);
 		try {
 			const targetEx = { ...exercises[idx], isSkipped: true, isDone: true };
-			await saveSingleExerciseLog(targetEx, false, date);
+			await saveSingleExerciseLog(targetEx, false, effectiveDate);
 
 			setExercises((prev) => {
 				const newExs = [...prev];
@@ -774,7 +780,7 @@ export default function WorkoutSession({
 				completedCount={completedCount}
 				totalCount={totalCount}
 				progress={progress}
-				date={date}
+				date={effectiveDate}
 				mode={activeMode}
 				timer={activeMode === "LIVE_SESSION" ? timer : null}>
 				<div className="max-w-4xl mx-auto space-y-6">
@@ -938,7 +944,7 @@ export default function WorkoutSession({
 					completedCount={completedCount}
 					totalCount={totalCount}
 					progress={progress}
-					date={date}
+					date={effectiveDate}
 					mode={activeMode}
 					timer={activeMode === "LIVE_SESSION" ? timer : null}
 					footer={footer}
@@ -1153,7 +1159,7 @@ export default function WorkoutSession({
 					completedCount={completedCount}
 					totalCount={totalCount}
 					progress={progress}
-					date={date}
+					date={effectiveDate}
 					mode={activeMode}
 					timer={activeMode === "LIVE_SESSION" ? timer : null}
 					stats={sessionStats.stats}>
@@ -1334,7 +1340,7 @@ export default function WorkoutSession({
 					completedCount={completedCount}
 					totalCount={totalCount}
 					progress={progress}
-					date={date}
+					date={effectiveDate}
 					mode={activeMode}
 					stats={sessionStats.stats}>
 					<GlassCard className="space-y-6 p-6">

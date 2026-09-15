@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { format } from 'date-fns';
 import { startWorkoutSession } from '@/app/actions/logs';
 import { PRHit, Exercise } from '@/types/workout';
 
@@ -38,8 +39,10 @@ export function useSessionStats(
     setStartedAt(now);
     
     try {
-      // Persist the start time to MongoDB
-      await startWorkoutSession(workoutName, splitName, date);
+      // Persist the start time to MongoDB. If no explicit date is passed,
+      // use the client's local date so the session isn't stamped with the
+      // server's UTC date (which can be "yesterday" for IST users).
+      await startWorkoutSession(workoutName, splitName, date ?? format(new Date(), "yyyy-MM-dd"));
     } catch (error) {
       console.error("Failed to persist session start:", error);
     }
