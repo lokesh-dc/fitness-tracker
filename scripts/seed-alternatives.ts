@@ -5,29 +5,8 @@ import { MongoClient } from "mongodb";
 
 const uri = process.env.DATABASE_URL || "mongodb://localhost:27017/fitness-tracker";
 
-const EXERCISE_LIST = {
-  "Chest": ["Bench Press (Barbell)", "Incline Bench Press (Barbell)", "Dumbbell Flyes", "Push-ups", "Chest Press (Machine)"],
-  "Back": ["Pull-ups", "Lat Pulldown", "Bent Over Row (Barbell)", "Seated Cable Row", "Deadlift", "Single Arm Dumbbell Row"],
-  "Shoulders": ["Overhead Press (Barbell)", "Dumbbell Lateral Raise", "Front Raise", "Face Pulls", "Shoulder Press (Machine)"],
-  "Legs": ["Squat (Barbell)", "Leg Press", "Leg Extension", "Leg Curl", "Lunges", "Calf Raise"],
-  "Arms": ["Bicep Curl (Dumbbell)", "Hammer Curl", "Tricep Pushdown", "Skullcrushers", "Preacher Curl"],
-  "Core": ["Plank", "Crunches", "Leg Raise", "Russian Twist"],
-  "Cardio": ["Running", "Cycling", "Swimming", "Jump Rope"]
-};
-
-const IMAGE_MAPPING: Record<string, string> = {
-  "Bench Press (Barbell)": "/assets/exercises/bench-press.png",
-  "Squat (Barbell)": "/assets/exercises/squat.png",
-  "Deadlift": "/assets/exercises/deadlift.png",
-  "Pull-ups": "/assets/exercises/pull-ups.png",
-  "Overhead Press (Barbell)": "/assets/exercises/overhead-press.png",
-  "Bicep Curl (Dumbbell)": "/assets/exercises/bicep-curl.png",
-  "Plank": "/assets/exercises/plank.png",
-  "Running": "/assets/exercises/running.png",
-};
-
-// "OR" alternatives per exercise — swap targets when the equipment/setup for
-// the primary exercise isn't available. All names must exist in EXERCISE_LIST.
+// Same map as scripts/seed.ts — kept in sync so existing databases get the
+// "OR" alternatives without a destructive reseed (custom exercises preserved).
 const ALTERNATIVES: Record<string, string[]> = {
   "Bench Press (Barbell)": ["Incline Bench Press (Barbell)", "Chest Press (Machine)", "Dumbbell Flyes", "Push-ups"],
   "Incline Bench Press (Barbell)": ["Bench Press (Barbell)", "Chest Press (Machine)", "Push-ups"],
@@ -58,35 +37,29 @@ const ALTERNATIVES: Record<string, string[]> = {
   "Russian Twist": ["Crunches", "Leg Raise"],
 };
 
-async function seed() {
+async function seedAlternatives() {
   const client = new MongoClient(uri);
   try {
     await client.connect();
-    const db = client.db()
-    console.log("Seeding Exercises...");
-    await db.collection("Exercises").deleteMany({}); // Start fresh
-    const dbExercises = [];
-    for (const [muscleGroup, exerciseNames] of Object.entries(EXERCISE_LIST)) {
-      for (const name of exerciseNames) {
-        dbExercises.push({
-          name,
-          muscleGroup,
-          unit: "reps", // Default unit
-          image: IMAGE_MAPPING[name] || null,
-          isCustom: false,
-          alternatives: ALTERNATIVES[name] || [],
-          createdAt: new Date(),
-        });
-      }
-    }
-    await db.collection("Exercises").insertMany(dbExercises);
+    const db = client.db();
+    console.log("Backfilling exercise alternatives...");
 
-    console.log("Seed successful!");
+    let updated = 0;
+    for (const [name, alternatives] of Object.entries(ALTERNATIVES)) {
+      const res = await db
+        .collection("Exercises")
+        .updateOne({ name }, { $set: { alternatives } });
+      if (res.matchedCount > 0) updated++;
+      else console.log(`  Skipped (not found): ${name}`);
+    }
+
+    console.log(`Updated ${updated} exercises with alternatives.`);
+    console.log("Seed alternatives successful!");
   } catch (err) {
-    console.error("Seed failed:", err);
+    console.error("Seed alternatives failed:", err);
   } finally {
     await client.close();
   }
 }
 
-seed();
+seedAlternatives();

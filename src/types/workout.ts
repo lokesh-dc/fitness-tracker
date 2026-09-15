@@ -11,6 +11,10 @@ export interface ExerciseDefinition {
   unit: 'reps' | 'steps' | 'secs' | 'mins';
   image?: string;
   isCustom?: boolean;
+  /** "OR" alternatives — other exercises that can be swapped in when the
+   *  equipment/setup for this one isn't available (e.g. bench press without
+   *  a bench → chest press machine). Stored as exercise library names. */
+  alternatives?: string[];
 }
 
 export type WorkoutMode = 'LIVE_SESSION' | 'MANUAL_LOG' | 'PLAN_DESIGNER';
@@ -29,6 +33,9 @@ export interface Exercise {
   restDuration?: number;
   isDone?: boolean;
   isSkipped?: boolean;
+  /** Plan-specific "OR" alternatives — user-defined swap targets for this
+   *  exercise, in addition to the curated library ones. Exercise names. */
+  alternatives?: string[];
 }
 
 export interface PlanDocument {

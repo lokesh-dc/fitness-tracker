@@ -16,7 +16,11 @@ export function StreakWidget({ data }: StreakWidgetProps) {
   if (!data) return null;
 
   const { currentStreak, longestStreak, lastWorkoutDate } = data;
-  const isToday = lastWorkoutDate === new Date().toISOString().split('T')[0];
+  const localToday = new Date();
+  const localTodayStr = `${localToday.getFullYear()}-${String(
+    localToday.getMonth() + 1,
+  ).padStart(2, "0")}-${String(localToday.getDate()).padStart(2, "0")}`;
+  const isToday = lastWorkoutDate === localTodayStr;
 
   return (
     <div className="p-4 rounded-2xl space-y-4 bg-gradient-to-br from-brand-primary to-brand-secondary border-none shadow-[0_10px_30px_rgba(249,115,22,0.3)] transition-all duration-300">

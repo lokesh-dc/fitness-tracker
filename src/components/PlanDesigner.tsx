@@ -19,6 +19,7 @@ import {
 	Check,
 	Sparkles,
 	AlertTriangle,
+	ArrowLeftRight,
 } from "lucide-react";
 import { GlassSlider } from "@/components/ui/GlassSlider";
 
@@ -113,6 +114,11 @@ export function PlanDesigner({
 		return [];
 	});
 	const [showExerciseSelector, setShowExerciseSelector] = useState(false);
+	// When set, the exercise selector adds "OR" alternatives to that exercise
+	// instead of appending new exercises to the day.
+	const [alternativeForIndex, setAlternativeForIndex] = useState<
+		number | null
+	>(null);
 	const [exerciseModalStep, setExerciseModalStep] = useState<
 		"muscles" | "exercises"
 	>("muscles");
@@ -247,6 +253,30 @@ export function PlanDesigner({
 	const handleAddSelected = async () => {
 		if (draftSelectedExercises.length === 0) return;
 
+		// "OR alternative" mode — attach the selected exercises to one
+		// exercise as swap options instead of adding them to the day.
+		if (alternativeForIndex !== null) {
+			const target = currentDayData.exercises[alternativeForIndex];
+			if (target) {
+				const ownName = target.name.toLowerCase();
+				const current = new Set(
+					(target.alternatives || []).map((n) => n.toLowerCase()),
+				);
+				for (const name of draftSelectedExercises) {
+					if (name.toLowerCase() !== ownName) current.add(name.toLowerCase());
+				}
+				const altNames = Array.from(current);
+				const newExs = [...currentDayData.exercises];
+				newExs[alternativeForIndex] = {
+					...newExs[alternativeForIndex],
+					alternatives: altNames,
+				};
+				updateDayData(currentDay, { exercises: newExs });
+			}
+			closeExerciseSelector();
+			return;
+		}
+
 		setLoadingHistory("multiple");
 		try {
 			const newExercises: Exercise[] = [];
@@ -287,6 +317,7 @@ export function PlanDesigner({
 		setCustomExerciseInput("");
 		setDraftSelectedExercises([]);
 		setSelectedMuscles([]);
+		setAlternativeForIndex(null);
 	};
 
 	const handleAddCustomExercise = async () => {
@@ -670,7 +701,10 @@ export function PlanDesigner({
 								Workout List
 							</h3>
 							<button
-								onClick={() => setShowExerciseSelector(true)}
+								onClick={() => {
+									setAlternativeForIndex(null);
+									setShowExerciseSelector(true);
+								}}
 								className="text-brand-primary text-[10px] font-black uppercase tracking-widest flex items-center hover:underline bg-brand-primary/10 px-4 py-2 rounded-xl">
 								<Plus className="w-4 h-4 mr-1" /> Add Exercise
 							</button>
@@ -721,6 +755,33 @@ export function PlanDesigner({
 											</div>
 										</div>
 										<div className="flex items-center space-x-1">
+											<button
+												type="button"
+												onClick={() => {
+													const altMuscleGroup = availableExercises.find(
+														(e) =>
+															e.name.toLowerCase() ===
+															ex.name.toLowerCase(),
+													)?.muscleGroup;
+													setAlternativeForIndex(idx);
+													setExerciseModalStep(
+														altMuscleGroup ? "exercises" : "muscles",
+													);
+													setSelectedMuscles(
+														altMuscleGroup ? [altMuscleGroup] : [],
+													);
+													setDraftSelectedExercises([]);
+													setShowExerciseSelector(true);
+												}}
+												title="Add swap (OR) alternatives"
+												className={cn(
+													"p-1.5 rounded-lg transition-colors",
+													ex.alternatives && ex.alternatives.length > 0
+														? "text-brand-primary"
+														: "text-foreground/20 hover:text-brand-primary",
+												)}>
+												<ArrowLeftRight className="w-4 h-4" />
+											</button>
 											<button
 												onClick={() => handleMoveExercise(idx, "up")}
 												disabled={idx === 0}
@@ -912,6 +973,35 @@ export function PlanDesigner({
 											</div>
 										</div>
 									</div>
+
+									{/* "OR" Alternatives */}
+									{ex.alternatives && ex.alternatives.length > 0 && (
+										<div className="flex flex-wrap gap-1.5 pt-1">
+											{(ex.alternatives as string[]).map((altName) => (
+												<span
+													key={altName}
+													className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md bg-brand-primary/10 border border-brand-primary/25 text-[9px] font-bold text-brand-primary">
+													<span>{altName}</span>
+													<button
+														type="button"
+														onClick={() => {
+															const newExs = [...currentDayData.exercises];
+															newExs[idx] = {
+																...newExs[idx],
+																alternatives: (
+																	ex.alternatives as string[]
+																).filter((n) => n !== altName),
+															};
+															updateDayData(currentDay, { exercises: newExs });
+														}}
+														className="text-brand-primary/50 hover:text-rose-500 transition-colors"
+														aria-label={`Remove ${altName}`}>
+														<X className="w-3 h-3" />
+													</button>
+												</span>
+											))}
+										</div>
+									)}
 
 									<WarmupSetsPanel
 										workingWeight={ex.lastWeight}
@@ -1159,7 +1249,7 @@ export function PlanDesigner({
 						{/* Header */}
 						<div className="p-6 border-b border-foreground/10 flex justify-between items-center bg-background/50 backdrop-blur-md z-10 sticky top-0">
 							<div className="flex items-center space-x-3">
-								{exerciseModalStep === "exercises" && (
+								{exerciseModalStep === "exercises" && alternativeForIndex === null && (
 									<button
 										onClick={() => setExerciseModalStep("muscles")}
 										className="p-2 hover:bg-foreground/5 rounded-full -ml-2">
@@ -1183,7 +1273,9 @@ export function PlanDesigner({
 						{exerciseModalStep === "muscles" && (
 							<div className="flex-1 overflow-y-auto p-6 flex flex-col custom-scrollbar">
 								<p className="text-sm font-bold text-foreground/40 text-center mb-8 uppercase tracking-widest">
-									Which muscle groups are you training today?
+									{alternativeForIndex !== null
+										? "Which muscle groups for the alternative?"
+										: "Which muscle groups are you training today?"}
 								</p>
 								<div className="grid grid-cols-2 gap-3 mb-8">
 									{availableMuscleGroups.map((muscle) => {
@@ -1384,6 +1476,10 @@ export function PlanDesigner({
 										className="w-full bg-brand-primary text-black py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(249,115,22,0.3)] hover:scale-105 active:scale-95 transition-all flex items-center justify-center">
 										{loadingHistory === "multiple" ? (
 											<Loader2 className="w-5 h-5 animate-spin" />
+										) : alternativeForIndex !== null ? (
+											<>Set {draftSelectedExercises.length} Alternative
+											{draftSelectedExercises.length !== 1 ? "s" : ""}
+											</>
 										) : (
 											<>
 												Add {draftSelectedExercises.length} Exercise

@@ -435,8 +435,12 @@ export async function getStreakData(overrideUserId?: string): Promise<{
     const diffTime = todayDate.getTime() - earliestDate.getTime();
     const totalDays = Math.round(diffTime / 86400000) + 1;
 
-    // Pre-calculate all planned dates for efficient lookup
+    // Pre-calculate all planned dates + plan-covered dates for efficient lookup.
+    // planCoveredSet = any day that falls inside an active plan's window —
+    // these are the only days where a missed workout can be "rest" — while
+    // plannedDatesSet = days that were actually scheduled as training days.
     const plannedDatesSet = new Set<string>();
+    const planCoveredSet = new Set<string>();
     for (const plan of allPlans) {
       const [py, pm, pd] = plan.startDate.split('-').map(Number);
       const planStart = new Date(py, pm - 1, pd);
@@ -450,6 +454,7 @@ export async function getStreakData(overrideUserId?: string): Promise<{
       const cursor = new Date(pStartCursor);
       while (cursor <= pEndCursor) {
         const dStr = getLocalDayString(cursor);
+        planCoveredSet.add(dStr);
         const systemDay = cursor.getDay();
         const diffInDays = Math.round((cursor.getTime() - planStart.getTime()) / 86400000);
         const currentWeekIndex = Math.floor(diffInDays / 7) + 1;
@@ -473,14 +478,18 @@ export async function getStreakData(overrideUserId?: string): Promise<{
       const dStr = getLocalDayString(dDate);
 
       const isLogged = logSet.has(dStr);
-      const isPlannedDay = plannedDatesSet.has(dStr);
+      const isToday = i === totalDays - 1;
 
       if (isLogged) {
         tempStreak++;
         longestStreak = Math.max(longestStreak, tempStreak);
-      } else if (isPlannedDay) {
-        // Missed planned workout. Break if it's not today.
-        if (i !== totalDays - 1) {
+      } else if (!isToday) {
+        // A non-logged day breaks the streak when it was a scheduled training
+        // day (missed workout) OR when it falls outside any active plan window
+        // (took time off / no plan). The only tolerance is a rest day INSIDE
+        // an active plan's window. Today never breaks the streak — you can
+        // still log it.
+        if (plannedDatesSet.has(dStr) || !planCoveredSet.has(dStr)) {
           tempStreak = 0;
         }
       }

@@ -35,6 +35,7 @@ import {
 	RefreshCw,
 	SkipForward,
 	XCircle,
+	ArrowLeftRight,
 } from "lucide-react";
 import { GlassCard } from "./ui/GlassCard";
 import { cn } from "@/lib/utils";
@@ -52,6 +53,7 @@ import { requestNotificationPermission } from "@/lib/notifications";
 import { ExerciseHistoryCard } from "./workout/ExerciseHistoryCard";
 import { Confetti } from "./ui/Confetti";
 import ChangeWorkoutModal from "./ChangeWorkoutModal";
+import ExerciseSwapModal from "./ExerciseSwapModal";
 
 const DAYS = [
 	"Sunday",
@@ -154,6 +156,7 @@ export default function WorkoutSession({
 	const [triggerConfetti, setTriggerConfetti] = useState(false);
 	const [showChangeWorkout, setShowChangeWorkout] = useState(false);
 	const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
+	const [swapIndex, setSwapIndex] = useState<number | null>(null);
 	const [hasChangedWorkout, setHasChangedWorkout] = useState(
 		!!(customExerciseNames && customExerciseNames.length > 0),
 	);
@@ -269,6 +272,80 @@ export default function WorkoutSession({
 			return next;
 		});
 	};
+
+	// "OR" alternatives — swap this exercise for another when the equipment /
+	// setup isn't available (e.g. incline bench press → chest press machine).
+	// Merges curated library alternatives with plan-level user alternatives.
+	// Already-in-plan exercises are excluded so you never swap in a duplicate.
+	const getExerciseAlternatives = (ex: Exercise): ExerciseDefinition[] => {
+		const def = allExercises.find(
+			(d) => d.name.toLowerCase() === ex.name.toLowerCase(),
+		);
+		const byLower = new Map(
+			allExercises.map((d) => [d.name.toLowerCase(), d]),
+		);
+		const inPlan = new Set(
+			exercises
+				.map((e) => e.name.toLowerCase())
+				.filter((n) => n !== ex.name.toLowerCase()),
+		);
+		const names: string[] = [];
+		for (const name of [...(ex.alternatives || []), ...(def?.alternatives || [])]) {
+			const lower = name.toLowerCase();
+			if (lower !== ex.name.toLowerCase() && !names.includes(lower)) {
+				names.push(lower);
+			}
+		}
+		return names
+			.map((lower) => byLower.get(lower))
+			.filter((d): d is ExerciseDefinition => {
+				if (!d) return false;
+				return !inPlan.has(d.name.toLowerCase());
+			});
+	};
+
+	const handleSwapExercise = (index: number, newName: string) => {
+		setExercises((prev) => {
+			const next = [...prev];
+			const target = { ...next[index] };
+			target.name = newName;
+			const def = allExercises.find(
+				(d) => d.name.toLowerCase() === newName.toLowerCase(),
+			);
+			if (def?.id) target.exerciseId = def.id;
+			target.isDone = false;
+			target.isSkipped = false;
+			target.pr = 0;
+			target.prReps = 0;
+			target.lastWeight = 0;
+			target.sets = Array.from({
+				length: target.targetSets || 1,
+			}).map(() => ({
+				weight: 0,
+				reps: target.targetReps || 0,
+				completed: activeMode === "MANUAL_LOG",
+			}));
+			next[index] = target;
+			return next;
+		});
+		setSwapIndex(null);
+	};
+
+	const swapModal = (
+		<ExerciseSwapModal
+			open={swapIndex !== null}
+			currentName={
+				swapIndex !== null ? exercises[swapIndex]?.name || "" : ""
+			}
+			alternatives={
+				swapIndex !== null ? getExerciseAlternatives(exercises[swapIndex]) : []
+			}
+			onClose={() => setSwapIndex(null)}
+			onSwap={(name) =>
+				swapIndex !== null && handleSwapExercise(swapIndex, name)
+			}
+		/>
+	);
 
 	const handleSubmit = async () => {
 		const unfinishedExercises = exercises.filter((ex) => !(ex as any).isDone);
@@ -773,6 +850,14 @@ export default function WorkoutSession({
 											</div>
 										</div>
 										<div className="flex items-center space-x-4">
+											{getExerciseAlternatives(ex).length > 0 && (
+												<button
+													onClick={() => setSwapIndex(idx)}
+													className="p-2 text-foreground/30 hover:text-brand-primary hover:bg-brand-primary/10 transition-colors rounded-lg"
+													title="Swap — do an OR alternative">
+													<ArrowLeftRight className="w-4 h-4" />
+												</button>
+											)}
 											<div className="text-right min-w-[60px]">
 												<p className="text-md font-black text-foreground">
 													{ex.lastWeight || "—"} KG
@@ -823,6 +908,7 @@ export default function WorkoutSession({
 					onClose={() => setShowChangeWorkout(false)}
 					onConfirm={handleChangeWorkout}
 				/>
+				{swapModal}
 			</SessionLayout>
 		);
 	}
@@ -1158,6 +1244,15 @@ export default function WorkoutSession({
 									</div>
 								</div>
 								<div className="flex items-center space-x-2">
+									{!ex.isSkipped &&
+										getExerciseAlternatives(ex).length > 0 && (
+											<button
+												onClick={() => setSwapIndex(exIndex)}
+												className="p-2 text-foreground/20 hover:text-brand-primary transition-colors rounded-lg hover:bg-brand-primary/10"
+												title="Swap — do an OR alternative">
+												<ArrowLeftRight className="w-4 h-4" />
+											</button>
+										)}
 									{!ex.isDone && (
 										<button
 											onClick={() => handleSkipExercise(exIndex)}
@@ -1187,6 +1282,7 @@ export default function WorkoutSession({
 							</GlassCard>
 						))}
 					</div>
+				{swapModal}
 				</SessionLayout>
 			</PageWithSidebar>
 		);
@@ -1271,13 +1367,26 @@ export default function WorkoutSession({
 							)}
 						</div>
 
-						<div>
-							<h2 className="text-lg font-black text-foreground tracking-tight">
-								{ex.name}
-							</h2>
-							<p className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest">
-								Target: {ex.targetSets} Sets • {ex.targetReps} Reps
-							</p>
+						<div className="flex items-start justify-between gap-4">
+							<div>
+								<h2 className="text-lg font-black text-foreground tracking-tight">
+									{ex.name}
+								</h2>
+								<p className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest">
+									Target: {ex.targetSets} Sets • {ex.targetReps} Reps
+								</p>
+							</div>
+							{getExerciseAlternatives(ex).length > 0 && (
+								<button
+									onClick={() => setSwapIndex(activeExerciseIndex)}
+									className="flex items-center space-x-1.5 px-3 py-2 rounded-xl border-2 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10 transition-colors shrink-0"
+									title="Swap — do an OR alternative">
+									<ArrowLeftRight className="w-3.5 h-3.5" />
+									<span className="text-[10px] font-black uppercase tracking-widest">
+										Swap
+									</span>
+								</button>
+							)}
 						</div>
 
 						<WarmupSetsPanel
@@ -1377,6 +1486,7 @@ export default function WorkoutSession({
 						mode={activeMode}
 						onPlateauDetected={setPlateauDetected}
 					/>
+				{swapModal}
 				</SessionLayout>
 			</PageWithSidebar>
 		);
