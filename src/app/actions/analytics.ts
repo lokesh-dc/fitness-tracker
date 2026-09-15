@@ -418,7 +418,7 @@ export async function getStreakData(overrideUserId?: string): Promise<{
       if (oldestLog < earliestDate) earliestDate = oldestLog;
     }
 
-    const allPlans = await db.collection("PlanDocument").find({ userId, status: { $ne: 'draft' } }).toArray();
+    const allPlans = await db.collection("PlanDocument").find({ userId, status: { $nin: ['draft', 'deleted'] } }).toArray();
     for (const plan of allPlans) {
       const [y, m, d] = plan.startDate.split('-').map(Number);
       const pStart = new Date(y, m - 1, d);
@@ -578,7 +578,7 @@ export async function getWeekSnapshot(overrideUserId?: string): Promise<{
 
     // Get active plan from PlanDocument
     const activePlan = await db.collection("PlanDocument").findOne(
-      { userId, startDate: { $lte: now.toISOString().split('T')[0] }, status: { $ne: 'draft' } },
+      { userId, startDate: { $lte: now.toISOString().split('T')[0] }, status: { $nin: ['draft', 'deleted'] } },
       { sort: { startDate: -1 } }
     );
 
@@ -646,7 +646,7 @@ export async function getNextPlannedWorkout(overrideUserId?: string): Promise<{
 
     // Find active plan
     const activePlan = await db.collection("PlanDocument").findOne(
-      { userId, startDate: { $lte: todayStr }, status: { $ne: 'draft' } },
+      { userId, startDate: { $lte: todayStr }, status: { $nin: ['draft', 'deleted'] } },
       { sort: { startDate: -1 } }
     );
 
@@ -736,7 +736,7 @@ export async function getTomorrowPlanDetail(): Promise<{
     const todayStr = now.toISOString().split('T')[0];
 
     const activePlan = await db.collection("PlanDocument").findOne(
-      { userId, startDate: { $lte: todayStr }, status: { $ne: 'draft' } },
+      { userId, startDate: { $lte: todayStr }, status: { $nin: ['draft', 'deleted'] } },
       { sort: { startDate: -1 } }
     );
     if (!activePlan) return null;
@@ -932,7 +932,7 @@ export async function getMissedWorkoutsThisMonth(userIdStr: string) {
     const activePlan = await db.collection('PlanDocument').findOne({
       userId,
       startDate: { $lte: now.toISOString().split('T')[0] },
-      status: { $ne: 'draft' }
+      status: { $nin: ['draft', 'deleted'] }
     }, { sort: { startDate: -1 } });
 
     if (!activePlan) {

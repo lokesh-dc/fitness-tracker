@@ -55,6 +55,13 @@ export default async function PlanPage() {
 				bg: "bg-amber-500/10",
 				dot: "bg-amber-500",
 			};
+		if (plan.status === "deleted")
+			return {
+				label: "Deleted",
+				color: "text-foreground/40",
+				bg: "bg-foreground/10",
+				dot: "bg-foreground/30",
+			};
 		if (plan.status === "completed")
 			return {
 				label: "Completed",

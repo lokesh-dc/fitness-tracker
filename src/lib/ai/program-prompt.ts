@@ -39,6 +39,32 @@ const SPLIT_INSTRUCTIONS: Record<SplitStyle, string> = {
     "Use one muscle group per day in this order across the scheduled days: Chest, Back, Shoulders, Arms (Biceps + Triceps), Legs, and Core/conditioning if a sixth day is scheduled. Name each [DAY] after its muscle group.",
 };
 
+const SESSION_TIMES = [30, 45, 60, 75, 90] as const;
+
+export interface SessionGuidance {
+  count: string;
+  min: number;
+  sets: string;
+  totalSets: string;
+  window: string;
+}
+
+const SESSION_GUIDANCE: Record<(typeof SESSION_TIMES)[number], SessionGuidance> = {
+  30: { count: "4-5", min: 4, sets: "2-3", totalSets: "12-16", window: "25-40 minutes" },
+  45: { count: "5-6", min: 5, sets: "3", totalSets: "16-22", window: "40-55 minutes" },
+  60: { count: "6-8", min: 6, sets: "3-4", totalSets: "22-30", window: "55-70 minutes" },
+  75: { count: "7-9", min: 7, sets: "3-4", totalSets: "26-36", window: "70-85 minutes" },
+  90: { count: "8-11", min: 8, sets: "3-5", totalSets: "30-42", window: "85-100 minutes" },
+};
+
+export function sessionGuidanceFor(minutes: number): SessionGuidance {
+  const clamped = Math.min(90, Math.max(30, Number.isFinite(minutes) ? minutes : 60));
+  const target = SESSION_TIMES.reduce((best, t) =>
+    Math.abs(t - clamped) < Math.abs(best - clamped) ? t : best,
+  );
+  return SESSION_GUIDANCE[target];
+}
+
 export function buildProgramPrompt(input: {
   goal: Goal;
   daysPerWeek: number;
@@ -47,9 +73,11 @@ export function buildProgramPrompt(input: {
   equipment: Equipment[];
   experienceLevel: ExperienceLevel;
   weeksCount: number;
+  sessionMinutes?: number;
   dayAssignments?: DayAssignments;
 }): string {
-  const { goal, daysPerWeek, trainingDays, splitStyle, equipment, experienceLevel, weeksCount, dayAssignments } = input;
+  const { goal, daysPerWeek, trainingDays, splitStyle, equipment, experienceLevel, weeksCount, sessionMinutes = 60, dayAssignments } = input;
+  const sessionGuidance = sessionGuidanceFor(sessionMinutes);
 
   const dayList = trainingDays
     .map((d) => `${DAY_NAMES[d]} (${d})`)
@@ -84,9 +112,9 @@ export function buildProgramPrompt(input: {
     `Split: ${SPLIT_INSTRUCTIONS[splitStyle]}`,
     ...dayAssignmentLines,
     "",
-    "Each training day must fill a full ~60-minute workout:",
-    "- Include 5-7 exercises per day (never fewer than 5) with 3-4 working sets each — roughly 20-28 total sets per session.",
-    "- Rest 60-90 seconds between sets (more for heavy compound lifts). Ensure total volume, sets, and resting time reach roughly 45-75 minutes.",
+    `Each training day must fill a full ~${sessionMinutes}-minute workout:`,
+    `- Include ${sessionGuidance.count} exercises per day (never fewer than ${sessionGuidance.min}) with ${sessionGuidance.sets} working sets each — roughly ${sessionGuidance.totalSets} total sets per session.`,
+    `- Rest 60-90 seconds between sets (more for heavy compound lifts). Ensure total volume, sets, and resting time reach roughly ${sessionGuidance.window}.`,
     `Valid muscle group tags (use EXACTLY these, case-sensitive): ${MUSCLE_GROUPS.join(", ")}`,
     "",
     "RESPONSE FORMAT — respond in plain text, NOT JSON:",
@@ -95,7 +123,7 @@ export function buildProgramPrompt(input: {
     "- [DAY] <dayOfWeek> | <Split Name>  — dayOfWeek is the scheduled number (0=Sunday, 1=Monday, ... 6=Saturday); Split Name must match the selected split (e.g. \"Push\", \"Pull\", \"Legs\", \"Upper\", \"Lower\", \"Full Body\", or a muscle group). When a day combines several sessions (e.g. \"Legs + Core\"), print them joined by \" + \".",
     "- [RATIONALE] <1-2 sentences>  — why this day's split and exercises fit the goal, frequency, and experience level.",
     "- [EXERCISE] <Exercise Name> | <Muscle Group> | <Sets> | <Reps> | <Rest Seconds>  — one exercise per line.",
-    "- Include 5-7 [EXERCISE] lines per day so every session lasts about an hour. Never fewer than 5.",
+    `- Include ${sessionGuidance.count} [EXERCISE] lines per day so every session lasts about ${sessionMinutes} minutes. Never fewer than ${sessionGuidance.min}.`,
     "- Use EXACTLY one valid Muscle Group tag per exercise. Rest seconds default to 90.",
     "- In the FIRST week, every exercise the athlete may already be lifting gets 3 working sets at its known starting weight; keep the split's muscle-group coverage balanced across the week.",
     "- Do NOT repeat the same exercise on multiple days in the same week.",

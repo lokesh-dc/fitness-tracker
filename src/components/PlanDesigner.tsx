@@ -52,6 +52,7 @@ export function PlanDesigner({
 	dayRationales = {},
 	exerciseReviews = {},
 	showDraftOption = false,
+	duplicateMode = false,
 	onDirtyStateChange,
 }: {
 	initialData?: { plan: PlanDocument; templates: WorkoutTemplate[] } | null;
@@ -61,6 +62,7 @@ export function PlanDesigner({
 	dayRationales?: Record<number, string>;
 	exerciseReviews?: Record<string, ExerciseReview>;
 	showDraftOption?: boolean;
+	duplicateMode?: boolean;
 	onDirtyStateChange?: (dirty: boolean) => void;
 }) {
 	const router = useRouter();
@@ -69,7 +71,9 @@ export function PlanDesigner({
 		initialStep || (editPlanId && initialData ? "days" : "config"),
 	);
 	const [startDate, setStartDate] = useState(
-		initialData?.plan?.startDate || new Date().toISOString().split("T")[0],
+		duplicateMode
+			? new Date().toISOString().split("T")[0]
+			: initialData?.plan?.startDate || new Date().toISOString().split("T")[0],
 	);
 	const [numWeeks, setNumWeeks] = useState(initialData?.plan?.numWeeks || 4);
 	const [trainingDays, setTrainingDays] = useState<number[]>(() => {

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Edit2, Trash2, AlertTriangle, Loader2, TrendingUp } from "lucide-react";
+import { Copy, Edit2, Trash2, AlertTriangle, Loader2, TrendingUp } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { deletePlan, updatePlanWeeks, terminatePlan } from "@/app/actions/plan";
 import { cn } from "@/lib/utils";
@@ -15,10 +15,12 @@ import { demoActionGuard } from "@/lib/demo-guard";
 
 export function PlanActionButtons({ 
   planId, 
-  currentWeeks 
+  currentWeeks,
+  showDuplicate = false 
 }: { 
   planId: string;
   currentWeeks: number;
+  showDuplicate?: boolean;
 }) {
   const { data: session } = useSession();
   const isDemo = isDemoSession(session);
@@ -86,7 +88,7 @@ export function PlanActionButtons({
 
   return (
     <>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className={cn("grid grid-cols-2 gap-4", showDuplicate ? "md:grid-cols-5" : "md:grid-cols-4")}>
         <Link 
           href={`/plan/designer?edit=${planId}`}
           className="glass-button py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center space-x-2 text-foreground active:scale-95 transition-transform"
@@ -94,6 +96,15 @@ export function PlanActionButtons({
           <Edit2 className="w-4 h-4" />
           <span>Edit Plan</span>
         </Link>
+        {showDuplicate && (
+          <Link 
+            href={`/plan/designer?dup=${planId}`}
+            className="glass-button py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center space-x-2 text-foreground active:scale-95 transition-transform"
+          >
+            <Copy className="w-4 h-4" />
+            <span>Duplicate</span>
+          </Link>
+        )}
         <button 
           onClick={() => setShowExtendOptions(!showExtendOptions)}
           className={cn(
@@ -155,7 +166,7 @@ export function PlanActionButtons({
             </div>
             <div className="text-center space-y-2">
               <h3 className="text-xl font-black uppercase tracking-tight text-foreground">Delete Plan?</h3>
-              <p className="text-xs font-bold text-foreground/60 leading-relaxed">This action cannot be undone. All templates inside this plan will be permanently removed.</p>
+              <p className="text-xs font-bold text-foreground/60 leading-relaxed">This plan will be marked as deleted and hidden from your plans. Your workout data is preserved.</p>
             </div>
             <div className="flex space-x-4 pt-4">
               <button 

@@ -51,7 +51,8 @@ export default async function PlanDetailPage({
 	const end = new Date(start);
 	end.setDate(end.getDate() + plan.numWeeks * 7);
 	const now = new Date();
-	const isCompleted = now > end;
+	const isCompleted = plan.status === "completed" || (now > end && plan.status !== "deleted");
+	const isDeleted = plan.status === "deleted";
 
 	const titleNode = (
 		<div className="flex items-center space-x-4 h-full">
@@ -183,6 +184,7 @@ export default async function PlanDetailPage({
 								<PlanActionButtons
 									planId={plan.id}
 									currentWeeks={plan.numWeeks}
+									showDuplicate={isCompleted || isDeleted}
 								/>
 							</div>
 						</section>

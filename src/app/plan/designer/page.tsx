@@ -8,11 +8,11 @@ import { Zap } from "lucide-react";
 export default async function DesignerPage({
 	searchParams,
 }: {
-	searchParams: Promise<{ edit?: string; mode?: string }>;
+	searchParams: Promise<{ edit?: string; dup?: string; mode?: string }>;
 }) {
-	const { edit: editId, mode } = await searchParams;
+	const { edit: editId, dup: duplicateId, mode } = await searchParams;
 
-	if (!editId && mode !== "manual") {
+	if (!editId && !duplicateId && mode !== "manual") {
 		return (
 			<div className="flex flex-col">
 				<Header
@@ -45,20 +45,25 @@ export default async function DesignerPage({
 	}
 
 	const [initialData, exercises] = await Promise.all([
-		editId ? getPlanDetails(editId) : null,
+		editId ? getPlanDetails(editId) : duplicateId ? getPlanDetails(duplicateId) : null,
 		getExercises(),
 	]);
 
 	return (
 		<div className="flex flex-col">
 			<Header
-				title={editId ? "Edit plan" : "Plan wizard"}
-				subtitle="Design your routine"
+				title={duplicateId ? "Duplicate plan" : editId ? "Edit plan" : "Plan wizard"}
+				subtitle={
+					duplicateId
+						? "Re-run your routine from a fresh start"
+						: "Design your routine"
+				}
 			/>
 			<main className="flex-1 px-4 md:px-6 pb-28 md:pb-12 max-w-4xl mx-auto w-full">
 				<PlanDesigner
 					initialData={initialData}
 					editPlanId={editId}
+					duplicateMode={!!duplicateId}
 					initialExercises={exercises}
 				/>
 			</main>

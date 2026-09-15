@@ -37,7 +37,8 @@ export interface PlanDocument {
   name?: string;
   startDate: string;
   numWeeks: number;
-  status?: 'draft' | 'active' | 'completed';
+  status?: 'draft' | 'active' | 'completed' | 'deleted';
+  deletedAt?: string | Date;
   mobilityWarmupIds?: string[];
   customMobilityWarmups?: MobilityMovement[];
   createdAt: string | Date;

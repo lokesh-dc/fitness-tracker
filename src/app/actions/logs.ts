@@ -301,7 +301,7 @@ export async function saveWorkoutSession(
         {
           userId: new ObjectId(userId),
           startDate: { $lte: targetDateStr },
-          status: { $ne: 'draft' }
+          status: { $nin: ['draft', 'deleted'] }
         },
         { sort: { startDate: -1 } }
       );
@@ -629,7 +629,7 @@ export async function saveSingleExerciseLog(
         {
           userId: new ObjectId(userId),
           startDate: { $lte: targetDateStr },
-          status: { $ne: 'draft' }
+          status: { $nin: ['draft', 'deleted'] }
         },
         { sort: { startDate: -1 } }
       );

@@ -76,6 +76,15 @@ const FULL_DAY_NAMES = [
 	"Saturday",
 ];
 
+const SESSION_TIME_OPTIONS = [30, 45, 60, 75, 90] as const;
+const SESSION_EXERCISE_HINT: Record<number, string> = {
+	30: "≈ 4–5 exercises",
+	45: "≈ 5–6 exercises",
+	60: "≈ 6–8 exercises",
+	75: "≈ 7–9 exercises",
+	90: "≈ 8–11 exercises",
+};
+
 const STEP_LABELS = [
 	"Goal & Experience",
 	"Frequency & Days",
@@ -307,6 +316,7 @@ export function GenerateProgramForm({
 	const [experienceLevel, setExperienceLevel] =
 		useState<ExperienceLevel>("intermediate");
 	const [weeksCount, setWeeksCount] = useState(4);
+	const [sessionMinutes, setSessionMinutes] = useState(60);
 	const [splitStyle, setSplitStyle] = useState<SplitStyle>("upper-lower");
 	const [dayAssignments, setDayAssignments] = useState<DayAssignments>({});
 	const splitLabel =
@@ -499,6 +509,7 @@ export function GenerateProgramForm({
 				equipment,
 				experienceLevel,
 				weeksCount,
+				sessionMinutes,
 				dayAssignments,
 			});
 			if (!result.success) {
@@ -1104,10 +1115,14 @@ export function GenerateProgramForm({
 									<div className="w-16 h-16 bg-brand-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
 										<CalendarRange className="w-8 h-8 text-brand-primary" />
 									</div>
-									<h2 className="text-xl font-black text-foreground uppercase tracking-tight">
-										How many weeks?
-									</h2>
-								</div>
+<h2 className="text-xl font-black text-foreground uppercase tracking-tight">
+									Program duration
+								</h2>
+								<p className="text-sm text-foreground/40 font-medium">
+									Choose how long the program runs and how long each workout
+									lasts.
+								</p>
+							</div>
 
 								<div className="space-y-6">
 									<div className="flex items-center justify-center space-x-6">
@@ -1140,6 +1155,41 @@ export function GenerateProgramForm({
 										unit="Weeks"
 										hideHeader={true}
 									/>
+								</div>
+
+								<div className="space-y-4 border-t border-foreground/8 pt-6">
+									<div className="text-center space-y-1">
+										<h3 className="text-sm font-black text-foreground uppercase tracking-tight">
+											Time per session
+										</h3>
+										<p className="text-xs text-foreground/40 font-medium">
+											Longer sessions fit more exercises per workout.
+										</p>
+									</div>
+									<div className="grid grid-cols-5 gap-2">
+										{SESSION_TIME_OPTIONS.map((mins) => (
+											<button
+												key={mins}
+												type="button"
+												onClick={() => setSessionMinutes(mins)}
+												className={cn(
+													"py-3 rounded-xl border-2 text-center cursor-pointer transition-all",
+													sessionMinutes === mins
+														? "border-brand-primary bg-brand-primary/10 text-brand-primary"
+														: "border-foreground/5 bg-foreground/5 text-foreground/40 hover:opacity-80",
+												)}>
+												<span className="text-lg font-black tabular-nums">
+													{mins}
+												</span>
+												<span className="block text-[9px] font-black uppercase tracking-wider opacity-70">
+													min
+												</span>
+											</button>
+										))}
+									</div>
+									<p className="text-center text-xs font-bold text-brand-primary/80 uppercase tracking-wider">
+										{SESSION_EXERCISE_HINT[sessionMinutes]} per workout
+									</p>
 								</div>
 							</div>
 						</GlassCard>

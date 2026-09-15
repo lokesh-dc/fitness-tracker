@@ -148,7 +148,12 @@ function clampRest(value: unknown): number {
   return Math.min(300, Math.max(30, Math.round(n)));
 }
 
-const MIN_EXERCISES_PER_DAY = 4;
+function minExercisesForDuration(minutes: number): number {
+  if (minutes <= 45) return 4;
+  if (minutes <= 60) return 5;
+  if (minutes <= 75) return 6;
+  return 7;
+}
 
 function normalizeMuscleGroup(raw: string): string {
   const trimmed = raw.trim();
@@ -169,6 +174,7 @@ function validateAndCleanProgram(
   raw: unknown,
   expectedDays: number,
   trainingDays?: number[],
+  sessionMinutes = 60,
 ): GeneratedProgramResult {
   if (!isRecord(raw) || !Array.isArray(raw.days)) {
     return { success: false, error: "Invalid response format: missing 'days' array." };
@@ -209,9 +215,9 @@ function validateAndCleanProgram(
           }))
       : [];
 
-    // Days that can't fill a ~60-minute session are rejected so the user isn't
-    // shown a 2-exercise "workout".
-    if (exercises.length < MIN_EXERCISES_PER_DAY) continue;
+    // Days that can't fill the requested session length are rejected so the
+    // user isn't shown a 2-exercise "workout".
+    if (exercises.length < minExercisesForDuration(sessionMinutes)) continue;
 
     cleanedDays.push({ dayOfWeek, name, rationale, exercises });
   }
@@ -252,8 +258,13 @@ export async function generateProgram(input: {
   equipment: Equipment[];
   experienceLevel: ExperienceLevel;
   weeksCount: number;
+  sessionMinutes?: number;
   dayAssignments?: DayAssignments;
 }): Promise<GeneratedProgramResult> {
+  const sessionMinutes = Math.min(
+    90,
+    Math.max(30, Math.round(input.sessionMinutes ?? 60)),
+  );
   const effectiveTrainingDays =
     input.trainingDays &&
     input.trainingDays.length === input.daysPerWeek &&
@@ -270,7 +281,7 @@ export async function generateProgram(input: {
     return { success: false, error: "AI model is not configured. Please try again later." };
   }
 
-  const prompt = buildProgramPrompt({ ...input, trainingDays: effectiveTrainingDays });
+  const prompt = buildProgramPrompt({ ...input, trainingDays: effectiveTrainingDays, sessionMinutes });
 
   try {
     const response = await fetch(GROQ_URL, {
@@ -311,13 +322,13 @@ body: JSON.stringify({
     // Primary path: parse the tagged plain-text format (more robust than raw JSON).
     const textParsed = parseProgramText(cleaned);
     if (textParsed.ok) {
-      return validateAndCleanProgram(textParsed.data, input.daysPerWeek, effectiveTrainingDays);
+      return validateAndCleanProgram(textParsed.data, input.daysPerWeek, effectiveTrainingDays, sessionMinutes);
     }
 
     // Fallback: if the model ignored instructions and emitted JSON anyway, extract it.
     const jsonData = tryExtractJson(cleaned);
     if (jsonData !== null) {
-      return validateAndCleanProgram(jsonData, input.daysPerWeek, effectiveTrainingDays);
+      return validateAndCleanProgram(jsonData, input.daysPerWeek, effectiveTrainingDays, sessionMinutes);
     }
 
     console.error("Failed to parse AI program response. Raw:", cleaned.slice(0, 500));

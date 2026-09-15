@@ -52,7 +52,7 @@ export async function getPlanByDate(date?: string | Date, overrideUserId?: strin
       {
         userId: new ObjectId(userId),
         startDate: { $lte: targetDateStr },
-        status: { $ne: 'draft' }
+        status: { $nin: ['draft', 'deleted'] }
       },
       { sort: { startDate: -1 } }
     ) as (WithId<Document> & PlanDocument) | null;
@@ -387,7 +387,7 @@ export async function getUserPlanSummary() {
 
     const db = await getDb();
 
-    // Fetch all plans
+    // Fetch all plans (soft-deleted ones included so they can be restored/duplicated)
     const plansRaw = await db.collection("PlanDocument")
       .find({ userId })
       .sort({ startDate: -1 })
@@ -425,7 +425,7 @@ export async function getActivePlanInfo() {
 
     const db = await getDb();
     const activePlan = await db.collection("PlanDocument").findOne(
-      { userId, status: { $ne: 'draft' } },
+      { userId, status: { $nin: ['draft', 'deleted'] } },
       { sort: { startDate: -1 } }
     ) as any;
 
@@ -497,8 +497,22 @@ export async function deletePlan(planId: string) {
 
     const db = await getDb();
 
-    await db.collection("PlanDocument").deleteOne({ _id: new ObjectId(planId), userId });
-    await db.collection("WorkoutTemplate").deleteMany({ planId, userId });
+    // Soft delete — keep the plan + its templates so it can be restored or
+    // referenced later. It's flagged 'deleted' and hidden from every query.
+    const res = await db.collection("PlanDocument").updateOne(
+      { _id: new ObjectId(planId), userId },
+      {
+        $set: {
+          status: "deleted",
+          deletedAt: new Date(),
+          updatedAt: new Date(),
+        },
+      },
+    );
+
+    if (res.matchedCount === 0) {
+      return { success: false, error: "Plan not found" };
+    }
 
     revalidatePath("/plan");
     return { success: true };
@@ -742,7 +756,7 @@ export async function getActivePlansSummary(userId: string): Promise<ActivePlanP
 
     const allPlans = await db.collection("PlanDocument").find({ 
       userId: new ObjectId(userId),
-      status: { $ne: 'draft' }
+      status: { $nin: ['draft', 'deleted'] }
     }).toArray();
 
     // Filter plans active during this week
@@ -826,7 +840,7 @@ export async function getPlanAdherenceScore(userId: string): Promise<AdherenceSc
     const db = await getDb();
     const activePlans = await db.collection("PlanDocument").find({
       userId: new ObjectId(userId),
-      status: { $ne: 'draft' }
+      status: { $nin: ['draft', 'deleted'] }
     }).toArray();
 
     // Filter to find plans that were active at some point in the last 8 weeks
@@ -925,7 +939,7 @@ export async function getWeekPlanSchedule(userId: string): Promise<WeekScheduleD
     const weekStart = startOfWeek(now, { weekStartsOn: 1 });
     const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
 
-    const allPlans = await db.collection("PlanDocument").find({ userId: new ObjectId(userId), status: { $ne: 'draft' } }).toArray();
+    const allPlans = await db.collection("PlanDocument").find({ userId: new ObjectId(userId), status: { $nin: ['draft', 'deleted'] } }).toArray();
     const activePlans = allPlans.filter(plan => {
       const planStart = parseISO(plan.startDate);
       const planEnd = addDays(planStart, plan.numWeeks * 7 - 1);
@@ -1058,6 +1072,7 @@ export async function generateProgram(input: {
   equipment: Equipment[];
   experienceLevel: ExperienceLevel;
   weeksCount: number;
+  sessionMinutes?: number;
   dayAssignments?: DayAssignments;
 }): Promise<GeneratedProgramResult> {
   try {
@@ -1072,6 +1087,12 @@ export async function generateProgram(input: {
     }
     if (input.weeksCount < 1 || input.weeksCount > 12) {
       return { success: false, error: "Weeks must be between 1 and 12." };
+    }
+    if (
+      typeof input.sessionMinutes === "number" &&
+      (input.sessionMinutes < 30 || input.sessionMinutes > 90)
+    ) {
+      return { success: false, error: "Session time must be between 30 and 90 minutes." };
     }
     if (input.equipment.length === 0) {
       return { success: false, error: "Select at least one equipment option." };
