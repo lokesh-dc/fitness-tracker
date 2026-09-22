@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Copy, Edit2, Trash2, AlertTriangle, Loader2, TrendingUp } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { deletePlan, updatePlanWeeks, terminatePlan } from "@/app/actions/plan";
+import { ExportPlanButton } from "./ExportPlanButton";
 import { cn } from "@/lib/utils";
 import { PowerOff } from "lucide-react";
 
@@ -88,7 +89,7 @@ export function PlanActionButtons({
 
   return (
     <>
-      <div className={cn("grid grid-cols-2 gap-4", showDuplicate ? "md:grid-cols-5" : "md:grid-cols-4")}>
+      <div className={cn("grid grid-cols-2 gap-4", showDuplicate ? "md:grid-cols-6" : "md:grid-cols-5")}>
         <Link 
           href={`/plan/designer?edit=${planId}`}
           className="glass-button py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center space-x-2 text-foreground active:scale-95 transition-transform"
@@ -105,6 +106,7 @@ export function PlanActionButtons({
             <span>Duplicate</span>
           </Link>
         )}
+        <ExportPlanButton planId={planId} />
         <button 
           onClick={() => setShowExtendOptions(!showExtendOptions)}
           className={cn(
