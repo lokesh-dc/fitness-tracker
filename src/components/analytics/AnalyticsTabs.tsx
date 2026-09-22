@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, TrendingUp } from "lucide-react";
+import { LayoutDashboard, TrendingUp, AlertTriangle } from "lucide-react";
 
 export function AnalyticsTabs() {
 	const pathname = usePathname();
@@ -19,6 +19,12 @@ export function AnalyticsTabs() {
 			href: "/analytics/exercise-timeline",
 			icon: TrendingUp,
 			active: pathname === "/analytics/exercise-timeline",
+		},
+		{
+			label: "Not Improved",
+			href: "/analytics/not-improved",
+			icon: AlertTriangle,
+			active: pathname === "/analytics/not-improved",
 		},
 	];
 
