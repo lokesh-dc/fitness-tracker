@@ -148,8 +148,67 @@ export default function WorkoutSession({
 	const [activeExerciseIndex, setActiveExerciseIndex] = useState<number | null>(
 		null,
 	);
-	const initialExercises = (() => {
-		if (customExerciseNames && customExerciseNames.length > 0) {
+const initialExercises = (() => {
+ 		const loggedExs = initialWorkoutLog?.exercises;
+ 		const hasLog = Array.isArray(loggedExs) && loggedExs.length > 0;
+
+ 		// Log-first: when a log already exists for the day, rebuild the session
+ 		// from what was ACTUALLY performed (swaps, custom exercises, completed /
+ 		// skipped sets) instead of the planned template. Then append planned
+ 		// exercises that were never logged as pending so they aren't dropped.
+ 		if (hasLog) {
+ 			const built: Exercise[] = loggedExs.map((le) => {
+ 				const tpl = template?.exercises?.find(
+ 					(t) =>
+ 						t.exerciseId === le.exerciseId ||
+ 						t.name.toLowerCase() === (le.name || "").toLowerCase(),
+ 				);
+ 				return {
+ 					...(tpl ? { ...tpl } : {}),
+ 					exerciseId: le.exerciseId || tpl?.exerciseId || "",
+ 					name: le.name,
+ 					targetSets: tpl?.targetSets ?? 3,
+ 					targetReps: tpl?.targetReps ?? 10,
+ 					lastWeight: 0,
+ 					pr:
+ 						initialPRs[le.exerciseId]?.weight ||
+ 						initialPRs[le.name]?.weight ||
+ 						0,
+ 					prReps:
+ 						initialPRs[le.exerciseId]?.reps ||
+ 						initialPRs[le.name]?.reps ||
+ 						0,
+ 					restDuration: tpl?.restDuration ?? 90,
+ 					unit: "reps",
+ 					isDone: true,
+ 					isSkipped: !!le.isSkipped,
+ 					sets: (le.sets || []).map((s) => ({ ...s })),
+ 				} as Exercise;
+ 			});
+
+ 			for (const t of template?.exercises || []) {
+ 				const alreadyThere = built.some(
+ 					(b) =>
+ 						b.exerciseId === t.exerciseId ||
+ 						b.name.toLowerCase() === t.name.toLowerCase(),
+ 				);
+ 				if (alreadyThere) continue;
+ 				built.push({
+ 					...t,
+ 					sets: Array.from({ length: t.targetSets || 1 }).map(() => ({
+ 						weight: 0,
+ 						reps: t.targetReps || 0,
+ 						completed: activeMode === "MANUAL_LOG",
+ 					})),
+ 					pr: initialPRs[t.exerciseId]?.weight || 0,
+ 					prReps: initialPRs[t.exerciseId]?.reps || 0,
+ 					isDone: false,
+ 				});
+ 			}
+ 			return built;
+ 		}
+
+ 		if (customExerciseNames && customExerciseNames.length > 0) {
 			return customExerciseNames.map((name, idx) => ({
 				exerciseId: "custom-" + idx + "-" + Date.now(),
 				name,
@@ -230,6 +289,27 @@ export default function WorkoutSession({
 		return date ?? format(new Date(), "yyyy-MM-dd");
 	}, [date]);
 
+	// True when this session was opened from an already-completed log and
+	// nothing has been edited — used to make re-completing a no-op instead of
+	// re-writing (and possibly polluting) the saved workout.
+	const sessionUnchanged = useMemo(() => {
+		const log = initialWorkoutLog;
+		if (!log?.completedAt) return false;
+		const saved = log.exercises || [];
+		if (exercises.length === 0 || exercises.length !== saved.length) return false;
+		for (let i = 0; i < exercises.length; i++) {
+			const cur = exercises[i];
+			const prev = saved[i];
+			if (!prev) return false;
+			if (cur.name !== prev.name || cur.exerciseId !== prev.exerciseId) return false;
+			if (!!cur.isSkipped !== !!prev.isSkipped) return false;
+			const fmt = (s: Array<{ weight: number; reps: number }>) =>
+				s.map((x) => `${x.weight}|${x.reps}`).join(",");
+			if (fmt(cur.sets) !== fmt(prev.sets || [])) return false;
+		}
+		return true;
+	}, [exercises, initialWorkoutLog]);
+
 	const sessionStats = useSessionStats(
 		exercises,
 		initialWorkoutLog?.id || "",
@@ -281,6 +361,8 @@ export default function WorkoutSession({
 	// Persist the current session state whenever it changes.
 	useEffect(() => {
 		if (exercises.length === 0) return;
+		// Don't draft an already-completed, unedited session.
+		if (sessionUnchanged) return;
 		saveDraft(effectiveDate, {
 			v: 1,
 			exercises,
@@ -298,6 +380,7 @@ export default function WorkoutSession({
 		activeExerciseIndex,
 		activeMode,
 		hasChangedWorkout,
+		sessionUnchanged,
 		effectiveDate,
 	]);
 
@@ -451,6 +534,15 @@ export default function WorkoutSession({
 		const unfinishedExercises = exercises.filter((ex) => !(ex as any).isDone);
 		if (unfinishedExercises.length > 0) {
 			setShowCompleteConfirm(true);
+			return;
+		}
+		// Already completed and nothing changed — completing again is a no-op so
+		// the saved workout (swaps, sets) is never rewritten or lost.
+		if (sessionUnchanged) {
+			setSavedLogId(initialWorkoutLog?.id || null);
+			clearDraft(effectiveDate);
+			setShowSuccess(true);
+			setShowCelebration(true);
 			return;
 		}
 		await doSaveWorkout();
