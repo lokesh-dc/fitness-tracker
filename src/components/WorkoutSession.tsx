@@ -154,8 +154,11 @@ export default function WorkoutSession({
 
 		// Log-first: when a log already exists for the day, rebuild the session
 		// from what was ACTUALLY performed (swaps, custom exercises, completed /
-		// skipped sets) instead of the planned template. Then append planned
-		// exercises that were never logged as pending so they aren't dropped.
+		// skipped sets) instead of the planned template. Only append planned
+		// exercises that were never logged as pending while the workout is still
+		// IN PROGRESS — a completed log already represents the final session, so
+		// re-adding planned exercises would resurrect swapped-away or skipped
+		// ones as pending duplicates.
 		if (hasLog) {
 			const built: Exercise[] = loggedExs.map((le) => {
 				const tpl = template?.exercises?.find(
@@ -186,24 +189,26 @@ export default function WorkoutSession({
 				} as Exercise;
 			});
 
-			for (const t of template?.exercises || []) {
-				const alreadyThere = built.some(
-					(b) =>
-						b.exerciseId === t.exerciseId ||
-						b.name.toLowerCase() === t.name.toLowerCase(),
-				);
-				if (alreadyThere) continue;
-				built.push({
-					...t,
-					sets: Array.from({ length: t.targetSets || 1 }).map(() => ({
-						weight: 0,
-						reps: t.targetReps || 0,
-						completed: activeMode === "MANUAL_LOG",
-					})),
-					pr: initialPRs[t.exerciseId]?.weight || 0,
-					prReps: initialPRs[t.exerciseId]?.reps || 0,
-					isDone: false,
-				});
+			if (!initialWorkoutLog?.completedAt) {
+				for (const t of template?.exercises || []) {
+					const alreadyThere = built.some(
+						(b) =>
+							b.exerciseId === t.exerciseId ||
+							b.name.toLowerCase() === t.name.toLowerCase(),
+					);
+					if (alreadyThere) continue;
+					built.push({
+						...t,
+						sets: Array.from({ length: t.targetSets || 1 }).map(() => ({
+							weight: 0,
+							reps: t.targetReps || 0,
+							completed: activeMode === "MANUAL_LOG",
+						})),
+						pr: initialPRs[t.exerciseId]?.weight || 0,
+						prReps: initialPRs[t.exerciseId]?.reps || 0,
+						isDone: false,
+					});
+				}
 			}
 			return built;
 		}
