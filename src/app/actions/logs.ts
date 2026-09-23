@@ -828,6 +828,84 @@ export async function getWorkoutByDate(dateStr: string, overrideUserId?: string)
   }
 }
 
+export interface ExercisePRStatus {
+  isPR: boolean;
+  weight: number;
+  reps: number;
+}
+
+/**
+ * Whether the current PR for each exercise was (re)set on the given day.
+ * Source of truth is ExerciseRecords.prDate, which updateExerciseRecords
+ * only writes when a new PR is registered — plus a guard that the record
+ * must have at least two sessions (a first-time/swapped exercise is just a
+ * baseline, never a PR).
+ */
+export async function getExercisePRStatus(
+  exercises: Array<{ exerciseId?: string | null; name?: string }>,
+  date: string | Date,
+  overrideUserId?: string
+): Promise<Record<string, ExercisePRStatus>> {
+  try {
+    let userIdStr = overrideUserId;
+    if (!userIdStr) {
+      const session = await getServerSession(authOptions);
+      if (!session?.user) return {};
+      userIdStr = (session.user as { id?: string }).id!;
+    }
+    const userId = new ObjectId(userIdStr);
+    const db = await getDb();
+    const targetDate = new Date(date);
+
+    const escapeRegExp = (s: string) =>
+      s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    const out: Record<string, ExercisePRStatus> = {};
+
+    for (const ex of exercises) {
+      const name = ex?.name;
+      if (!name) continue;
+
+      let record = null;
+      if (ex.exerciseId) {
+        record = await db.collection("ExerciseRecords").findOne({
+          userId,
+          exerciseId: ex.exerciseId,
+        });
+      }
+      if (!record) {
+        record = await db.collection("ExerciseRecords").findOne({
+          userId,
+          exerciseName: {
+            $regex: new RegExp(`^${escapeRegExp(name)}$`, "i"),
+          },
+        });
+      }
+      if (!record) continue;
+
+      const hadPriorSession = Array.isArray(record.history)
+        ? record.history.length >= 2
+        : false;
+      if (!record.prDate || !hadPriorSession) continue;
+
+      const isPR =
+        new Date(record.prDate).toDateString() ===
+        targetDate.toDateString();
+
+      out[name] = {
+        isPR,
+        weight: record.currentPR || 0,
+        reps: record.currentPRReps || 0,
+      };
+    }
+
+    return out;
+  } catch (error) {
+    console.error("Error checking exercise PR status:", error);
+    return {};
+  }
+}
+
 export async function deleteWorkoutLog(logId: string): Promise<{ success: boolean }> {
   try {
     const session = await getServerSession(authOptions);
@@ -851,11 +929,25 @@ export async function deleteWorkoutLog(logId: string): Promise<{ success: boolea
     const exercises: any[] = log.exercises || [];
 
     for (const ex of exercises) {
-      if (!ex.exerciseId) continue;
-      const record = await db.collection("ExerciseRecords").findOne({
-        userId,
-        exerciseId: ex.exerciseId,
-      });
+      const name = typeof ex.name === "string" ? ex.name.trim() : "";
+
+      // Mirror updateExerciseRecords: match by exerciseId first, then by name.
+      let record = null;
+      if (ex.exerciseId) {
+        record = await db.collection("ExerciseRecords").findOne({
+          userId,
+          exerciseId: ex.exerciseId,
+        });
+      }
+      if (!record && name) {
+        const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        record = await db.collection("ExerciseRecords").findOne({
+          userId,
+          exerciseName: {
+            $regex: new RegExp(`^${escaped}$`, "i"),
+          },
+        });
+      }
       if (!record) continue;
 
       const remaining = (record.history || []).filter(
@@ -881,7 +973,7 @@ export async function deleteWorkoutLog(logId: string): Promise<{ success: boolea
 
       for (const h of sorted) {
         const w = h.maxWeight || 0;
-        const r = h.maxReps || 0;
+        const r = h.maxWeightReps || h.maxReps || 0;
         if (w > currentPR || (w === currentPR && r > currentPRReps)) {
           previousPR = currentPR;
           currentPR = w;
@@ -1008,7 +1100,6 @@ export async function updateExerciseRecords(
         exerciseName: exercise.name,
         currentPR: maxWeight,
         currentPRReps: maxReps,
-        prDate: sessionDate,
         previousPR: 0,
         history: [historyEntry],
         updatedAt: new Date(),

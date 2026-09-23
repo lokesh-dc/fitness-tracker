@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
 	saveWorkoutSession,
 	saveBodyWeight,
@@ -64,6 +64,55 @@ const DAYS = [
 	"Friday",
 	"Saturday",
 ];
+
+// In-progress workout draft persisted to localStorage (keyed by session date)
+// so swaps, skips, and marked sets survive a refresh/close. Cleared once the
+// full workout is completed and saved.
+type WorkoutDraft = {
+	v: 1;
+	exercises: Exercise[];
+	bodyWeight: number;
+	step: number;
+	activeExerciseIndex: number | null;
+	activeMode: WorkoutMode;
+	hasChangedWorkout: boolean;
+	updatedAt: number;
+};
+
+function draftKey(sessionDate: string) {
+	return `workout-draft:${sessionDate}`;
+}
+
+function loadDraft(sessionDate: string): WorkoutDraft | null {
+	if (typeof window === "undefined") return null;
+	try {
+		const raw = window.localStorage.getItem(draftKey(sessionDate));
+		if (!raw) return null;
+		const parsed = JSON.parse(raw) as WorkoutDraft;
+		if (!parsed || parsed.v !== 1 || !Array.isArray(parsed.exercises)) return null;
+		return parsed;
+	} catch {
+		return null;
+	}
+}
+
+function saveDraft(sessionDate: string, draft: WorkoutDraft) {
+	if (typeof window === "undefined") return;
+	try {
+		window.localStorage.setItem(draftKey(sessionDate), JSON.stringify(draft));
+	} catch {
+		// storage unavailable/full — ignore, in-memory session still works
+	}
+}
+
+function clearDraft(sessionDate: string) {
+	if (typeof window === "undefined") return;
+	try {
+		window.localStorage.removeItem(draftKey(sessionDate));
+	} catch {
+		// ignore
+	}
+}
 
 interface WorkoutSessionProps {
 	template: WorkoutTemplate | null;
@@ -206,6 +255,51 @@ export default function WorkoutSession({
 		}
 		return () => document.body.classList.remove("hide-mobile-nav");
 	}, [step, template, exercises.length]);
+
+	// Restore an in-progress draft (swaps, skips, marked sets) once on mount.
+	const draftRestored = useRef(false);
+	useEffect(() => {
+		if (draftRestored.current) return;
+		draftRestored.current = true;
+		const draft = loadDraft(effectiveDate);
+		if (!draft || draft.exercises.length === 0) return;
+		setExercises(draft.exercises);
+		if (typeof draft.step === "number") setStep(draft.step);
+		if (
+			draft.activeExerciseIndex !== null &&
+			draft.activeExerciseIndex !== undefined
+		) {
+			setActiveExerciseIndex(draft.activeExerciseIndex);
+		}
+		if (typeof draft.bodyWeight === "number") setBodyWeight(draft.bodyWeight);
+		if (typeof draft.hasChangedWorkout === "boolean") {
+			setHasChangedWorkout(draft.hasChangedWorkout);
+		}
+		if (draft.activeMode) setActiveMode(draft.activeMode);
+	}, [effectiveDate]);
+
+	// Persist the current session state whenever it changes.
+	useEffect(() => {
+		if (exercises.length === 0) return;
+		saveDraft(effectiveDate, {
+			v: 1,
+			exercises,
+			bodyWeight,
+			step,
+			activeExerciseIndex,
+			activeMode,
+			hasChangedWorkout,
+			updatedAt: Date.now(),
+		});
+	}, [
+		exercises,
+		bodyWeight,
+		step,
+		activeExerciseIndex,
+		activeMode,
+		hasChangedWorkout,
+		effectiveDate,
+	]);
 
 	const addSet = (exerciseIndex: number) => {
 		setExercises((prev) => {
@@ -384,6 +478,8 @@ export default function WorkoutSession({
 				effectiveDate,
 			);
 			setSavedLogId(savedLog.id);
+			// Workout is complete — stop treating the current state as a draft.
+			clearDraft(effectiveDate);
 			setShowSuccess(true);
 			setShowCelebration(true);
 		} catch (error) {
@@ -1487,6 +1583,7 @@ export default function WorkoutSession({
 					</GlassCard>
 
 					<ExerciseHistoryCard
+						key={`${ex.name}|${ex.exerciseId || ""}`}
 						exerciseName={ex.name}
 						userId={userId}
 						mode={activeMode}

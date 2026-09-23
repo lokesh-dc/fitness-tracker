@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, BarChart2 } from "lucide-react";
+import { ChevronDown, BarChart2, ArrowRight } from "lucide-react";
+import Link from "next/link";
 import ExerciseProgressChart from "./ExerciseProgressChart";
 import { getExerciseProgress } from "@/app/actions/analytics";
 import { cn } from "@/lib/utils";
@@ -71,7 +72,14 @@ export default function ExerciseProgressSection({
           Pick a lift to inspect its strength curve.
         </p>
 
-        <div>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/analytics/exercise-timeline?exercise=${encodeURIComponent(selectedExercise)}`}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-foreground/[0.08] px-3.5 py-2 text-[12px] font-semibold text-foreground/50 transition-all hover:border-brand-primary/40 hover:text-brand-primary">
+            <ArrowRight className="h-3.5 w-3.5" />
+            View full timeline
+          </Link>
+
           <button
             ref={buttonRef}
             type="button"
