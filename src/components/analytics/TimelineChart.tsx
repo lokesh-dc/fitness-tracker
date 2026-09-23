@@ -9,104 +9,161 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   ReferenceLine,
-  Cell
 } from "recharts";
 import { format } from "date-fns";
+import { useTheme } from "next-themes";
 import { ExerciseTimelineEntry } from "@/types/workout";
-import { GlassCard } from "@/components/ui/GlassCard";
 
 interface TimelineChartProps {
   data: ExerciseTimelineEntry[];
 }
 
-const CustomPRDot = (props: any) => {
-  const { cx, cy, payload } = props;
-  if (!payload.isPR) {
-    return <circle cx={cx} cy={cy} r={3} fill="var(--brand-accent)" stroke="none" />;
+interface PRDotProps {
+  cx?: number;
+  cy?: number;
+  payload?: ExerciseTimelineEntry;
+}
+
+const CustomPRDot = ({ cx, cy, payload }: PRDotProps) => {
+  if (cx == null || cy == null) return null;
+  if (!payload?.isPR) {
+    return <circle cx={cx} cy={cy} r={3} fill="var(--brand-accent)" />;
   }
   return (
     <g>
-      <circle cx={cx} cy={cy} r={7} fill="var(--brand-accent)" filter="drop-shadow(0 0 4px rgba(249,115,22,0.5))" />
-      <text x={cx} y={cy + 3.5} textAnchor="middle" fontSize={10}>🏆</text>
+      <circle
+        cx={cx}
+        cy={cy}
+        r={6.5}
+        fill="var(--brand-accent)"
+        stroke="rgba(249,115,22,0.35)"
+        strokeWidth={5}
+        strokeOpacity={0.35}
+      />
+      <circle cx={cx} cy={cy} r={2.5} fill="#0a0a0a" />
     </g>
   );
 };
 
-const CustomTooltip = ({ active, payload }: any) => {
+interface TooltipProps {
+  active?: boolean;
+  payload?: Array<{ payload: ExerciseTimelineEntry }>;
+}
+
+const CustomTooltip = ({ active, payload }: TooltipProps) => {
   if (!active || !payload?.length) return null;
-  const d = payload[0].payload as ExerciseTimelineEntry;
+  const d = payload[0].payload;
 
   return (
-    <GlassCard className="p-3 text-[10px] space-y-1.5 min-w-[160px] border-brand-primary/20 shadow-2xl backdrop-blur-xl">
-      <p className="font-black text-white uppercase tracking-widest pb-1 border-b border-white/5">
-        {format(new Date(d.date), 'MMM d, yyyy')}
+    <div className="glass min-w-[170px] rounded-2xl border border-foreground/10 p-3 shadow-2xl">
+      <p className="border-b border-foreground/10 pb-1.5 text-[11px] font-bold text-foreground">
+        {format(new Date(d.date), "MMM d, yyyy")}
       </p>
-      <div className="space-y-1">
-        <p className="flex justify-between">
-          <span className="text-foreground/40 uppercase font-bold">Max Weight:</span>
-          <span className="text-brand-primary font-black">{d.maxWeight}kg</span>
+      <div className="mt-1.5 space-y-1 text-[11px]">
+        <p className="flex justify-between gap-4">
+          <span className="text-foreground/50">Max weight</span>
+          <span className="font-bold text-brand-primary">{d.maxWeight}kg</span>
         </p>
-        <p className="flex justify-between">
-          <span className="text-foreground/40 uppercase font-bold">Est. 1RM:</span>
-          <span className="text-indigo-400 font-black">{d.estimatedOneRM}kg</span>
+        <p className="flex justify-between gap-4">
+          <span className="text-foreground/50">Est. 1RM</span>
+          <span className="font-bold text-indigo-400">
+            {d.estimatedOneRM}kg
+          </span>
         </p>
-        <p className="flex justify-between">
-          <span className="text-foreground/40 uppercase font-bold">Sets × Avg Reps:</span>
-          <span className="text-white font-bold">{d.totalSets} × {d.avgRepsPerSet}</span>
+        <p className="flex justify-between gap-4">
+          <span className="text-foreground/50">Sets × avg reps</span>
+          <span className="font-semibold text-foreground">
+            {d.totalSets} × {d.avgRepsPerSet}
+          </span>
         </p>
-        <p className="flex justify-between">
-          <span className="text-foreground/40 uppercase font-bold">Volume:</span>
-          <span className="text-white font-bold">{d.totalVolume.toLocaleString()}kg</span>
+        <p className="flex justify-between gap-4">
+          <span className="text-foreground/50">Volume</span>
+          <span className="font-semibold text-foreground">
+            {d.totalVolume.toLocaleString()}kg
+          </span>
         </p>
       </div>
       {d.isPR && (
-        <div className="pt-1 mt-1 border-t border-brand-primary/20 flex items-center space-x-2">
-          <span className="text-xs">🏆</span>
-          <span className="text-brand-primary/80 font-black uppercase tracking-tighter">Personal Record</span>
+        <div className="mt-2 border-t border-brand-primary/20 pt-2">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary">
+            Personal record
+          </span>
         </div>
       )}
-    </GlassCard>
+    </div>
   );
 };
 
 export function TimelineChart({ data }: TimelineChartProps) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme !== "light";
+
+  const chartData = useMemo(
+    () =>
+      data.map((d) => ({
+        ...d,
+        date: d.date instanceof Date ? d.date.toISOString() : d.date,
+      })),
+    [data],
+  );
+
+  const prDates = useMemo(
+    () => chartData.filter((d) => d.isPR).map((d) => d.date as string),
+    [chartData],
+  );
+
+  const tickFill = isDark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.3)";
+  const gridStroke = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)";
+  const cursorStroke = isDark
+    ? "rgba(249,115,22,0.2)"
+    : "rgba(249,115,22,0.3)";
+
   if (data.length === 0) {
     return (
-      <div className="h-[400px] flex items-center justify-center border border-dashed border-white/10 rounded-3xl">
-        <p className="text-xs font-bold text-foreground/40 uppercase tracking-widest">No data for this period</p>
+      <div className="flex h-[400px] items-center justify-center rounded-2xl border border-dashed border-foreground/10">
+        <p className="text-sm font-medium text-foreground/40">
+          No sessions in this period.
+        </p>
       </div>
     );
   }
 
-  const prDates = useMemo(() => data.filter(d => d.isPR).map(d => d.date), [data]);
-
   return (
-    <div className="h-[450px] w-full">
+    <div className="h-[420px] w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={data} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
+        <ComposedChart
+          data={chartData}
+          margin={{ top: 20, right: 8, left: -12, bottom: 0 }}>
           <defs>
             <linearGradient id="volumeGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--brand-accent)" stopOpacity={0.2}/>
-              <stop offset="95%" stopColor="var(--brand-accent)" stopOpacity={0}/>
+              <stop
+                offset="5%"
+                stopColor="var(--brand-accent)"
+                stopOpacity={0.18}
+              />
+              <stop
+                offset="95%"
+                stopColor="var(--brand-accent)"
+                stopOpacity={0}
+              />
             </linearGradient>
           </defs>
-          
+
           <XAxis
             dataKey="date"
             axisLine={false}
             tickLine={false}
-            tickFormatter={(d) => format(new Date(d), 'MMM d')}
-            tick={{ fill: 'rgba(255,255,255,0.2)', fontSize: 10, fontWeight: 700 }}
+            tickFormatter={(d) => format(new Date(d), "MMM d")}
+            tick={{ fill: tickFill, fontSize: 10, fontWeight: 600 }}
             minTickGap={30}
           />
           <YAxis
             yAxisId="weight"
             axisLine={false}
             tickLine={false}
-            tick={{ fill: 'rgba(255,255,255,0.2)', fontSize: 10, fontWeight: 700 }}
+            tick={{ fill: tickFill, fontSize: 10, fontWeight: 600 }}
           />
           <YAxis
             yAxisId="volume"
@@ -115,19 +172,28 @@ export function TimelineChart({ data }: TimelineChartProps) {
             tickLine={false}
             hide
           />
-          
-          <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.05)" />
-          <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(249,115,22,0.2)', strokeWidth: 2 }} />
-          
-          {prDates.map((date, idx) => (
+
+          <CartesianGrid vertical={false} stroke={gridStroke} />
+          <Tooltip
+            content={<CustomTooltip />}
+            cursor={{ stroke: cursorStroke, strokeWidth: 2 }}
+          />
+
+          {prDates.map((date) => (
             <ReferenceLine
-              key={idx}
-              x={date instanceof Date ? date.toISOString() : date}
+              key={date}
+              x={date}
               yAxisId="weight"
               stroke="var(--brand-accent)"
               strokeDasharray="3 3"
-              strokeOpacity={0.3}
-              label={{ position: 'top', value: 'PR', fill: 'var(--brand-accent)', fontSize: 9, fontWeight: 900 }}
+              strokeOpacity={0.35}
+              label={{
+                position: "top",
+                value: "PR",
+                fill: "var(--brand-accent)",
+                fontSize: 9,
+                fontWeight: 700,
+              }}
             />
           ))}
 
@@ -138,28 +204,28 @@ export function TimelineChart({ data }: TimelineChartProps) {
             radius={[4, 4, 0, 0]}
             barSize={30}
           />
-          
+
           <Line
             yAxisId="weight"
             type="monotone"
             dataKey="maxWeight"
             stroke="var(--brand-accent)"
-            strokeWidth={3}
+            strokeWidth={2.5}
             dot={<CustomPRDot />}
-            activeDot={{ r: 6, fill: 'var(--brand-accent)', stroke: '#000', strokeWidth: 2 }}
-            animationDuration={1500}
+            activeDot={{ r: 5, fill: "var(--brand-accent)" }}
+            animationDuration={1200}
           />
-          
+
           <Line
             yAxisId="weight"
             type="monotone"
             dataKey="estimatedOneRM"
             stroke="#818cf8"
-            strokeWidth={2}
+            strokeWidth={1.75}
             strokeDasharray="5 5"
             dot={false}
-            activeDot={{ r: 4, fill: '#818cf8' }}
-            animationDuration={2000}
+            activeDot={{ r: 4, fill: "#818cf8" }}
+            animationDuration={1600}
           />
         </ComposedChart>
       </ResponsiveContainer>

@@ -1,110 +1,154 @@
 "use client";
 
+import { useMemo } from "react";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  ResponsiveContainer,
   AreaChart,
   Area,
-  Tooltip
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
 } from "recharts";
-import { ExerciseTimelineEntry } from "@/types/workout";
-import { GlassCard } from "@/components/ui/GlassCard";
 import { format } from "date-fns";
+import { ExerciseTimelineEntry } from "@/types/workout";
 
 interface MetricCardsProps {
   data: ExerciseTimelineEntry[];
 }
 
+interface SessionTooltipProps {
+  active?: boolean;
+  payload?: Array<{ payload: ExerciseTimelineEntry }>;
+}
+
+const SessionTooltip = ({ active, payload }: SessionTooltipProps) => {
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload;
+  return (
+    <div className="rounded-xl border border-foreground/10 bg-background/95 px-3 py-2 shadow-xl backdrop-blur">
+      <p className="text-[11px] font-semibold text-foreground">
+        {format(new Date(d.date), "MMM d, yyyy")}
+      </p>
+      <p className="text-[11px] text-foreground/50">
+        {d.totalSets} sets · {d.avgRepsPerSet} avg reps
+      </p>
+    </div>
+  );
+};
+
+function MiniArea({
+  data,
+  dataKey,
+  color,
+}: {
+  data: ExerciseTimelineEntry[];
+  dataKey: keyof ExerciseTimelineEntry;
+  color: string;
+}) {
+  const empty = useMemo(
+    () => data.every((d) => Number(d[dataKey]) === 0),
+    [data, dataKey],
+  );
+
+  if (empty) {
+    return (
+      <div className="flex h-16 items-center justify-center rounded-xl border border-dashed border-foreground/10 text-[11px] font-medium text-foreground/40">
+        Not enough sessions to plot.
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-16 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart
+          data={data}
+          margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id={`fill-${dataKey}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.25} />
+              <stop offset="100%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <XAxis dataKey="date" hide />
+          <Tooltip
+            content={<SessionTooltip />}
+            cursor={{ stroke: "rgba(249,115,22,0.25)", strokeWidth: 1.5 }}
+          />
+          <Area
+            type="monotone"
+            dataKey={dataKey as string}
+            stroke={color}
+            strokeWidth={1.75}
+            fill={`url(#fill-${dataKey})`}
+            dot={false}
+            animationDuration={900}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function StatPanel({
+  label,
+  value,
+  sub,
+  data,
+  dataKey,
+  color,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  data: ExerciseTimelineEntry[];
+  dataKey: keyof ExerciseTimelineEntry;
+  color: string;
+}) {
+  return (
+    <div className="space-y-4 rounded-[1.5rem] border border-foreground/[0.06] bg-foreground/[0.02] p-5 md:p-6">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-foreground/35">
+          {label}
+        </span>
+        <span className="text-[11px] font-medium text-foreground/40">{sub}</span>
+      </div>
+      <div className="text-2xl font-extrabold tracking-tight text-foreground md:text-3xl">
+        {value}
+      </div>
+      <MiniArea data={data} dataKey={dataKey} color={color} />
+    </div>
+  );
+}
+
 export function MetricCards({ data }: MetricCardsProps) {
   if (data.length === 0) return null;
 
-  const lastEntry = data[data.length - 1];
+  const ascending = [...data].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+  );
+  const latest = ascending[ascending.length - 1];
+  const avgReps = (
+    ascending.reduce((sum, d) => sum + d.avgRepsPerSet, 0) / ascending.length
+  ).toFixed(1);
 
   return (
-    <div className="grid grid-cols-1 gap-6">
-      {/* Reps Card */}
-      <GlassCard className="p-6 space-y-4 bg-brand-primary/[0.02]">
-        <div className="flex justify-between items-end">
-          <div className="space-y-1">
-            <h4 className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em]">Avg Reps / Set</h4>
-            <p className="text-2xl font-black text-foreground">{lastEntry.avgRepsPerSet}</p>
-          </div>
-          <div className="text-right">
-             <span className="text-[10px] font-bold text-brand-primary/60 uppercase">Targeting Hyp.</span>
-          </div>
-        </div>
-        
-        <div className="h-32 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data}>
-              <Bar 
-                dataKey="avgRepsPerSet" 
-                fill="#fb923c" 
-                radius={[2, 2, 0, 0]}
-                opacity={0.8}
-              />
-              <XAxis dataKey="date" hide />
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (!active || !payload?.length) return null;
-                  return (
-                    <GlassCard className="p-2 text-[8px] font-black uppercase text-foreground border-white/10">
-                      {payload[0].value} Reps
-                    </GlassCard>
-                  );
-                }}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </GlassCard>
-
-      {/* Volume Card */}
-      <GlassCard className="p-6 space-y-4 bg-brand-primary/[0.02]">
-        <div className="flex justify-between items-end">
-          <div className="space-y-1">
-            <h4 className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em]">Session Volume</h4>
-            <p className="text-2xl font-black text-foreground">{lastEntry.totalVolume.toLocaleString()}kg</p>
-          </div>
-           <div className="text-right">
-             <span className="text-[10px] font-bold text-brand-primary/60 uppercase">Tonnage Trend</span>
-          </div>
-        </div>
-
-        <div className="h-32 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data}>
-              <defs>
-                <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--brand-accent)" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="var(--brand-accent)" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <Area 
-                type="monotone" 
-                dataKey="totalVolume" 
-                stroke="var(--brand-accent)" 
-                fill="url(#areaGrad)" 
-                strokeWidth={2}
-              />
-              <XAxis dataKey="date" hide />
-               <Tooltip
-                content={({ active, payload }) => {
-                  if (!active || !payload?.length) return null;
-                  return (
-                    <GlassCard className="p-2 text-[8px] font-black uppercase text-foreground border-white/10">
-                      {payload[0].value?.toLocaleString()}kg
-                    </GlassCard>
-                  );
-                }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </GlassCard>
+    <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+      <StatPanel
+        label="Avg reps"
+        value={avgReps}
+        sub={`Last session · ${format(new Date(latest.date), "MMM d")}`}
+        data={ascending}
+        dataKey="avgRepsPerSet"
+        color="#f97316"
+      />
+      <StatPanel
+        label="Session volume"
+        value={`${latest.totalVolume.toLocaleString()}kg`}
+        sub="Most recent"
+        data={ascending}
+        dataKey="totalVolume"
+        color="#818cf8"
+      />
     </div>
   );
 }

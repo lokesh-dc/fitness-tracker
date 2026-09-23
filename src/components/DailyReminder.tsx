@@ -3,11 +3,9 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-	Calendar,
 	Clock,
 	X,
 	ArrowRight,
-	CheckCircle2,
 	Moon,
 	Sun,
 } from "lucide-react";
@@ -20,7 +18,10 @@ export function DailyReminder() {
 	const pathname = usePathname();
 	const { data: session } = useSession();
 	const [show, setShow] = useState(false);
-	const [data, setData] = useState<any>(null);
+	const [data, setData] = useState<{
+		plan: { dayOfWeek: number; exercises: unknown[] };
+		isLogged: boolean;
+	} | null>(null);
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
@@ -82,10 +83,10 @@ export function DailyReminder() {
 					initial={{ opacity: 0, scale: 0.9, y: 20 }}
 					animate={{ opacity: 1, scale: 1, y: 0 }}
 					exit={{ opacity: 0, scale: 0.9, y: 20 }}
-					className="bg-white shadow-xl rounded-3xl relative w-full max-w-md overflow-hidden p-0 shadow-2xl ">
+					className="bg-foreground text-background shadow-xl rounded-3xl relative w-full max-w-md overflow-hidden p-0 shadow-2xl ">
 					<button
 						onClick={() => handleDismiss(false)}
-						className="absolute right-[10px] top-[10px] p-1 rounded-full hover:bg-foreground/5 transition-colors text-black/40">
+						className="absolute right-[10px] top-[10px] p-1 rounded-full hover:bg-background/5 transition-colors text-background/40">
 						<X className="w-5 h-5" />
 					</button>
 					<div className="p-5">
@@ -100,14 +101,14 @@ export function DailyReminder() {
 							</div>
 						</div>
 
-						<h2 className="text-2xl font-bold text-black mb-2 tracking-tight">
+						<h2 className="text-2xl font-bold text-background mb-2 tracking-tight">
 							{isNight
 								? isLogged
 									? "Great work today!"
 									: "Don't skip the log!"
 								: "Today's Plan is ready!"}
 						</h2>
-						<p className="text-black/60 text-sm mb-3 leading-relaxed">
+						<p className="text-background/60 text-sm mb-3 leading-relaxed">
 							{isNight
 								? isLogged
 									? "You've completed your workout. Sleep well and recover!"
@@ -115,18 +116,18 @@ export function DailyReminder() {
 								: "Your scheduled workout is waiting. Let's make today count!"}
 						</p>
 
-						<div className="glass-card bg-foreground/5 border-foreground/5 p-4 mb-8">
+						<div className="bg-background/5 border-background/10 border p-4 mb-8 rounded-2xl">
 							<div className="flex items-center space-x-3">
 								<div className="w-10 h-10 rounded-xl bg-brand-primary/20 flex items-center justify-center">
 									<Clock className="w-5 h-5 text-brand-primary" />
 								</div>
 								<div>
-									<h3 className="text-sm font-bold text-foreground">
+									<h3 className="text-sm font-bold text-background">
 										{plan.dayOfWeek === 0
 											? "Rest Day"
 											: `Day ${plan.dayOfWeek}: Strength Training`}
 									</h3>
-									<p className="text-[11px] text-foreground/40 font-medium uppercase tracking-wider">
+									<p className="text-[11px] text-background/40 font-medium uppercase tracking-wider">
 										{plan.exercises.length} Exercises • 60 min session
 									</p>
 								</div>
@@ -136,7 +137,7 @@ export function DailyReminder() {
 						<div className="grid grid-cols-2 gap-3 mb-3">
 							<button
 								onClick={() => handleDismiss(false)}
-								className="px-4 py-3 rounded-2xl border border-foreground/10 text-sm font-bold text-black/60 hover:bg-black/5 transition-all text-center">
+								className="px-4 py-3 rounded-2xl border border-background/10 text-sm font-bold text-background/60 hover:bg-background/5 transition-all text-center">
 								Remind me later
 							</button>
 
@@ -151,7 +152,7 @@ export function DailyReminder() {
 
 						<button
 							onClick={() => handleDismiss(true)}
-							className="w-full py-2 text-xs font-semibold text-black/30 hover:text-foreground/60 hover:underline transition-all text-center">
+							className="w-full py-2 text-xs font-semibold text-background/30 hover:text-background/60 hover:underline transition-all text-center">
 							Okay, don&apos;t show this again today
 						</button>
 					</div>
