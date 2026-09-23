@@ -148,67 +148,67 @@ export default function WorkoutSession({
 	const [activeExerciseIndex, setActiveExerciseIndex] = useState<number | null>(
 		null,
 	);
-const initialExercises = (() => {
- 		const loggedExs = initialWorkoutLog?.exercises;
- 		const hasLog = Array.isArray(loggedExs) && loggedExs.length > 0;
+	const initialExercises = (() => {
+		const loggedExs = initialWorkoutLog?.exercises;
+		const hasLog = Array.isArray(loggedExs) && loggedExs.length > 0;
 
- 		// Log-first: when a log already exists for the day, rebuild the session
- 		// from what was ACTUALLY performed (swaps, custom exercises, completed /
- 		// skipped sets) instead of the planned template. Then append planned
- 		// exercises that were never logged as pending so they aren't dropped.
- 		if (hasLog) {
- 			const built: Exercise[] = loggedExs.map((le) => {
- 				const tpl = template?.exercises?.find(
- 					(t) =>
- 						t.exerciseId === le.exerciseId ||
- 						t.name.toLowerCase() === (le.name || "").toLowerCase(),
- 				);
- 				return {
- 					...(tpl ? { ...tpl } : {}),
- 					exerciseId: le.exerciseId || tpl?.exerciseId || "",
- 					name: le.name,
- 					targetSets: tpl?.targetSets ?? 3,
- 					targetReps: tpl?.targetReps ?? 10,
- 					lastWeight: 0,
- 					pr:
- 						initialPRs[le.exerciseId]?.weight ||
- 						initialPRs[le.name]?.weight ||
- 						0,
- 					prReps:
- 						initialPRs[le.exerciseId]?.reps ||
- 						initialPRs[le.name]?.reps ||
- 						0,
- 					restDuration: tpl?.restDuration ?? 90,
- 					unit: "reps",
- 					isDone: true,
- 					isSkipped: !!le.isSkipped,
- 					sets: (le.sets || []).map((s) => ({ ...s })),
- 				} as Exercise;
- 			});
+		// Log-first: when a log already exists for the day, rebuild the session
+		// from what was ACTUALLY performed (swaps, custom exercises, completed /
+		// skipped sets) instead of the planned template. Then append planned
+		// exercises that were never logged as pending so they aren't dropped.
+		if (hasLog) {
+			const built: Exercise[] = loggedExs.map((le) => {
+				const tpl = template?.exercises?.find(
+					(t) =>
+						t.exerciseId === le.exerciseId ||
+						t.name.toLowerCase() === (le.name || "").toLowerCase(),
+				);
+				return {
+					...(tpl ? { ...tpl } : {}),
+					exerciseId: le.exerciseId || tpl?.exerciseId || "",
+					name: le.name,
+					targetSets: tpl?.targetSets ?? 3,
+					targetReps: tpl?.targetReps ?? 10,
+					lastWeight: 0,
+					pr:
+						initialPRs[le.exerciseId]?.weight ||
+						initialPRs[le.name]?.weight ||
+						0,
+					prReps:
+						initialPRs[le.exerciseId]?.reps ||
+						initialPRs[le.name]?.reps ||
+						0,
+					restDuration: tpl?.restDuration ?? 90,
+					unit: "reps",
+					isDone: true,
+					isSkipped: !!le.isSkipped,
+					sets: (le.sets || []).map((s) => ({ ...s })),
+				} as Exercise;
+			});
 
- 			for (const t of template?.exercises || []) {
- 				const alreadyThere = built.some(
- 					(b) =>
- 						b.exerciseId === t.exerciseId ||
- 						b.name.toLowerCase() === t.name.toLowerCase(),
- 				);
- 				if (alreadyThere) continue;
- 				built.push({
- 					...t,
- 					sets: Array.from({ length: t.targetSets || 1 }).map(() => ({
- 						weight: 0,
- 						reps: t.targetReps || 0,
- 						completed: activeMode === "MANUAL_LOG",
- 					})),
- 					pr: initialPRs[t.exerciseId]?.weight || 0,
- 					prReps: initialPRs[t.exerciseId]?.reps || 0,
- 					isDone: false,
- 				});
- 			}
- 			return built;
- 		}
+			for (const t of template?.exercises || []) {
+				const alreadyThere = built.some(
+					(b) =>
+						b.exerciseId === t.exerciseId ||
+						b.name.toLowerCase() === t.name.toLowerCase(),
+				);
+				if (alreadyThere) continue;
+				built.push({
+					...t,
+					sets: Array.from({ length: t.targetSets || 1 }).map(() => ({
+						weight: 0,
+						reps: t.targetReps || 0,
+						completed: activeMode === "MANUAL_LOG",
+					})),
+					pr: initialPRs[t.exerciseId]?.weight || 0,
+					prReps: initialPRs[t.exerciseId]?.reps || 0,
+					isDone: false,
+				});
+			}
+			return built;
+		}
 
- 		if (customExerciseNames && customExerciseNames.length > 0) {
+		if (customExerciseNames && customExerciseNames.length > 0) {
 			return customExerciseNames.map((name, idx) => ({
 				exerciseId: "custom-" + idx + "-" + Date.now(),
 				name,
@@ -1266,27 +1266,27 @@ const initialExercises = (() => {
 
 
 
-	const celebrationExerciseDetails = exercises
-		.filter((ex: any) => ex.isDone && !ex.isSkipped)
-		.map((ex: any) => {
-			const def = allExercises.find(
-				(d) => d.name.toLowerCase() === ex.name.toLowerCase(),
-			);
-			return {
-				name: ex.name,
-				sets: ex.sets,
-				isPR: ex.isNewPR,
-				muscleGroup: def?.muscleGroup,
-			};
-		});
+		const celebrationExerciseDetails = exercises
+			.filter((ex: any) => ex.isDone && !ex.isSkipped)
+			.map((ex: any) => {
+				const def = allExercises.find(
+					(d) => d.name.toLowerCase() === ex.name.toLowerCase(),
+				);
+				return {
+					name: ex.name,
+					sets: ex.sets,
+					isPR: ex.isNewPR,
+					muscleGroup: def?.muscleGroup,
+				};
+			});
 
-	const muscleGroupsTrained = [
-		...new Set(
-			celebrationExerciseDetails
-				.map((ex) => ex.muscleGroup)
-				.filter(Boolean),
-		),
-	] as string[];
+		const muscleGroupsTrained = [
+			...new Set(
+				celebrationExerciseDetails
+					.map((ex) => ex.muscleGroup)
+					.filter(Boolean),
+			),
+		] as string[];
 
 		const unfinishedCount = exercises.filter((ex) => !(ex as any).isDone).length;
 
@@ -1382,14 +1382,14 @@ const initialExercises = (() => {
 							<GlassCard
 								key={ex.exerciseId}
 								className={cn(
-									"p-4 flex items-center justify-between group transition-all duration-300",
+									"p-4 px-5 flex items-center justify-between gap-4 group transition-all duration-300",
 									ex.isSkipped
 										? "border-foreground/10 bg-foreground/5 opacity-60"
 										: (ex as any).isDone
-											? "border-emerald-500/20 bg-emerald-500/5 shadow-none"
+											? "!border-emerald-500/20 !bg-emerald-500/5 shadow-none"
 											: "hover:bg-foreground/5 shadow-xl",
 								)}>
-								<div className="flex items-center space-x-2">
+								<div className="flex items-center gap-3">
 									<div className="flex flex-col items-center space-y-0.5 mr-1">
 										<button
 											onClick={(e) => { e.stopPropagation(); moveExercise(exIndex, "up"); }}
@@ -1406,23 +1406,6 @@ const initialExercises = (() => {
 											<ChevronDown className="w-3 h-3" />
 										</button>
 									</div>
-									<div
-										className={cn(
-											"w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300",
-											ex.isSkipped
-												? "bg-foreground/10 text-foreground/40"
-												: (ex as any).isDone
-													? "bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]"
-													: "bg-foreground/5 text-foreground/20 group-hover:text-brand-primary",
-										)}>
-										{ex.isSkipped ? (
-											<Plus className="w-5 h-5 rotate-45" />
-										) : (ex as any).isDone ? (
-											<CheckCircle2 className="w-5 h-5" />
-										) : (
-											<Play className="w-4 h-4" />
-										)}
-									</div>
 									<div>
 										<h4 className="text-sm font-black text-foreground">
 											{ex.name}
@@ -1437,7 +1420,7 @@ const initialExercises = (() => {
 										</p>
 									</div>
 								</div>
-								<div className="flex items-center space-x-2">
+								<div className="flex items-center gap-2">
 									{!ex.isSkipped &&
 										getExerciseAlternatives(ex).length > 0 && (
 											<button
@@ -1462,21 +1445,21 @@ const initialExercises = (() => {
 											setStep(3);
 										}}
 										className={cn(
-											"flex items-center px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+											"w-[125px] flex items-center justify-center px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
 											(ex as any).isDone
 												? "bg-foreground/5 text-foreground/40 hover:bg-foreground/10"
 												: "bg-brand-primary text-black shadow-[0_0_15px_rgba(249,115,22,0.2)] hover:scale-105 active:scale-95",
 										)}>
 										{(ex as any).isDone ? "Log Again" : "Log"}
 										{(!ex as any).isDone ? null : (
-											<ArrowRight className="w-3 h-3 ml-2" />
+											<ArrowRight className="w-3 h-3 ml-2 shrink-0" />
 										)}
 									</button>
 								</div>
 							</GlassCard>
 						))}
 					</div>
-				{swapModal}
+					{swapModal}
 				</SessionLayout>
 			</PageWithSidebar>
 		);
@@ -1681,7 +1664,7 @@ const initialExercises = (() => {
 						mode={activeMode}
 						onPlateauDetected={setPlateauDetected}
 					/>
-				{swapModal}
+					{swapModal}
 				</SessionLayout>
 			</PageWithSidebar>
 		);
