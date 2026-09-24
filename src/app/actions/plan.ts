@@ -6,13 +6,14 @@ import { PlanDocument, WorkoutTemplate, Exercise, MobilityMovement } from "@/typ
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { 
-  startOfWeek, 
-  endOfWeek, 
-  addDays, 
-  subWeeks, 
+import {
+  startOfWeek,
+  endOfWeek,
+  addDays,
+  subWeeks,
   parseISO,
 } from "date-fns";
+import { toLocalDayString } from "@/lib/day-boundary";
 import { 
   ActivePlanProgress, 
   AdherenceScore, 
@@ -593,11 +594,14 @@ export async function getPlanSidebarData(planId: string, userId: string) {
     
     for (let i = 0; i < 7; i++) {
       const d = addDays(currentWeekStart, i);
-      const dStr = d.toISOString().split('T')[0];
+      // Local-day compare on both sides: stored log dates are canonical
+      // UTC-midnight day-keys, and UTC-midnight renders as the same calendar
+      // day locally — unlike toISOString().split('T')[0], which shifts them.
+      const dStr = toLocalDayString(d);
       const systemDay = d.getDay();
-      
+
       const isPlanned = templates.some(t => t.dayOfWeek === systemDay && (t.weekNumber === currentWeek || t.weekNumber === 1));
-      const isLogged = logs.some(l => new Date(l.date).toISOString().split('T')[0] === dStr);
+      const isLogged = logs.some(l => toLocalDayString(l.date) === dStr);
       
       let status: 'done' | 'today' | 'upcoming' | 'missed' | 'rest' = 'rest';
       if (isLogged) status = 'done';

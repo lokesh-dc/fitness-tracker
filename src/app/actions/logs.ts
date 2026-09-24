@@ -8,6 +8,11 @@ import { calculateEpley } from "@/lib/epley";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { format } from "date-fns";
+import {
+  toUTCStartOfDay,
+  toUTCEndOfDay,
+  toUTCDayString,
+} from "@/lib/day-boundary";
 
 // export async function saveWorkoutSession(
 //   data: {
@@ -137,11 +142,9 @@ export async function startWorkoutSession(
     const userId = new ObjectId((session.user as any).id);
     const db = await getDb();
 
-    const targetDate = date ? new Date(date) : new Date();
-    const startOfDay = new Date(targetDate);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(targetDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    // Day-key is UTC midnight (see @/lib/day-boundary) — never local setHours.
+    const startOfDay = toUTCStartOfDay(date);
+    const endOfDay = toUTCEndOfDay(date);
 
     const existingLog = await db.collection("WorkoutLog").findOne({
       userId,
@@ -198,11 +201,9 @@ export async function saveWorkoutSession(
 
     const db = await getDb();
 
-    const targetDate = date ? new Date(date) : new Date();
-    const startOfDay = new Date(targetDate);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(targetDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    // Day-key is UTC midnight (see @/lib/day-boundary) — never local setHours.
+    const startOfDay = toUTCStartOfDay(date);
+    const endOfDay = toUTCEndOfDay(date);
 
     const existingLog = await db.collection("WorkoutLog").findOne(
       {
@@ -364,12 +365,9 @@ export async function getTodayBodyWeight(date?: string | Date, overrideUserId?: 
 
     const db = await getDb();
 
-    // Target date normalized
-    const targetDate = date ? new Date(date) : new Date();
-    const startOfDay = new Date(targetDate);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(targetDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    // Day-key is UTC midnight (see @/lib/day-boundary) — never local setHours.
+    const startOfDay = toUTCStartOfDay(date);
+    const endOfDay = toUTCEndOfDay(date);
 
     const log = await db.collection("WorkoutLog").findOne(
       {
@@ -395,12 +393,9 @@ export async function saveBodyWeight(bodyWeight: number, date?: string | Date): 
 
     const db = await getDb();
 
-    // Target date normalized
-    const targetDate = date ? new Date(date) : new Date();
-    const startOfDay = new Date(targetDate);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(targetDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    // Day-key is UTC midnight (see @/lib/day-boundary) — never local setHours.
+    const startOfDay = toUTCStartOfDay(date);
+    const endOfDay = toUTCEndOfDay(date);
 
     // See if there's an existing log for that date
     const existingLog = await db.collection("WorkoutLog").findOne(
@@ -458,15 +453,14 @@ export async function getThisWeekWeightData(
     const db = await getDb();
 
     const now = referenceDate ? new Date(referenceDate) : new Date();
-    // Sunday-start week convention
+    // Sunday-start week convention; boundaries are UTC midnight so they line
+    // up with the canonical UTC-midnight WorkoutLog day-keys.
     const dayOfWeek = now.getDay();
-    const sunday = new Date(now);
-    sunday.setDate(now.getDate() - dayOfWeek);
-    sunday.setHours(0, 0, 0, 0);
+    const sunday = toUTCStartOfDay(
+      new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek),
+    );
 
-    const saturday = new Date(sunday);
-    saturday.setDate(sunday.getDate() + 6);
-    saturday.setHours(23, 59, 59, 999);
+    const saturday = toUTCEndOfDay(new Date(sunday.getTime() + 6 * 86400000));
 
     // Fetch all logs this week that have a valid bodyWeight
     const weekLogs = await db
@@ -580,11 +574,9 @@ export async function saveSingleExerciseLog(
     const userId = new ObjectId((session.user as any).id);
 
     const db = await getDb();
-    const targetDate = date ? new Date(date) : new Date();
-    const startOfDay = new Date(targetDate);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(targetDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    // Day-key is UTC midnight (see @/lib/day-boundary) — never local setHours.
+    const startOfDay = toUTCStartOfDay(date);
+    const endOfDay = toUTCEndOfDay(date);
 
     // Find log for that date
     const existingLog = await db.collection("WorkoutLog").findOne(
@@ -681,11 +673,9 @@ export async function getTodayWorkoutLog(date?: string | Date, overrideUserId?: 
     const userId = new ObjectId(userIdStr);
 
     const db = await getDb();
-    const targetDate = date ? new Date(date) : new Date();
-    const startOfDay = new Date(targetDate);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(targetDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    // Day-key is UTC midnight (see @/lib/day-boundary) — never local setHours.
+    const startOfDay = toUTCStartOfDay(date);
+    const endOfDay = toUTCEndOfDay(date);
 
     const log = await db.collection("WorkoutLog").findOne(
       {
@@ -722,10 +712,9 @@ export async function getWorkoutHistory(
     // Build date range filter
     const match: any = { userId };
     if (year !== undefined && month !== undefined) {
-      const startOfMonth = new Date(year, month, 1);
-      startOfMonth.setHours(0, 0, 0, 0);
-      const endOfMonth = new Date(year, month + 1, 0);
-      endOfMonth.setHours(23, 59, 59, 999);
+      // UTC month bounds to match canonical UTC-midnight day-keys.
+      const startOfMonth = new Date(Date.UTC(year, month, 1));
+      const endOfMonth = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999));
       match.date = { $gte: startOfMonth, $lte: endOfMonth };
     }
 
@@ -793,15 +782,13 @@ export async function getWorkoutByDate(dateStr: string, overrideUserId?: string)
 
     const db = await getDb();
 
-    // Parse the incoming YYYY-MM-DD string into a local startOfDay and endOfDay
-    // We append T00:00:00 to ensure date-fns/native Date parser treats it as local time, not UTC
-    const targetDate = new Date(`${dateStr}T00:00:00`);
-    if (isNaN(targetDate.getTime())) return null;
+    // The incoming YYYY-MM-DD string IS the canonical day: it parses to UTC
+    // midnight, which matches the stored UTC-midnight day-keys. Never re-anchor
+    // with local setHours here.
+    if (!dateStr || isNaN(new Date(dateStr).getTime())) return null;
 
-    const startOfDay = new Date(targetDate);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(targetDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    const startOfDay = toUTCStartOfDay(dateStr);
+    const endOfDay = toUTCEndOfDay(dateStr);
 
     // Find the most recent log for the target date
     const targetLog = await db.collection("WorkoutLog").findOne(
@@ -888,9 +875,10 @@ export async function getExercisePRStatus(
         : false;
       if (!record.prDate || !hadPriorSession) continue;
 
+      // UTC-day compare so a PR set on the session day matches regardless of
+      // server timezone (prDate is a canonical UTC-midnight day-key).
       const isPR =
-        new Date(record.prDate).toDateString() ===
-        targetDate.toDateString();
+        toUTCDayString(record.prDate) === toUTCDayString(targetDate);
 
       out[name] = {
         isPR,
@@ -925,7 +913,7 @@ export async function deleteWorkoutLog(logId: string): Promise<{ success: boolea
 
     // Remove this session's entries from each exercise's PR history and
     // recompute currentPR / previousPR from whatever history remains.
-    const logDay = new Date(log.date).toDateString();
+    const logDay = toUTCDayString(log.date);
     const exercises: any[] = log.exercises || [];
 
     for (const ex of exercises) {
@@ -951,7 +939,7 @@ export async function deleteWorkoutLog(logId: string): Promise<{ success: boolea
       if (!record) continue;
 
       const remaining = (record.history || []).filter(
-        (h: any) => new Date(h.date).toDateString() !== logDay,
+        (h: any) => toUTCDayString(h.date) !== logDay,
       );
 
       // No history left — the record is meaningless, drop it entirely
@@ -1110,8 +1098,11 @@ export async function updateExerciseRecords(
       const isNewPR = isWeightPR || isRepPR;
       
       const existingHistory = existing.history || [];
-      const sameDayIndex = existingHistory.findIndex((h: any) => 
-        new Date(h.date).toDateString() === sessionDate.toDateString()
+      // UTC-day compare: stored history dates are canonical UTC-midnight
+      // day-keys, so local toDateString() would misalign them (IST midnight
+      // reads as the previous UTC day).
+      const sameDayIndex = existingHistory.findIndex(
+        (h: any) => toUTCDayString(h.date) === toUTCDayString(sessionDate),
       );
 
       const updateOps: any = {

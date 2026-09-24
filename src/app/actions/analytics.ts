@@ -25,6 +25,11 @@ import {
 } from "@/types/workout";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import {
+  toUTCStartOfDay,
+  toUTCEndOfDay,
+  toUTCDayString,
+} from "@/lib/day-boundary";
 
 export async function getHighestWeightPR(exerciseName: string): Promise<{ weight: number; reps: number }> {
   try {
@@ -806,8 +811,9 @@ export async function getMonthWorkoutDates(year: number, month: number, override
       userId = new ObjectId((session.user as any).id);
     }
 
-    const from = new Date(year, month, 1);
-    const to = new Date(year, month + 1, 0, 23, 59, 59);
+    // UTC month bounds to match canonical UTC-midnight day-keys.
+    const from = new Date(Date.UTC(year, month, 1));
+    const to = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59));
 
     const db = await getDb();
     const logs = await db.collection("WorkoutLog").find({
@@ -844,21 +850,22 @@ export async function getWeekSnapshot(overrideUserId?: string): Promise<{
     }
 
     const now = new Date();
-    // Start of week (Monday)
+    // Start of week (Monday); boundaries are UTC midnight so they line up
+    // with the canonical UTC-midnight WorkoutLog day-keys.
     const startOfWeek = new Date(now);
     const day = startOfWeek.getDay();
     const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
     startOfWeek.setDate(diff);
-    startOfWeek.setHours(0, 0, 0, 0);
+    const utcWeekStart = toUTCStartOfDay(startOfWeek);
 
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(endOfWeek.getDate() + 6);
-    endOfWeek.setHours(23, 59, 59, 999);
+    const endOfWeek = toUTCEndOfDay(
+      new Date(utcWeekStart.getTime() + 6 * 86400000),
+    );
 
     const db = await getDb();
     const logs = await db.collection("WorkoutLog").find({
       userId,
-      date: { $gte: startOfWeek, $lte: endOfWeek }
+      date: { $gte: utcWeekStart, $lte: endOfWeek }
     }).project({ date: 1, exercises: 1 }).toArray();
 
     // Only count as completed if at least one exercise was not skipped
@@ -974,10 +981,9 @@ export async function getNextPlannedWorkout(overrideUserId?: string): Promise<{
       const t = templates.find(temp => temp.dayOfWeek === checkDay);
 
       if (t) {
-        // If today, check if already logged
+        // If today, check if already logged (UTC day-key vs canonical storage).
         if (i === 0) {
-          const startOfToday = new Date(now);
-          startOfToday.setHours(0, 0, 0, 0);
+          const startOfToday = toUTCStartOfDay(now);
           const todayLog = await db.collection("WorkoutLog").findOne({
             userId,
             date: { $gte: startOfToday }
@@ -1210,8 +1216,11 @@ export async function getMissedWorkoutsThisMonth(userIdStr: string) {
     const userId = new ObjectId(userIdStr);
 
     const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    // UTC month bounds to match canonical UTC-midnight day-keys.
+    const monthStart = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
+    const monthEnd = new Date(
+      Date.UTC(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999),
+    );
 
     const loggedDocs = await db.collection('WorkoutLog').find({
       userId,
@@ -1220,7 +1229,7 @@ export async function getMissedWorkoutsThisMonth(userIdStr: string) {
 
     // Only count logs that have at least one non-skipped exercise
     const validLogs = loggedDocs.filter(l => l.exercises && l.exercises.some((ex: any) => !ex.isSkipped));
-    const loggedDates = new Set(validLogs.map(l => new Date(l.date).toDateString()));
+    const loggedDates = new Set(validLogs.map(l => toUTCDayString(l.date)));
     const sessionsLogged = loggedDates.size;
 
     // Find the most recent active plan
@@ -1258,10 +1267,10 @@ export async function getMissedWorkoutsThisMonth(userIdStr: string) {
     }
 
     let sessionsPlanned = 0;
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
+    // UTC "end of today" so the cursor below walks canonical UTC day-keys.
+    const today = toUTCEndOfDay(new Date());
 
-    const planStart = new Date(activePlan.startDate + "T00:00:00");
+    const planStart = new Date(activePlan.startDate);
 
     // Iterate from month start to today or month end
     const cursor = new Date(monthStart);
@@ -1421,16 +1430,14 @@ export async function getWeeklyVolumeComparison(
   try {
     const db = await getDb();
 
-    // Get current week Mon 00:00 → Sun 23:59
+    // Get current week Mon 00:00 → Sun 23:59 (UTC day-keys).
     function getCurrentWeekRange(): { start: Date; end: Date } {
       const now = new Date();
       const dayOfWeek = now.getDay();
-      const monday = new Date(now);
-      monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
-      monday.setHours(0, 0, 0, 0);
-      const sunday = new Date(monday);
-      sunday.setDate(monday.getDate() + 6);
-      sunday.setHours(23, 59, 59, 999);
+      const mondayLocal = new Date(now);
+      mondayLocal.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
+      const monday = toUTCStartOfDay(mondayLocal);
+      const sunday = toUTCEndOfDay(new Date(monday.getTime() + 6 * 86400000));
       return { start: monday, end: sunday };
     }
 
@@ -1662,9 +1669,11 @@ export async function getThisMonthStats(userId: string): Promise<ThisMonthStats>
     const uid = new ObjectId(userId);
 
     const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    monthEnd.setHours(23, 59, 59, 999);
+    // UTC month bounds to match canonical UTC-midnight day-keys.
+    const monthStart = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
+    const monthEnd = new Date(
+      Date.UTC(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999),
+    );
 
     const [workoutStats, prsThisMonth] = await Promise.all([
       db.collection('WorkoutLog').aggregate([
@@ -2290,12 +2299,14 @@ async function fetchVolumeHistory(userId: ObjectId, mgName: string): Promise<Wee
 }
 
 function getISOWeekString(date: Date): string {
+  // UTC getters: inputs are canonical UTC-midnight day-keys, so local getters
+  // would misattribute them near midnight in offset timezones.
   const tempDate = new Date(date.getTime());
-  tempDate.setHours(0, 0, 0, 0);
-  tempDate.setDate(tempDate.getDate() + 3 - (tempDate.getDay() + 6) % 7);
-  const week1 = new Date(tempDate.getFullYear(), 0, 4);
-  const weekNum = 1 + Math.round(((tempDate.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
-  return `${tempDate.getFullYear()}-W${weekNum}`;
+  tempDate.setUTCHours(0, 0, 0, 0);
+  tempDate.setUTCDate(tempDate.getUTCDate() + 3 - ((tempDate.getUTCDay() + 6) % 7));
+  const week1 = new Date(Date.UTC(tempDate.getUTCFullYear(), 0, 4));
+  const weekNum = 1 + Math.round(((tempDate.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getUTCDay() + 6) % 7)) / 7);
+  return `${tempDate.getUTCFullYear()}-W${weekNum}`;
 }
 
 async function fetchExerciseDetails(userId: ObjectId, mgName: string): Promise<ExerciseDetailData[]> {
