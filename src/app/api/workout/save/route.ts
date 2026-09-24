@@ -4,6 +4,7 @@ import { connectToDatabase } from '@/lib/mongodb'
 import { ObjectId } from 'mongodb'
 import { updateExerciseRecords } from '@/app/actions/logs'
 import { calculateEpley, bestEpleyFromSets } from '@/lib/epley'
+import { toUTCStartOfDay } from '@/lib/day-boundary'
 
 // AUDIT FINDINGS:
 // - WorkoutLog model: Raw MongoDB collection 'WorkoutLog' (no Mongoose model)
@@ -39,9 +40,8 @@ export const POST = withAuth(async (req) => {
       return NextResponse.json({ error: 'Invalid dates' }, { status: 400 })
     }
 
-    // Prepare Date for grouping (start of day)
-    const startOfDay = new Date(completedAt)
-    startOfDay.setHours(0, 0, 0, 0)
+    // Prepare Date for grouping (canonical UTC-midnight day-key).
+    const startOfDay = toUTCStartOfDay(completedAt)
 
     // Fetch current PRs before saving so we can embed them on each exercise
     const exercisePRs = await Promise.all(validExercises.map(async (ex: any) => {

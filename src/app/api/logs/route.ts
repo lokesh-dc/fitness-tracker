@@ -3,6 +3,7 @@ import { withAuth } from '@/lib/with-auth'
 import { connectToDatabase } from '@/lib/mongodb'
 import { ObjectId } from 'mongodb'
 import { updateExerciseRecords } from '@/app/actions/logs'
+import { toUTCStartOfDay } from '@/lib/day-boundary'
 
 export const POST = withAuth(async (req) => {
   try {
@@ -15,10 +16,9 @@ export const POST = withAuth(async (req) => {
       return NextResponse.json({ error: 'No exercises provided' }, { status: 400 })
     }
 
-    // Prepare Date
+    // Prepare Date — canonical UTC-midnight day-key (see @/lib/day-boundary).
     const logDate = payload.date ? new Date(payload.date) : new Date();
-    const startOfDay = new Date(logDate);
-    startOfDay.setHours(0, 0, 0, 0);
+    const startOfDay = toUTCStartOfDay(logDate);
 
     // 1. Prepare the log document
     const workoutLog = {
