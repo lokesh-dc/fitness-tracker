@@ -444,6 +444,24 @@ export interface ExerciseProgressDataPoint {
   totalSets: number;
 }
 
+export interface NotImprovedExercise {
+  exerciseName: string;
+  muscleGroup: string;
+  status: 'stalled' | 'unpracticed';
+  isPlanned: boolean; // part of the currently active planned workout
+  bestOneRM: number; // all-time best est. 1RM (baseline)
+  currentBestOneRM: number; // best est. 1RM reached in the window (stalled) or all-time (unpracticed)
+  bestMaxWeight: number; // all-time heaviest set weight
+  currentMaxWeight: number; // heaviest set weight reached in the window (stalled) or all-time (unpracticed)
+  deltaPercent: number;          // change between current and baseline (%)
+  totalSessions: number;         // all-time session count
+  sessionsInWindow: number;      // sessions logged in the window
+  lastLoggedDate: string;        // ISO
+  lastImprovementDate: string;   // ISO of the most recent all-time-best session
+  daysSinceLastImprovement: number;
+  dataPoints: ExerciseProgressDataPoint[];
+}
+
 export interface ExerciseProgressMap {
   [exerciseName: string]: {
     muscleGroup: string;

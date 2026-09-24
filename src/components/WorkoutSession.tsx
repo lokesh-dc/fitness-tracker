@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
 	saveWorkoutSession,
 	saveBodyWeight,
@@ -65,6 +65,55 @@ const DAYS = [
 	"Saturday",
 ];
 
+// In-progress workout draft persisted to localStorage (keyed by session date)
+// so swaps, skips, and marked sets survive a refresh/close. Cleared once the
+// full workout is completed and saved.
+type WorkoutDraft = {
+	v: 1;
+	exercises: Exercise[];
+	bodyWeight: number;
+	step: number;
+	activeExerciseIndex: number | null;
+	activeMode: WorkoutMode;
+	hasChangedWorkout: boolean;
+	updatedAt: number;
+};
+
+function draftKey(sessionDate: string) {
+	return `workout-draft:${sessionDate}`;
+}
+
+function loadDraft(sessionDate: string): WorkoutDraft | null {
+	if (typeof window === "undefined") return null;
+	try {
+		const raw = window.localStorage.getItem(draftKey(sessionDate));
+		if (!raw) return null;
+		const parsed = JSON.parse(raw) as WorkoutDraft;
+		if (!parsed || parsed.v !== 1 || !Array.isArray(parsed.exercises)) return null;
+		return parsed;
+	} catch {
+		return null;
+	}
+}
+
+function saveDraft(sessionDate: string, draft: WorkoutDraft) {
+	if (typeof window === "undefined") return;
+	try {
+		window.localStorage.setItem(draftKey(sessionDate), JSON.stringify(draft));
+	} catch {
+		// storage unavailable/full — ignore, in-memory session still works
+	}
+}
+
+function clearDraft(sessionDate: string) {
+	if (typeof window === "undefined") return;
+	try {
+		window.localStorage.removeItem(draftKey(sessionDate));
+	} catch {
+		// ignore
+	}
+}
+
 interface WorkoutSessionProps {
 	template: WorkoutTemplate | null;
 	initialBodyWeight?: number | null;
@@ -100,6 +149,70 @@ export default function WorkoutSession({
 		null,
 	);
 	const initialExercises = (() => {
+		const loggedExs = initialWorkoutLog?.exercises;
+		const hasLog = Array.isArray(loggedExs) && loggedExs.length > 0;
+
+		// Log-first: when a log already exists for the day, rebuild the session
+		// from what was ACTUALLY performed (swaps, custom exercises, completed /
+		// skipped sets) instead of the planned template. Only append planned
+		// exercises that were never logged as pending while the workout is still
+		// IN PROGRESS — a completed log already represents the final session, so
+		// re-adding planned exercises would resurrect swapped-away or skipped
+		// ones as pending duplicates.
+		if (hasLog) {
+			const built: Exercise[] = loggedExs.map((le) => {
+				const tpl = template?.exercises?.find(
+					(t) =>
+						t.exerciseId === le.exerciseId ||
+						t.name.toLowerCase() === (le.name || "").toLowerCase(),
+				);
+				return {
+					...(tpl ? { ...tpl } : {}),
+					exerciseId: le.exerciseId || tpl?.exerciseId || "",
+					name: le.name,
+					targetSets: tpl?.targetSets ?? 3,
+					targetReps: tpl?.targetReps ?? 10,
+					lastWeight: 0,
+					pr:
+						initialPRs[le.exerciseId]?.weight ||
+						initialPRs[le.name]?.weight ||
+						0,
+					prReps:
+						initialPRs[le.exerciseId]?.reps ||
+						initialPRs[le.name]?.reps ||
+						0,
+					restDuration: tpl?.restDuration ?? 90,
+					unit: "reps",
+					isDone: true,
+					isSkipped: !!le.isSkipped,
+					sets: (le.sets || []).map((s) => ({ ...s })),
+				} as Exercise;
+			});
+
+			if (!initialWorkoutLog?.completedAt) {
+				for (const t of template?.exercises || []) {
+					const alreadyThere = built.some(
+						(b) =>
+							b.exerciseId === t.exerciseId ||
+							b.name.toLowerCase() === t.name.toLowerCase(),
+					);
+					if (alreadyThere) continue;
+					built.push({
+						...t,
+						sets: Array.from({ length: t.targetSets || 1 }).map(() => ({
+							weight: 0,
+							reps: t.targetReps || 0,
+							completed: activeMode === "MANUAL_LOG",
+						})),
+						pr: initialPRs[t.exerciseId]?.weight || 0,
+						prReps: initialPRs[t.exerciseId]?.reps || 0,
+						isDone: false,
+					});
+				}
+			}
+			return built;
+		}
+
 		if (customExerciseNames && customExerciseNames.length > 0) {
 			return customExerciseNames.map((name, idx) => ({
 				exerciseId: "custom-" + idx + "-" + Date.now(),
@@ -181,6 +294,27 @@ export default function WorkoutSession({
 		return date ?? format(new Date(), "yyyy-MM-dd");
 	}, [date]);
 
+	// True when this session was opened from an already-completed log and
+	// nothing has been edited — used to make re-completing a no-op instead of
+	// re-writing (and possibly polluting) the saved workout.
+	const sessionUnchanged = useMemo(() => {
+		const log = initialWorkoutLog;
+		if (!log?.completedAt) return false;
+		const saved = log.exercises || [];
+		if (exercises.length === 0 || exercises.length !== saved.length) return false;
+		for (let i = 0; i < exercises.length; i++) {
+			const cur = exercises[i];
+			const prev = saved[i];
+			if (!prev) return false;
+			if (cur.name !== prev.name || cur.exerciseId !== prev.exerciseId) return false;
+			if (!!cur.isSkipped !== !!prev.isSkipped) return false;
+			const fmt = (s: Array<{ weight: number; reps: number }>) =>
+				s.map((x) => `${x.weight}|${x.reps}`).join(",");
+			if (fmt(cur.sets) !== fmt(prev.sets || [])) return false;
+		}
+		return true;
+	}, [exercises, initialWorkoutLog]);
+
 	const sessionStats = useSessionStats(
 		exercises,
 		initialWorkoutLog?.id || "",
@@ -206,6 +340,54 @@ export default function WorkoutSession({
 		}
 		return () => document.body.classList.remove("hide-mobile-nav");
 	}, [step, template, exercises.length]);
+
+	// Restore an in-progress draft (swaps, skips, marked sets) once on mount.
+	const draftRestored = useRef(false);
+	useEffect(() => {
+		if (draftRestored.current) return;
+		draftRestored.current = true;
+		const draft = loadDraft(effectiveDate);
+		if (!draft || draft.exercises.length === 0) return;
+		setExercises(draft.exercises);
+		if (typeof draft.step === "number") setStep(draft.step);
+		if (
+			draft.activeExerciseIndex !== null &&
+			draft.activeExerciseIndex !== undefined
+		) {
+			setActiveExerciseIndex(draft.activeExerciseIndex);
+		}
+		if (typeof draft.bodyWeight === "number") setBodyWeight(draft.bodyWeight);
+		if (typeof draft.hasChangedWorkout === "boolean") {
+			setHasChangedWorkout(draft.hasChangedWorkout);
+		}
+		if (draft.activeMode) setActiveMode(draft.activeMode);
+	}, [effectiveDate]);
+
+	// Persist the current session state whenever it changes.
+	useEffect(() => {
+		if (exercises.length === 0) return;
+		// Don't draft an already-completed, unedited session.
+		if (sessionUnchanged) return;
+		saveDraft(effectiveDate, {
+			v: 1,
+			exercises,
+			bodyWeight,
+			step,
+			activeExerciseIndex,
+			activeMode,
+			hasChangedWorkout,
+			updatedAt: Date.now(),
+		});
+	}, [
+		exercises,
+		bodyWeight,
+		step,
+		activeExerciseIndex,
+		activeMode,
+		hasChangedWorkout,
+		sessionUnchanged,
+		effectiveDate,
+	]);
 
 	const addSet = (exerciseIndex: number) => {
 		setExercises((prev) => {
@@ -359,6 +541,15 @@ export default function WorkoutSession({
 			setShowCompleteConfirm(true);
 			return;
 		}
+		// Already completed and nothing changed — completing again is a no-op so
+		// the saved workout (swaps, sets) is never rewritten or lost.
+		if (sessionUnchanged) {
+			setSavedLogId(initialWorkoutLog?.id || null);
+			clearDraft(effectiveDate);
+			setShowSuccess(true);
+			setShowCelebration(true);
+			return;
+		}
 		await doSaveWorkout();
 	};
 
@@ -384,6 +575,8 @@ export default function WorkoutSession({
 				effectiveDate,
 			);
 			setSavedLogId(savedLog.id);
+			// Workout is complete — stop treating the current state as a draft.
+			clearDraft(effectiveDate);
 			setShowSuccess(true);
 			setShowCelebration(true);
 		} catch (error) {
@@ -1078,27 +1271,27 @@ export default function WorkoutSession({
 
 
 
-	const celebrationExerciseDetails = exercises
-		.filter((ex: any) => ex.isDone && !ex.isSkipped)
-		.map((ex: any) => {
-			const def = allExercises.find(
-				(d) => d.name.toLowerCase() === ex.name.toLowerCase(),
-			);
-			return {
-				name: ex.name,
-				sets: ex.sets,
-				isPR: ex.isNewPR,
-				muscleGroup: def?.muscleGroup,
-			};
-		});
+		const celebrationExerciseDetails = exercises
+			.filter((ex: any) => ex.isDone && !ex.isSkipped)
+			.map((ex: any) => {
+				const def = allExercises.find(
+					(d) => d.name.toLowerCase() === ex.name.toLowerCase(),
+				);
+				return {
+					name: ex.name,
+					sets: ex.sets,
+					isPR: ex.isNewPR,
+					muscleGroup: def?.muscleGroup,
+				};
+			});
 
-	const muscleGroupsTrained = [
-		...new Set(
-			celebrationExerciseDetails
-				.map((ex) => ex.muscleGroup)
-				.filter(Boolean),
-		),
-	] as string[];
+		const muscleGroupsTrained = [
+			...new Set(
+				celebrationExerciseDetails
+					.map((ex) => ex.muscleGroup)
+					.filter(Boolean),
+			),
+		] as string[];
 
 		const unfinishedCount = exercises.filter((ex) => !(ex as any).isDone).length;
 
@@ -1194,14 +1387,14 @@ export default function WorkoutSession({
 							<GlassCard
 								key={ex.exerciseId}
 								className={cn(
-									"p-4 flex items-center justify-between group transition-all duration-300",
+									"p-4 px-5 flex items-center justify-between gap-4 group transition-all duration-300",
 									ex.isSkipped
 										? "border-foreground/10 bg-foreground/5 opacity-60"
 										: (ex as any).isDone
-											? "border-emerald-500/20 bg-emerald-500/5 shadow-none"
+											? "!border-emerald-500/20 !bg-emerald-500/5 shadow-none"
 											: "hover:bg-foreground/5 shadow-xl",
 								)}>
-								<div className="flex items-center space-x-2">
+								<div className="flex items-center gap-3">
 									<div className="flex flex-col items-center space-y-0.5 mr-1">
 										<button
 											onClick={(e) => { e.stopPropagation(); moveExercise(exIndex, "up"); }}
@@ -1218,23 +1411,6 @@ export default function WorkoutSession({
 											<ChevronDown className="w-3 h-3" />
 										</button>
 									</div>
-									<div
-										className={cn(
-											"w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300",
-											ex.isSkipped
-												? "bg-foreground/10 text-foreground/40"
-												: (ex as any).isDone
-													? "bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]"
-													: "bg-foreground/5 text-foreground/20 group-hover:text-brand-primary",
-										)}>
-										{ex.isSkipped ? (
-											<Plus className="w-5 h-5 rotate-45" />
-										) : (ex as any).isDone ? (
-											<CheckCircle2 className="w-5 h-5" />
-										) : (
-											<Play className="w-4 h-4" />
-										)}
-									</div>
 									<div>
 										<h4 className="text-sm font-black text-foreground">
 											{ex.name}
@@ -1249,7 +1425,7 @@ export default function WorkoutSession({
 										</p>
 									</div>
 								</div>
-								<div className="flex items-center space-x-2">
+								<div className="flex items-center gap-2">
 									{!ex.isSkipped &&
 										getExerciseAlternatives(ex).length > 0 && (
 											<button
@@ -1274,21 +1450,21 @@ export default function WorkoutSession({
 											setStep(3);
 										}}
 										className={cn(
-											"flex items-center px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+											"w-[125px] flex items-center justify-center px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
 											(ex as any).isDone
 												? "bg-foreground/5 text-foreground/40 hover:bg-foreground/10"
 												: "bg-brand-primary text-black shadow-[0_0_15px_rgba(249,115,22,0.2)] hover:scale-105 active:scale-95",
 										)}>
 										{(ex as any).isDone ? "Log Again" : "Log"}
 										{(!ex as any).isDone ? null : (
-											<ArrowRight className="w-3 h-3 ml-2" />
+											<ArrowRight className="w-3 h-3 ml-2 shrink-0" />
 										)}
 									</button>
 								</div>
 							</GlassCard>
 						))}
 					</div>
-				{swapModal}
+					{swapModal}
 				</SessionLayout>
 			</PageWithSidebar>
 		);
@@ -1487,12 +1663,13 @@ export default function WorkoutSession({
 					</GlassCard>
 
 					<ExerciseHistoryCard
+						key={`${ex.name}|${ex.exerciseId || ""}`}
 						exerciseName={ex.name}
 						userId={userId}
 						mode={activeMode}
 						onPlateauDetected={setPlateauDetected}
 					/>
-				{swapModal}
+					{swapModal}
 				</SessionLayout>
 			</PageWithSidebar>
 		);

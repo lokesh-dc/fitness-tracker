@@ -2,11 +2,11 @@
 
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/db-utils";
-import { 
-  WeightTrendData, 
-  SetLog, 
-  ExerciseTimelineEntry, 
-  MostImprovedExercise, 
+import {
+  WeightTrendData,
+  SetLog,
+  ExerciseTimelineEntry,
+  MostImprovedExercise,
   WeeklyVolumeComparison,
   BodyWeightTrend,
   AllTimeStats,
@@ -20,7 +20,8 @@ import {
   ExerciseDetailData,
   RepRangeDistribution,
   BestSession,
-  MuscleGroupDetailPageData
+  MuscleGroupDetailPageData,
+  NotImprovedExercise
 } from "@/types/workout";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -84,8 +85,10 @@ export async function getRecentPRs(): Promise<{ name: string; weight: number; da
 
     const db = await getDb();
 
+    // A "recent PR" only counts when it actually beat a previous best —
+    // first-time/swapped exercises bookmarked a baseline, not a PR.
     const records = await db.collection("ExerciseRecords")
-      .find({ userId, currentPR: { $gt: 0 } })
+      .find({ userId, currentPR: { $gt: 0 }, previousPR: { $gt: 0 } })
       .sort({ prDate: -1 })
       .limit(3)
       .toArray();
@@ -198,38 +201,38 @@ export async function getExerciseProgress(exerciseName: string): Promise<{ date:
     const userId = new ObjectId((session.user as any).id);
 
     const db = await getDb();
-    
+
     // Query raw WorkoutLog instead of ExerciseRecords cache to avoid sync/duplicate issues
     const pipeline = [
-      { 
-        $match: { 
-          userId, 
+      {
+        $match: {
+          userId,
           "exercises.name": exerciseName,
           "exercises.isSkipped": { $ne: true }
-        } 
+        }
       },
       { $unwind: "$exercises" },
-      { 
-        $match: { 
+      {
+        $match: {
           "exercises.name": exerciseName,
           "exercises.isSkipped": { $ne: true }
-        } 
+        }
       },
       { $unwind: "$exercises.sets" },
-      { 
-        $match: { 
+      {
+        $match: {
           "exercises.sets.weight": { $gt: 0 },
           $or: [
             { "exercises.sets.completed": true },
             { "exercises.sets.isDone": true },
-            { 
+            {
               $and: [
                 { "exercises.sets.weight": { $gt: 0 } },
                 { "exercises.sets.reps": { $gt: 0 } }
               ]
             }
           ]
-        } 
+        }
       },
       {
         $group: {
@@ -291,7 +294,7 @@ export async function getExerciseTimeline(
           $or: [
             { 'exercises.sets.completed': true },
             { 'exercises.sets.isDone': true },
-            { 
+            {
               $and: [
                 { 'exercises.sets.weight': { $gt: 0 } },
                 { 'exercises.sets.reps': { $gt: 0 } }
@@ -322,11 +325,17 @@ export async function getExerciseTimeline(
     // Fetch prDate from ExerciseRecords for PR marker
     const record = await db.collection('ExerciseRecords').findOne(
       { userId, exerciseName },
-      { projection: { prDate: 1 } }
+      { projection: { prDate: 1, history: 1 } }
     );
 
+    // Only mark a PR when the current best actually beat a prior session —
+    // a first-time/swapped entry is a baseline, not a milestone.
+    const hadPriorSession = Array.isArray(record?.history)
+      ? record!.history.length >= 2
+      : false;
+
     // Normalize prDate for string comparison
-    const prDateStr = record?.prDate
+    const prDateStr = record?.prDate && hadPriorSession
       ? new Date(record.prDate).toISOString().split('T')[0]
       : null;
 
@@ -361,6 +370,283 @@ export async function getExerciseTimeline(
 function calculateOneRM(weight: number, reps: number): number {
   if (reps <= 1) return weight;
   return Math.round(weight * (1 + reps / 30) * 10) / 10;
+}
+
+/**
+ * EXERCISES NOT IMPROVED
+ * Returns exercises that have NOT improved within the last `windowDays`.
+ *  - "stalled": trained inside the window, but best est. 1RM did not beat the
+ *    all-time best set before the window.
+ *  - "unpracticed": not trained at all inside the window (no chance to improve).
+ * Exercises that set a new all-time best inside the window are excluded.
+ */
+interface ExerciseProgressSession {
+  date: Date;
+  oneRM: number;
+  maxWeight: number;
+  totalSets: number;
+}
+
+interface ExerciseProgressAgg {
+  _id: string;
+  muscleGroups: string[];
+  sessions: ExerciseProgressSession[];
+}
+
+export async function getExercisesNotImproved(
+  windowDays: number = 21
+): Promise<{
+  windowDays: number;
+  exercises: NotImprovedExercise[];
+  improvedInWindow: number;
+  mostStuck: NotImprovedExercise | null;
+}> {
+  const empty = {
+    windowDays,
+    exercises: [] as NotImprovedExercise[],
+    improvedInWindow: 0,
+    mostStuck: null as NotImprovedExercise | null,
+  };
+
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return empty;
+    const userId = new ObjectId((session.user as { id: string }).id);
+
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - windowDays * 86400000);
+
+    const db = await getDb();
+
+    const pipeline = [
+      { $match: { userId } },
+      { $unwind: "$exercises" },
+      { $match: { "exercises.isSkipped": { $ne: true } } },
+      {
+        $lookup: {
+          from: "Exercises",
+          localField: "exercises.name",
+          foreignField: "name",
+          as: "exerciseDetails",
+        },
+      },
+      { $unwind: { path: "$exerciseDetails", preserveNullAndEmptyArrays: true } },
+      { $unwind: "$exercises.sets" },
+      {
+        $match: {
+          "exercises.sets.weight": { $gt: 0 },
+          "exercises.sets.reps": { $gt: 0 },
+        },
+      },
+      {
+        $addFields: {
+          _setOneRM: {
+            $add: [
+              "$exercises.sets.weight",
+              {
+                $multiply: [
+                  "$exercises.sets.weight",
+                  { $divide: ["$exercises.sets.reps", 30] },
+                ],
+              },
+            ],
+          },
+        },
+      },
+      {
+        $group: {
+          _id: { name: "$exercises.name", date: "$date" },
+          muscleGroup: { $first: { $ifNull: ["$exerciseDetails.muscleGroup", "Other"] } },
+          sessionBestOneRM: { $max: "$_setOneRM" },
+          sessionMaxWeight: { $max: "$exercises.sets.weight" },
+          totalSets: { $sum: 1 },
+        },
+      },
+      { $sort: { "_id.date": 1 } },
+      {
+        $group: {
+          _id: "$_id.name",
+          muscleGroups: { $addToSet: "$muscleGroup" },
+          sessions: {
+            $push: {
+              date: "$_id.date",
+              oneRM: "$sessionBestOneRM",
+              maxWeight: "$sessionMaxWeight",
+              totalSets: "$totalSets",
+            },
+          },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ];
+
+    const results = (await db
+      .collection("WorkoutLog")
+      .aggregate(pipeline)
+      .toArray()) as ExerciseProgressAgg[];
+
+    // "Unpracticed" is scoped to exercises in the currently active planned
+    // workout — otherwise the list would include every exercise ever logged
+    // (i.e. simply "not in the plan anymore").
+    const plannedNames = await getActivePlannedExerciseNames(userId);
+
+    const exercises: NotImprovedExercise[] = [];
+    let improvedInWindow = 0;
+    let mostStuck: NotImprovedExercise | null = null;
+
+    results.forEach((r: ExerciseProgressAgg) => {
+      const name = r._id;
+      const muscleGroup = r.muscleGroups?.[0] || "Other";
+      const data = r.sessions
+        .map((s) => ({
+          date: new Date(s.date),
+          oneRM: Math.round(s.oneRM * 10) / 10,
+          maxWeight: Math.round(s.maxWeight * 10) / 10,
+          totalSets: s.totalSets,
+        }))
+        .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+      const prior = data.filter((s) => s.date < cutoff);
+      const window = data.filter((s) => s.date >= cutoff);
+
+      const bestPrior = prior.reduce((m, s) => Math.max(m, s.oneRM), 0);
+      const bestWindow = window.reduce((m, s) => Math.max(m, s.oneRM), 0);
+      const allBest = Math.max(bestPrior, bestWindow);
+
+      const sessionsInWindow = window.length;
+      const totalSessions = data.length;
+      const isPlanned = plannedNames.has(name);
+
+      // Only flag exercises that trained in the window but stayed flat,
+      // or that are planned for the current program but weren't trained at all
+      // during the window.
+      let status: NotImprovedExercise["status"];
+      if (sessionsInWindow === 0) {
+        if (!isPlanned) return; // no longer part of the plan — skip
+        status = "unpracticed";
+      } else if (bestPrior > 0 && bestWindow <= bestPrior) {
+        status = "stalled";
+      } else {
+        // New all-time best inside the window (or first ever session) — improved.
+        improvedInWindow += 1;
+        return;
+      }
+
+      const currentBestOneRM = bestWindow > 0 ? bestWindow : allBest;
+      const currentMaxWeight =
+        status === "stalled"
+          ? window.reduce((m, s) => Math.max(m, s.maxWeight), 0)
+          : Math.max(...data.map((s) => s.maxWeight), 0);
+      // The first session that reached the all-time best is when the last
+      // improvement happened — later sessions that merely tied it don't count.
+      const lastImprovementSession = data.find((s) => s.oneRM >= allBest - 0.01) || null;
+
+      const daysSinceLastImprovement = lastImprovementSession
+        ? Math.floor((now.getTime() - lastImprovementSession.date.getTime()) / 86400000)
+        : 0;
+
+      const deltaPercent =
+        status === "stalled" && bestPrior > 0
+          ? Math.round(((bestWindow - bestPrior) / bestPrior) * 100)
+          : 0;
+
+      const exercise: NotImprovedExercise = {
+        exerciseName: name,
+        muscleGroup,
+        status,
+        isPlanned,
+        bestOneRM: Math.round(allBest * 10) / 10,
+        currentBestOneRM: Math.round(currentBestOneRM * 10) / 10,
+        bestMaxWeight: Math.round(Math.max(...data.map((s) => s.maxWeight)) * 10) / 10,
+        currentMaxWeight: Math.round(currentMaxWeight * 10) / 10,
+        deltaPercent,
+        totalSessions,
+        sessionsInWindow,
+        lastLoggedDate: data[data.length - 1].date.toISOString(),
+        lastImprovementDate: lastImprovementSession
+          ? lastImprovementSession.date.toISOString()
+          : data[0].date.toISOString(),
+        daysSinceLastImprovement,
+        dataPoints: data.map((s) => ({
+          date: s.date.toISOString(),
+          maxWeight: s.maxWeight,
+          estimatedOneRM: s.oneRM,
+          totalSets: s.totalSets,
+        })),
+      };
+
+      exercises.push(exercise);
+
+      if (
+        !mostStuck ||
+        exercise.daysSinceLastImprovement > mostStuck.daysSinceLastImprovement
+      ) {
+        mostStuck = exercise;
+      }
+    });
+
+    // Order: stalled ones (biggest regression / longest flat) first, then unpracticed.
+    exercises.sort((a, b) => {
+      if (a.status !== b.status) return a.status === "stalled" ? -1 : 1;
+      if (a.status === "stalled") {
+        return a.deltaPercent - b.deltaPercent || b.daysSinceLastImprovement - a.daysSinceLastImprovement;
+      }
+      return a.daysSinceLastImprovement - b.daysSinceLastImprovement;
+    });
+
+    return { windowDays, exercises, improvedInWindow, mostStuck };
+  } catch (error) {
+    console.error("Error in getExercisesNotImproved:", error);
+    return empty;
+  }
+}
+
+/**
+ * Collects the exercise names scheduled in the user's most recent active plan
+ * (status active, start date passed, not yet past its final week).
+ */
+async function getActivePlannedExerciseNames(userId: ObjectId): Promise<Set<string>> {
+  try {
+    const db = await getDb();
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0];
+
+    const activePlan = await db.collection("PlanDocument").findOne(
+      {
+        userId,
+        startDate: { $lte: todayStr },
+        status: { $nin: ["draft", "deleted"] },
+      },
+      { sort: { startDate: -1 } },
+    );
+
+    if (!activePlan) return new Set();
+
+    const planStart = new Date(activePlan.startDate + "T00:00:00");
+    const planEnd = new Date(planStart.getTime() + (activePlan.numWeeks * 7 - 1) * 86400000);
+    if (now.getTime() > planEnd.getTime()) return new Set();
+
+    const templates = (await db
+      .collection("WorkoutTemplate")
+      .find({
+        planId: activePlan._id.toString(),
+        userId,
+        "exercises.0": { $exists: true },
+      })
+      .toArray()) as Array<{ exercises?: Array<{ name?: string }> }>;
+
+    const names = new Set<string>();
+    templates.forEach((t) => {
+      (t.exercises || []).forEach((e) => {
+        if (e.name) names.add(e.name);
+      });
+    });
+
+    return names;
+  } catch (error) {
+    console.error("Error in getActivePlannedExerciseNames:", error);
+    return new Set();
+  }
 }
 
 /**
@@ -450,7 +736,7 @@ export async function getStreakData(overrideUserId?: string): Promise<{
       // Only iterate days where this plan is active
       const pStartCursor = new Date(Math.max(planStart.getTime(), earliestDate.getTime()));
       const pEndCursor = new Date(Math.min(planEnd.getTime(), todayDate.getTime()));
-      
+
       const cursor = new Date(pStartCursor);
       while (cursor <= pEndCursor) {
         const dStr = getLocalDayString(cursor);
@@ -1229,7 +1515,7 @@ export async function getProfileBodyWeightTrend(
 ): Promise<BodyWeightTrend> {
   try {
     const db = await getDb();
-    
+
     // Fetch last N WorkoutLogs where bodyWeight exists and is > 0
     const logs = await db.collection('WorkoutLog')
       .find({
@@ -1287,7 +1573,7 @@ export async function getProfileBodyWeightTrend(
 export async function getAllTimeStats(userId: string): Promise<AllTimeStats> {
   try {
     const db = await getDb();
-    
+
     const [workoutStats, prStats, streakDataResult] = await Promise.all([
       // Total workouts + total volume
       db.collection('WorkoutLog').aggregate([
@@ -1466,10 +1752,10 @@ export async function getAccountSummary(userId: string): Promise<AccountSummary>
   } catch (error) {
     console.error("Error in getAccountSummary:", error);
     const now = new Date();
-    return { 
-      memberSince: now, 
-      monthsTraining: 0, 
-      memberSinceLabel: now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) 
+    return {
+      memberSince: now,
+      monthsTraining: 0,
+      memberSinceLabel: now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
     };
   }
 }
@@ -1514,7 +1800,7 @@ export async function getMuscleGroupPageData(): Promise<MuscleGroupPageData> {
 async function fetchMuscleGroupSummaries(userId: ObjectId): Promise<MuscleGroupSummary[]> {
   try {
     const db = await getDb();
-    
+
     const pipeline = [
       { $match: { userId } },
       { $unwind: "$exercises" },
@@ -1528,17 +1814,17 @@ async function fetchMuscleGroupSummaries(userId: ObjectId): Promise<MuscleGroupS
         }
       },
       { $unwind: { path: "$exerciseDetails", preserveNullAndEmptyArrays: true } },
-      { 
-        $addFields: { 
-          muscleGroup: { $ifNull: ["$exerciseDetails.muscleGroup", "Other"] } 
-        } 
+      {
+        $addFields: {
+          muscleGroup: { $ifNull: ["$exerciseDetails.muscleGroup", "Other"] }
+        }
       },
       { $unwind: "$exercises.sets" },
-      { 
-        $match: { 
-          "exercises.sets.weight": { $gt: 0 }, 
-          "exercises.sets.reps": { $gt: 0 } 
-        } 
+      {
+        $match: {
+          "exercises.sets.weight": { $gt: 0 },
+          "exercises.sets.reps": { $gt: 0 }
+        }
       },
       {
         $facet: {
@@ -1586,7 +1872,7 @@ async function fetchMuscleGroupSummaries(userId: ObjectId): Promise<MuscleGroupS
     ];
 
     const [results] = await db.collection("WorkoutLog").aggregate(pipeline).toArray();
-    
+
     if (!results) return [];
 
     const muscleGroups = results.summaries.map((s: any) => {
@@ -1630,7 +1916,7 @@ async function fetchMuscleGroupSummaries(userId: ObjectId): Promise<MuscleGroupS
 async function fetchExerciseProgressMap(userId: ObjectId): Promise<ExerciseProgressMap> {
   try {
     const db = await getDb();
-    
+
     // 1. Fetch WorkoutLog data
     const pipeline = [
       { $match: { userId } },
@@ -1646,11 +1932,11 @@ async function fetchExerciseProgressMap(userId: ObjectId): Promise<ExerciseProgr
       },
       { $unwind: { path: "$exerciseDetails", preserveNullAndEmptyArrays: true } },
       { $unwind: "$exercises.sets" },
-      { 
-        $match: { 
-          "exercises.sets.weight": { $gt: 0 }, 
-          "exercises.sets.reps": { $gt: 0 } 
-        } 
+      {
+        $match: {
+          "exercises.sets.weight": { $gt: 0 },
+          "exercises.sets.reps": { $gt: 0 }
+        }
       },
       {
         $group: {
@@ -1671,8 +1957,13 @@ async function fetchExerciseProgressMap(userId: ObjectId): Promise<ExerciseProgr
     const records = await db.collection("ExerciseRecords").find({ userId }).toArray();
     const recordsMap: Record<string, { prDate?: string; currentPR?: number }> = {};
     records.forEach(r => {
+      const hadPriorSession = Array.isArray(r.history)
+        ? r.history.length >= 2
+        : false;
       recordsMap[r.exerciseName] = {
-        prDate: r.prDate instanceof Date ? r.prDate.toISOString() : r.prDate,
+        prDate: r.prDate && hadPriorSession
+          ? (r.prDate instanceof Date ? r.prDate.toISOString() : r.prDate)
+          : undefined,
         currentPR: r.currentPR
       };
     });
@@ -1772,7 +2063,7 @@ async function fetchSidebarAnalytics(userId: ObjectId): Promise<{
       { $match: { "exercises.sets.weight": { $gt: 0 }, "exercises.sets.reps": { $gt: 0 } } },
       {
         $group: {
-          _id: { 
+          _id: {
             muscleGroup: { $ifNull: ["$exerciseDetails.muscleGroup", "Other"] },
             period: { $cond: [{ $gte: ["$date", fourWeeksAgo] }, "current", "previous"] }
           },
@@ -1788,7 +2079,7 @@ async function fetchSidebarAnalytics(userId: ObjectId): Promise<{
     ];
 
     const improvementResults = await db.collection("WorkoutLog").aggregate(improvementPipeline).toArray();
-    
+
     // Group by muscle group
     const muscleGroupStats: Record<string, { current?: number; previous?: number; exercises: Record<string, number> }> = {};
     improvementResults.forEach(r => {
@@ -2010,7 +2301,7 @@ function getISOWeekString(date: Date): string {
 async function fetchExerciseDetails(userId: ObjectId, mgName: string): Promise<ExerciseDetailData[]> {
   try {
     const db = await getDb();
-    
+
     // 1. Fetch WorkoutLog data for progress
     const pipeline = [
       { $match: { userId } },
@@ -2041,7 +2332,7 @@ async function fetchExerciseDetails(userId: ObjectId, mgName: string): Promise<E
     ];
 
     const logResults = await db.collection("WorkoutLog").aggregate(pipeline).toArray();
-    
+
     // 2. Fetch PR records
     const prRecords = await db.collection("ExerciseRecords").find({ userId }).toArray();
     const prMap = new Map(prRecords.map(r => [r.exerciseName, r]));
@@ -2217,7 +2508,7 @@ async function fetchBestSession(userId: ObjectId, mgName: string): Promise<BestS
 
 function getRepRangeInterpretation(dist: RepRangeDistribution, muscleGroup: string): string {
   if (dist.total === 0) return "No training data available for rep range analysis.";
-  
+
   const maxVal = Math.max(dist.strength, dist.strengthHyper, dist.hypertrophy, dist.endurance);
 
   if (dist.strength === maxVal && dist.strength / dist.total > 0.5) {
@@ -2226,7 +2517,7 @@ function getRepRangeInterpretation(dist: RepRangeDistribution, muscleGroup: stri
   if (dist.hypertrophy === maxVal && dist.hypertrophy / dist.total > 0.5) {
     return `Your ${muscleGroup} training is optimized for muscle growth, with most sets in the 11–15 rep range. This is an effective range for hypertrophy. Make sure you're also including heavier work to build your strength base.`;
   }
-  
+
   const isBalanced = [dist.strength, dist.strengthHyper, dist.hypertrophy, dist.endurance].every(v => v / dist.total <= 0.5);
   if (isBalanced) {
     return `Your ${muscleGroup} training is well-balanced across rep ranges, developing both strength and hypertrophy. This is a solid approach for overall development.`;

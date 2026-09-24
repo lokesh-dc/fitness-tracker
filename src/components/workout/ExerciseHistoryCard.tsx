@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { ChevronDown, History } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -15,7 +15,12 @@ type Props = {
   onPlateauDetected?: (detected: boolean) => void;
 };
 
-export function ExerciseHistoryCard({ exerciseName, userId, mode, onPlateauDetected }: Props) {
+export const ExerciseHistoryCard = memo(function ExerciseHistoryCard({
+  exerciseName,
+  userId,
+  mode,
+  onPlateauDetected,
+}: Props) {
   const [sessions, setSessions] = useState<ExerciseHistorySession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -136,4 +141,4 @@ export function ExerciseHistoryCard({ exerciseName, userId, mode, onPlateauDetec
       </GlassCard>
     </div>
   );
-}
+});
