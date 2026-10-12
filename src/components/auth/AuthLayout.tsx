@@ -34,7 +34,7 @@ export function AuthLayout({
 								<div className="w-9 h-9 rounded-xl bg-brand-primary flex items-center justify-center shadow-lg shadow-brand-primary/20">
 									<Dumbbell className="w-5 h-5 text-black" />
 								</div>
-								<span className="text-lg font-black tracking-tighter text-white">
+								<span className="text-lg font-black tracking-tighter text-foreground">
 									FITNESS TRACKER
 								</span>
 							</div>
@@ -50,7 +50,7 @@ export function AuthLayout({
 								{[1, 2, 3].map((i) => (
 									<div
 										key={i}
-										className="w-8 h-8 rounded-full border-2 border-background bg-white/10 flex items-center justify-center overflow-hidden">
+										className="w-8 h-8 rounded-full border-2 border-background bg-foreground/10 flex items-center justify-center overflow-hidden">
 										<img
 											src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i + 10}`}
 											alt="User"
@@ -63,22 +63,22 @@ export function AuthLayout({
 								</div>
 							</div>
 							<div className="space-y-0.5">
-								<p className="text-xs font-black text-white uppercase tracking-tighter">
+								<p className="text-xs font-black text-foreground uppercase tracking-tighter">
 									Join with 20k+ Users!
 								</p>
-								<p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">
-									Let's see our happy customer
+								<p className="text-[10px] text-foreground/40 font-bold uppercase tracking-widest">
+									Let&apos;s see our happy customer
 								</p>
 							</div>
 						</div>
-						<div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group hover:bg-white/10 transition-all cursor-pointer">
-							<ArrowRight className="w-5 h-5 text-white/40 group-hover:text-white group-hover:rotate-[-45deg] transition-all" />
+						<div className="w-10 h-10 rounded-full bg-foreground/5 border border-foreground/10 flex items-center justify-center group hover:bg-foreground/10 transition-all cursor-pointer">
+							<ArrowRight className="w-5 h-5 text-foreground/40 group-hover:text-foreground group-hover:rotate-[-45deg] transition-all" />
 						</div>
 					</GlassCard>
 				</div>
 
 				{/* Right Side - Hero */}
-				<GlassCard className="hidden lg:flex relative overflow-hidden p-12 flex-col justify-between border-none bg-gradient-to-br from-brand-primary to-brand-dark">
+				<div className="hidden lg:flex relative overflow-hidden p-12 flex-col justify-between rounded-2xl bg-gradient-to-br from-brand-primary to-brand-dark">
 					<div className="absolute top-0 right-0 w-full h-full opacity-20 pointer-events-none">
 						<div className="absolute top-1/4 right-1/4 w-96 h-96 bg-white rounded-full blur-[120px]" />
 						<div className="absolute bottom-1/4 left-1/4 w-64 h-64 bg-black rounded-full blur-[80px]" />
@@ -111,7 +111,7 @@ export function AuthLayout({
 							</p>
 						</div>
 					</div>
-				</GlassCard>
+				</div>
 			</motion.div>
 		</div>
 	);

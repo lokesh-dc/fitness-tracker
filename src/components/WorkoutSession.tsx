@@ -847,6 +847,7 @@ export default function WorkoutSession({
 					open={showChangeWorkout}
 					exercises={allExercises}
 					preSelectedExerciseNames={exercises.map((ex) => ex.name)}
+					hasPlannedWorkout={!!template}
 					onClose={() => setShowChangeWorkout(false)}
 					onConfirm={handleChangeWorkout}
 				/>
@@ -1104,6 +1105,7 @@ export default function WorkoutSession({
 					open={showChangeWorkout}
 					exercises={allExercises}
 					preSelectedExerciseNames={exercises.map((ex) => ex.name)}
+					hasPlannedWorkout={!!template}
 					onClose={() => setShowChangeWorkout(false)}
 					onConfirm={handleChangeWorkout}
 				/>

@@ -59,11 +59,11 @@ function SignInForm() {
 			<div className="space-y-6 lg:space-y-8">
 				{/* Header */}
 				<div className="space-y-1">
-					<h1 className="text-3xl lg:text-4xl font-black text-white tracking-tight leading-none">
+					<h1 className="text-3xl lg:text-4xl font-black text-foreground tracking-tight leading-none">
 						Welcome to <br />
 						<span className="text-brand-primary">Fitness Tracker</span>
 					</h1>
-					<p className="text-white/50 text-xs font-medium max-w-sm">
+					<p className="text-foreground/50 text-xs font-medium max-w-sm">
 						Track your progress, smash your goals, and join a community of
 						dedicated athletes.
 					</p>
@@ -97,31 +97,31 @@ function SignInForm() {
 
 					<div className="space-y-4">
 						<div className="relative group">
-							<Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-focus-within:text-brand-primary transition-colors" />
+							<Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground/30 group-focus-within:text-brand-primary transition-colors" />
 							<input
 								type="email"
 								required
 								value={email}
 								onChange={(e) => setEmail(e.target.value)}
-								className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-white outline-none focus:border-brand-primary/50 focus:bg-white/10 transition-all placeholder:text-white/20"
+								className="w-full bg-foreground/5 border border-foreground/10 rounded-2xl pl-12 pr-4 py-4 text-foreground outline-none focus:border-brand-primary/50 focus:bg-foreground/10 transition-all placeholder:text-foreground/30"
 								placeholder="Email Address"
 							/>
 						</div>
 
 						<div className="relative group">
-							<Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-focus-within:text-brand-primary transition-colors" />
+							<Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground/30 group-focus-within:text-brand-primary transition-colors" />
 							<input
 								type={showPassword ? "text" : "password"}
 								required
 								value={password}
 								onChange={(e) => setPassword(e.target.value)}
-								className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-12 py-4 text-white outline-none focus:border-brand-primary/50 focus:bg-white/10 transition-all placeholder:text-white/20"
+								className="w-full bg-foreground/5 border border-foreground/10 rounded-2xl pl-12 pr-12 py-4 text-foreground outline-none focus:border-brand-primary/50 focus:bg-foreground/10 transition-all placeholder:text-foreground/30"
 								placeholder="Password"
 							/>
 							<button
 								type="button"
 								onClick={() => setShowPassword(!showPassword)}
-								className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/40 transition-colors">
+								className="absolute right-4 top-1/2 -translate-y-1/2 text-foreground/30 hover:text-foreground/50 transition-colors">
 								{showPassword ? (
 									<EyeOff className="w-5 h-5" />
 								) : (
@@ -135,9 +135,9 @@ function SignInForm() {
 						<label className="flex items-center gap-2 cursor-pointer group">
 							<input
 								type="checkbox"
-								className="w-4 h-4 rounded border-white/10 bg-white/5 text-brand-primary focus:ring-brand-primary/20 transition-all"
+								className="w-4 h-4 rounded border-foreground/10 bg-foreground/5 text-brand-primary focus:ring-brand-primary/20 transition-all"
 							/>
-							<span className="text-xs text-white/40 group-hover:text-white/60 transition-colors">
+							<span className="text-xs text-foreground/40 group-hover:text-foreground/60 transition-colors">
 								Remember me
 							</span>
 						</label>
@@ -162,7 +162,7 @@ function SignInForm() {
 					</button>
 				</form>
 
-				<p className="text-center text-white/40 text-xs font-bold uppercase tracking-widest">
+				<p className="text-center text-foreground/40 text-xs font-bold uppercase tracking-widest">
 					Don&apos;t have an account?{" "}
 					<Link
 						href="/auth/signup"

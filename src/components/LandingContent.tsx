@@ -3,43 +3,128 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
+import { Barlow, Space_Grotesk } from "next/font/google";
 import {
-	Dumbbell,
-	CheckCircle2,
 	Trophy,
-	ArrowRight,
 	Timer,
-	Zap,
+	TriangleAlert,
+	CalendarRange,
+	Flame,
 	LineChart,
-	Plus,
-	Play,
-	ShieldCheck,
+	ArrowRight,
+	Check,
 } from "lucide-react";
-import { motion, Variants } from "framer-motion";
+import { motion, MotionConfig, Variants } from "framer-motion";
 import { cn } from "@/lib/utils";
+
+const bodyFont = Barlow({
+	weight: ["400", "500", "600"],
+	subsets: ["latin"],
+	variable: "--font-barlow",
+	display: "swap",
+});
+
+const displayFont = Space_Grotesk({
+	subsets: ["latin"],
+	variable: "--font-grotesk",
+	display: "swap",
+});
 
 const containerVariants: Variants = {
 	hidden: { opacity: 0 },
 	visible: {
 		opacity: 1,
 		transition: {
-			staggerChildren: 0.1,
-			delayChildren: 0.1,
+			staggerChildren: 0.09,
+			delayChildren: 0.12,
 		},
 	},
 };
 
 const itemVariants: Variants = {
-	hidden: { opacity: 0, y: 20 },
+	hidden: { opacity: 0, y: 24 },
 	visible: {
 		opacity: 1,
 		y: 0,
 		transition: {
-			duration: 0.8,
+			duration: 0.75,
 			ease: [0.25, 1, 0.5, 1],
 		},
 	},
 };
+
+const benchSeries = [72.5, 75, 75, 77.5, 77.5, 77.5, 80, 80, 82.5, 82.5, 85, 87.5];
+const CHART_W = 640;
+const CHART_H = 180;
+const CHART_BASELINE = 158;
+
+function chartX(index: number): number {
+	return 16 + (index * (CHART_W - 32)) / (benchSeries.length - 1);
+}
+
+function chartY(value: number): number {
+	return 24 + (1 - (value - 70) / 20) * 126;
+}
+
+const linePath = benchSeries
+	.map((value, index) => `${index === 0 ? "M" : "L"}${chartX(index).toFixed(1)},${chartY(value).toFixed(1)}`)
+	.join(" ");
+
+const areaPath = `${linePath} L${chartX(benchSeries.length - 1).toFixed(1)},${CHART_BASELINE} L${chartX(0).toFixed(1)},${CHART_BASELINE} Z`;
+
+interface Problem {
+	problem: string;
+	detail: string;
+	fix: string;
+}
+
+const problems: Problem[] = [
+	{
+		problem: "You forget what you lifted",
+		detail: "The notes app scrolled past it, the whiteboard photo is from March, and last week's bench weight is a guess.",
+		fix: "Every exercise opens with your last session and your current PRs, so the numbers to beat are on screen before the first rep.",
+	},
+	{
+		problem: "Rest times drift",
+		detail: "A quick 90 seconds turns into three minutes of scrolling, and the next set starts cold.",
+		fix: "The timer starts itself the moment a set is logged and counts down to the next one — adjustable per exercise.",
+	},
+	{
+		problem: "Plateaus happen silently",
+		detail: "The lift sits at 80 kg for a month and nothing in your workflow says so.",
+		fix: "If weight and reps haven't moved in three weeks, the plateau alert fires mid-session, while there's still a set left to adjust.",
+	},
+	{
+		problem: "PRs pass without notice",
+		detail: "A 5 kg jump on deadlift happens and the notebook doesn't care.",
+		fix: "Two PR types — heavier weight, or the same weight for more reps — are detected live and called out the moment they land.",
+	},
+	{
+		problem: "The program lives in three places",
+		detail: "The split is in a notes app, the sets are in a spreadsheet, and the progress is nowhere.",
+		fix: "Multi-week blocks, drag-and-drop splits and warm-up math live in the same document as the log they produce.",
+	},
+];
+
+interface Step {
+	title: string;
+	body: string;
+}
+
+const steps: Step[] = [
+	{
+		title: "Design the block",
+		body: "Drag training days into a multi-week split, add exercises with sets and target reps, and the warm-up ladder calculates itself from your working weight.",
+	},
+	{
+		title: "Train, don't transcribe",
+		body: "Open the session and tap each set as it's done. The rest timer runs itself while last week's numbers sit beside the current ones.",
+	},
+	{
+		title: "Read the signal",
+		body: "Finish and get the debrief: volume, estimated 1RM, PRs hit. Timelines and muscle heatmaps show what is actually moving.",
+	},
+];
 
 export function LandingContent({ autoLoginDemo }: { autoLoginDemo?: boolean }) {
 	useEffect(() => {
@@ -48,270 +133,698 @@ export function LandingContent({ autoLoginDemo }: { autoLoginDemo?: boolean }) {
 		}
 	}, [autoLoginDemo]);
 
+	const openDemo = () => {
+		signIn("demo", { email: "demo@fittrack.app", callbackUrl: "/dashboard" });
+	};
+
 	return (
-		<div className="flex flex-col min-h-screen bg-[#0d0d0d] text-[#f0f0f0] selection:bg-brand-primary selection:text-black font-sans">
-			{/* Navigation */}
-			<nav className="flex items-center justify-between px-8 py-5 border-b border-white/5 sticky top-0 z-50 bg-[#0d0d0d]/80 backdrop-blur-md">
-				<div className="text-lg font-bold text-brand-primary tracking-tight">PeakTrack</div>
-				<div className="hidden md:flex gap-6 text-[13px] text-white/50">
-					<a href="#features" className="hover:text-brand-primary transition-colors">Features</a>
-					<a href="#how-it-works" className="hover:text-brand-primary transition-colors">How it works</a>
-					<a href="#analytics" className="hover:text-brand-primary transition-colors">Analytics</a>
-				</div>
-				<Link href="/auth/signup">
-					<button className="bg-brand-primary text-white text-[13px] font-medium border-none rounded-md px-4 py-1.5 cursor-pointer hover:bg-brand-primary/90 transition-colors">
-						Start for free
-					</button>
-				</Link>
-			</nav>
-
-			{/* Hero Section */}
-			<header className="px-8 pt-20 pb-16 text-center relative overflow-hidden">
-				<motion.div
-					initial="hidden"
-					animate="visible"
-					variants={containerVariants}
-					className="max-w-4xl mx-auto space-y-7 relative z-10"
+		<MotionConfig reducedMotion="user">
+			<div
+				className={cn(
+					"dark relative flex min-h-screen flex-col bg-background text-foreground selection:bg-brand-primary selection:text-black",
+					bodyFont.variable,
+					displayFont.variable,
+					"font-[family-name:var(--font-barlow)]",
+				)}
+			>
+				<a
+					href="#main"
+					className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[70] focus:rounded-md focus:bg-brand-primary focus:px-4 focus:py-2 focus:text-[13px] focus:font-semibold focus:text-black"
 				>
-					<motion.div variants={itemVariants} className="inline-flex items-center gap-1.5 bg-brand-primary/10 border border-brand-primary/30 text-brand-primary text-[12px] px-3 py-1 rounded-full mx-auto">
-						<div className="w-1.5 h-1.5 bg-brand-primary rounded-full animate-pulse"></div>
-						Built for the gym floor
-					</motion.div>
+					Skip to content
+				</a>
 
-					<motion.h1 variants={itemVariants} className="text-5xl md:text-7xl font-medium tracking-tight leading-[1.1] text-white">
-						Track lifts.<br />
-						<span className="text-brand-primary font-bold">Break PRs.</span><br />
-						Not your flow.
-					</motion.h1>
-
-					<motion.p variants={itemVariants} className="text-[17px] text-white/50 max-w-md mx-auto leading-relaxed">
-						A serious training log for serious lifters. Plan your sessions, track every set, and watch your strength grow — all without breaking a sweat on the UX.
-					</motion.p>
-
-					<motion.div variants={itemVariants} className="flex gap-3 justify-center items-center">
-						<Link href="/auth/signup">
-							<button className="bg-brand-primary text-white text-[14px] font-medium px-6 py-2.5 rounded-lg hover:bg-brand-primary/90 transition-all active:scale-95 shadow-lg shadow-brand-primary/20">
-								Start tracking free
-							</button>
+				{/* Navigation */}
+				<nav className="sticky top-0 z-50 border-b border-foreground/10 bg-background/85 backdrop-blur-xl">
+					<div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6 md:px-8">
+						<Link
+							href="/"
+							className="font-display text-[15px] font-bold tracking-tight"
+						>
+							TRAK<span className="text-brand-primary">.FIT</span>
 						</Link>
-						<button 
-							onClick={() => signIn("demo", { email: "demo@fittrack.app", callbackUrl: "/dashboard" })}
-							className="bg-transparent text-white/60 text-[14px] border border-white/15 px-6 py-2.5 rounded-lg hover:bg-white/5 transition-all">
-							See a demo
-						</button>
-					</motion.div>
-				</motion.div>
-			</header>
-
-			{/* Preview Section */}
-			<section className="px-8 max-w-6xl mx-auto w-full">
-				<div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5 md:p-8">
-					<div className="flex gap-2 mb-6">
-						<div className="w-2 h-2 rounded-full bg-white/15"></div>
-						<div className="w-2 h-2 rounded-full bg-white/15"></div>
-						<div className="w-2 h-2 rounded-full bg-white/15"></div>
+						<div className="hidden items-center gap-7 text-[13px] text-foreground/55 md:flex">
+							<a href="#why" className="transition-colors hover:text-foreground">
+								Why we built it
+							</a>
+							<a href="#problems" className="transition-colors hover:text-foreground">
+								What it fixes
+							</a>
+							<a href="#how" className="transition-colors hover:text-foreground">
+								How it works
+							</a>
+							<a href="#features" className="transition-colors hover:text-foreground">
+								Features
+							</a>
+						</div>
+						<div className="flex items-center gap-4">
+							<Link
+								href="/auth/signin"
+								className="hidden text-[13px] font-medium text-foreground/55 transition-colors hover:text-foreground sm:block"
+							>
+								Sign in
+							</Link>
+							<Link
+								href="/auth/signup"
+								className="rounded-lg bg-brand-primary px-4 py-2 text-[13px] font-semibold text-black transition-all hover:bg-brand-primary/90 active:scale-95"
+							>
+								Start for free
+							</Link>
+						</div>
 					</div>
+				</nav>
 
-					<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-						<div className="bg-white/5 border border-white/10 rounded-xl p-4">
-							<div className="text-[10px] text-white/35 uppercase tracking-widest mb-1.5 font-bold">Session volume</div>
-							<div className="text-2xl font-bold text-brand-primary">8,420</div>
-							<div className="text-[11px] text-white/30 mt-1">kg moved today</div>
+				<main id="main">
+					{/* Hero — what it is */}
+					<section className="relative overflow-hidden px-6 pb-20 pt-14 md:px-8 md:pb-24 md:pt-20">
+						<div aria-hidden className="landing-grid absolute inset-0" />
+						<div aria-hidden className="landing-glow absolute inset-0" />
+						<div className="relative mx-auto grid w-full max-w-6xl gap-12 lg:grid-cols-12 lg:gap-12">
+							<motion.div
+								initial="hidden"
+								animate="visible"
+								variants={containerVariants}
+								className="lg:col-span-7"
+							>
+								<motion.div variants={itemVariants}>
+									<SectionLabel>Workout log · built for progressive overload</SectionLabel>
+								</motion.div>
+
+								<motion.h1
+									variants={itemVariants}
+									className="mt-7 font-display text-balance text-[clamp(2.5rem,6.5vw,4.5rem)] font-bold leading-[1.03] tracking-[-0.035em]"
+								>
+									Track every set.
+									<br />
+									Catch every PR.
+								</motion.h1>
+
+								<motion.p
+									variants={itemVariants}
+									className="mt-6 max-w-[46ch] text-[17px] leading-relaxed text-foreground/60"
+								>
+									TRAK.FIT is a training log for lifters who care about progress, not just
+									activity. Plan your blocks, log sets between rests, and get told the moment a
+									number beats your last one.
+								</motion.p>
+
+								<motion.div variants={itemVariants} className="mt-9 flex flex-wrap items-center gap-6">
+									<Link
+										href="/auth/signup"
+										className="rounded-xl bg-brand-primary px-7 py-3 text-[14px] font-semibold text-black shadow-xl shadow-brand-primary/15 transition-all hover:bg-brand-primary/90 active:scale-[0.98]"
+									>
+										Start tracking free
+									</Link>
+									<button
+										type="button"
+										onClick={openDemo}
+										className="group inline-flex items-center gap-2 text-[14px] font-medium text-foreground/65 transition-colors hover:text-foreground"
+									>
+										Try the live demo
+										<ArrowRight
+											aria-hidden
+											className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+										/>
+									</button>
+								</motion.div>
+
+								<motion.p variants={itemVariants} className="mt-6 text-[12.5px] text-foreground/40">
+									Free to use · No credit card · Sample data if you just want to look around
+								</motion.p>
+							</motion.div>
+
+							<motion.div
+								initial={{ opacity: 0, y: 30 }}
+								animate={{ opacity: 1, y: 0 }}
+								transition={{ duration: 0.85, delay: 0.35, ease: [0.25, 1, 0.5, 1] }}
+								className="lg:col-span-5"
+							>
+								<div className="noise-overlay rounded-2xl border border-foreground/10 bg-foreground/[0.03] p-5 shadow-[0_30px_70px_-40px_rgba(0,0,0,0.9)]">
+									<div className="flex items-baseline justify-between gap-4">
+										<div>
+											<div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground/40">
+												Push day
+											</div>
+											<div className="mt-1 text-[13px] font-semibold">
+												Week 3 of 6 · Bench press 4×5
+											</div>
+										</div>
+										<div className="text-[12px] tabular-nums text-foreground/40">0:47:12</div>
+									</div>
+
+									<div className="mt-4 space-y-1.5">
+										<div className="grid grid-cols-3 items-center rounded-lg border border-foreground/10 bg-background/70 px-3 py-2.5 text-[13px] tabular-nums">
+											<span className="text-foreground/45">Set 2</span>
+											<span className="text-center font-semibold">80 kg × 5</span>
+											<span className="flex items-center justify-end gap-1 text-[11px] font-semibold text-foreground/35">
+												<Check aria-hidden className="h-3 w-3" /> Done
+											</span>
+										</div>
+										<div className="grid grid-cols-3 items-center rounded-lg border border-brand-primary/40 bg-brand-primary/[0.07] px-3 py-2.5 text-[13px] tabular-nums">
+											<span className="text-foreground/60">Set 3</span>
+											<span className="text-center font-semibold">80 kg × 5</span>
+											<span className="text-right text-[11px] font-bold uppercase tracking-wide text-brand-primary">
+												Weight PR
+											</span>
+										</div>
+										<div className="grid grid-cols-3 items-center rounded-lg border border-foreground/10 bg-background/70 px-3 py-2.5 text-[13px] tabular-nums">
+											<span className="text-foreground/45">Set 4</span>
+											<span className="text-center font-semibold text-foreground/60">80 kg × 5</span>
+											<span className="text-right text-[11px] font-semibold uppercase text-foreground/30">
+												Next
+											</span>
+										</div>
+									</div>
+
+									<div className="mt-4 rounded-xl border border-foreground/10 bg-background/70 p-4">
+										<div className="flex items-center justify-between text-[10.5px] font-semibold uppercase tracking-[0.16em] text-foreground/40">
+											<span>Rest timer</span>
+											<span className="tabular-nums text-brand-primary">1:47</span>
+										</div>
+										<div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-foreground/10">
+											<motion.div
+												className="h-full origin-left rounded-full bg-brand-primary"
+												initial={{ scaleX: 0.3 }}
+												animate={{ scaleX: 1 }}
+												transition={{
+													duration: 5,
+													repeat: Infinity,
+													repeatType: "reverse",
+													ease: "easeInOut",
+												}}
+											/>
+										</div>
+										<div className="mt-3 text-[12px] text-foreground/45">
+											Next up · Incline DB press · 24 kg × 8
+										</div>
+									</div>
+								</div>
+							</motion.div>
 						</div>
+					</section>
 
-						<div className="bg-white/5 border border-white/10 rounded-xl p-4 font-bold">
-							<div className="text-[10px] text-white/35 uppercase tracking-widest mb-1.5">Rest timer</div>
-							<div className="text-2xl text-white">2:30</div>
-							<div className="text-[11px] text-white/30 mt-1">auto-started</div>
+					{/* Why it was built */}
+					<section
+						id="why"
+						className="scroll-mt-24 border-t border-foreground/10 px-6 py-20 md:px-8 md:py-28"
+					>
+						<div className="mx-auto grid w-full max-w-6xl gap-12 lg:grid-cols-12 lg:gap-14">
+							<Reveal className="lg:col-span-5">
+								<SectionLabel>Why we built it</SectionLabel>
+								<h2 className="mt-6 font-display text-balance text-[clamp(1.85rem,3.6vw,2.75rem)] font-bold leading-[1.08] tracking-[-0.025em]">
+									Progress dies in a notes app.
+								</h2>
+								<div className="mt-6 max-w-[52ch] space-y-4 text-[15px] leading-relaxed text-foreground/60">
+									<p>
+										Most lifters track in whatever is closest: Notes, a spreadsheet, a photo of
+										a whiteboard. Three weeks later the numbers are gone, last session&apos;s
+										weights are a guess, and nobody notices the bench press has been stuck at
+										80&nbsp;kg since March.
+									</p>
+									<p>
+										TRAK.FIT exists to answer one question precisely — are you getting stronger?
+										Everything else in the app, from the rest timer to the heatmaps, exists to
+										keep that record accurate with as little typing as possible.
+									</p>
+								</div>
+								<blockquote className="mt-8 border-l-2 border-brand-primary pl-5 text-[15px] leading-relaxed text-foreground/70">
+									A log you maintain between sets, not one you reconstruct at home.
+								</blockquote>
+							</Reveal>
+
+							<Reveal delay={0.12} className="lg:col-span-7">
+								<div className="rounded-2xl border border-foreground/10 bg-foreground/[0.03] p-5 md:p-7">
+									<div className="flex flex-wrap items-baseline justify-between gap-3">
+										<div>
+											<div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground/40">
+												Bench press · estimated max
+											</div>
+											<div className="mt-1.5 font-display text-[28px] font-bold tabular-nums">87.5 kg</div>
+										</div>
+										<div className="rounded-md border border-brand-primary/30 bg-brand-primary/10 px-2.5 py-1 text-[12px] font-semibold tabular-nums text-brand-primary">
+											+15 kg over 6 months
+										</div>
+									</div>
+
+									<svg
+										viewBox={`0 0 ${CHART_W} ${CHART_H}`}
+										role="img"
+										aria-label="Bench press estimated max rising from 72.5 kg to 87.5 kg over six months, with a three-week plateau that triggered an alert"
+										className="mt-5 h-auto w-full overflow-visible"
+									>
+										<line
+											x1={CHART_W - 32}
+											y1={20}
+											x2={CHART_W - 32}
+											y2={CHART_BASELINE}
+											className="stroke-foreground/10"
+											strokeDasharray="3 5"
+										/>
+										<path d={areaPath} className="fill-brand-primary/10" />
+										<motion.path
+											d={linePath}
+											fill="none"
+											className="stroke-brand-primary"
+											strokeWidth={2.5}
+											strokeLinecap="round"
+											strokeLinejoin="round"
+											initial={{ pathLength: 0 }}
+											whileInView={{ pathLength: 1 }}
+											viewport={{ once: true, margin: "-80px" }}
+											transition={{ duration: 1.6, ease: [0.25, 1, 0.5, 1] }}
+										/>
+
+										<line
+											x1={chartX(3)}
+											y1={chartY(77.5) - 14}
+											x2={chartX(5)}
+											y2={chartY(77.5) - 14}
+											className="stroke-foreground/30"
+											strokeWidth={1.5}
+										/>
+										<line
+											x1={chartX(3)}
+											y1={chartY(77.5) - 14}
+											x2={chartX(3)}
+											y2={chartY(77.5) - 6}
+											className="stroke-foreground/30"
+											strokeWidth={1.5}
+										/>
+										<line
+											x1={chartX(5)}
+											y1={chartY(77.5) - 14}
+											x2={chartX(5)}
+											y2={chartY(77.5) - 6}
+											className="stroke-foreground/30"
+											strokeWidth={1.5}
+										/>
+										<text
+											x={(chartX(3) + chartX(5)) / 2}
+											y={chartY(77.5) - 24}
+											textAnchor="middle"
+											className="fill-foreground/45 text-[10.5px] font-medium"
+										>
+											3 weeks flat → flagged mid-session
+										</text>
+
+										<circle cx={chartX(11)} cy={chartY(87.5)} r={4.5} className="fill-brand-primary" />
+										<circle
+											cx={chartX(11)}
+											cy={chartY(87.5)}
+											r={9}
+											className="stroke-brand-primary/40"
+											strokeWidth={1.5}
+											fill="none"
+										/>
+
+										<text x={16} y={CHART_H - 4} className="fill-foreground/30 text-[10.5px]">
+											6 months ago
+										</text>
+										<text
+											x={CHART_W - 16}
+											y={CHART_H - 4}
+											textAnchor="end"
+											className="fill-foreground/30 text-[10.5px]"
+										>
+											this week
+										</text>
+									</svg>
+
+									<div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-foreground/10 pt-4 text-[12px] text-foreground/45">
+										<span className="inline-flex items-center gap-2">
+											<span aria-hidden className="h-2 w-2 rounded-full bg-brand-primary" />
+											Weight PR · every rep above your old max counts
+										</span>
+										<span className="inline-flex items-center gap-2">
+											<span aria-hidden className="h-2 w-2 rounded-full bg-foreground/30" />
+											Rep PR · same weight, more reps than before
+										</span>
+									</div>
+								</div>
+							</Reveal>
 						</div>
+					</section>
 
-						<div className="bg-white/5 border border-white/10 rounded-xl p-4 font-bold">
-							<div className="text-[10px] text-white/35 uppercase tracking-widest mb-1.5">PRs today</div>
-							<div className="text-2xl text-brand-primary">3</div>
-							<div className="text-[11px] text-white/30 mt-1">Bench / Squat / OHP</div>
-						</div>
+					{/* Problems it solves */}
+					<section
+						id="problems"
+						className="scroll-mt-24 border-t border-foreground/10 px-6 py-20 md:px-8 md:py-28"
+					>
+						<div className="mx-auto w-full max-w-6xl">
+							<Reveal>
+								<SectionLabel>What it fixes</SectionLabel>
+								<h2 className="mt-6 max-w-[20ch] font-display text-balance text-[clamp(1.85rem,3.6vw,2.75rem)] font-bold leading-[1.08] tracking-[-0.025em]">
+									Five ways strength tracking breaks down
+								</h2>
+							</Reveal>
 
-						<div className="md:col-span-3 bg-white/[0.03] border border-white/10 rounded-xl p-4">
-							<div className="text-[11px] text-white/35 uppercase tracking-widest mb-4 font-bold">Bench press — max weight (6 months)</div>
-							<div className="flex items-end gap-1.5 h-16 mb-4">
-								<div className="flex-1 rounded-t-sm bg-brand-primary/15" style={{ height: '35%' }}></div>
-								<div className="flex-1 rounded-t-sm bg-brand-primary/15" style={{ height: '45%' }}></div>
-								<div className="flex-1 rounded-t-sm bg-brand-primary/15" style={{ height: '40%' }}></div>
-								<div className="flex-1 rounded-t-sm bg-brand-primary/15" style={{ height: '55%' }}></div>
-								<div className="flex-1 rounded-t-sm bg-brand-primary/20" style={{ height: '60%' }}></div>
-								<div className="flex-1 rounded-t-sm bg-brand-primary/15" style={{ height: '50%' }}></div>
-								<div className="flex-1 rounded-t-sm bg-brand-primary/15" style={{ height: '65%' }}></div>
-								<div className="flex-1 rounded-t-sm bg-brand-primary/15" style={{ height: '70%' }}></div>
-								<div className="flex-1 rounded-t-sm bg-brand-primary/20" style={{ height: '75%' }}></div>
-								<div className="flex-1 rounded-t-sm bg-brand-primary/15" style={{ height: '68%' }}></div>
-								<div className="flex-1 rounded-t-sm bg-brand-primary/15" style={{ height: '80%' }}></div>
-								<div className="flex-1 rounded-t-sm bg-brand-primary/30" style={{ height: '90%' }}></div>
+							<div className="mt-12">
+								<div className="hidden grid-cols-2 gap-x-12 border-b border-foreground/10 pb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground/35 md:grid">
+									<span>The problem</span>
+									<span>What runs instead</span>
+								</div>
+								{problems.map((item, index) => (
+									<Reveal key={item.problem} delay={index * 0.05}>
+										<div className="grid grid-cols-1 gap-x-12 gap-y-3 border-b border-foreground/10 py-7 transition-colors md:grid-cols-2 md:hover:bg-foreground/[0.015]">
+											<div>
+												<h3 className="text-[17px] font-semibold tracking-[-0.01em]">
+													{item.problem}
+												</h3>
+												<p className="mt-1.5 max-w-[46ch] text-[13.5px] leading-relaxed text-foreground/45">
+													{item.detail}
+												</p>
+											</div>
+											<p className="max-w-[52ch] border-l-2 border-brand-primary/50 pl-4 text-[14.5px] leading-relaxed text-foreground/70 md:border-l-0 md:pl-0">
+												{item.fix}
+											</p>
+										</div>
+									</Reveal>
+								))}
 							</div>
-							<div className="flex items-center gap-2 mt-2">
-								<div className="w-2 h-2 bg-brand-primary rounded-full border border-black"></div>
-								<div className="h-[2px] flex-1 bg-gradient-to-r from-brand-primary to-orange-400 rounded-full"></div>
-								<div className="w-2 h-2 bg-brand-primary rounded-full border border-black"></div>
+						</div>
+					</section>
+
+					{/* How it works */}
+					<section
+						id="how"
+						className="scroll-mt-24 border-t border-foreground/10 px-6 py-20 md:px-8 md:py-28"
+					>
+						<div className="mx-auto w-full max-w-6xl">
+							<Reveal>
+								<SectionLabel>How it works</SectionLabel>
+								<h2 className="mt-6 max-w-[22ch] font-display text-balance text-[clamp(1.85rem,3.6vw,2.75rem)] font-bold leading-[1.08] tracking-[-0.025em]">
+									Three steps, then it runs itself
+								</h2>
+							</Reveal>
+
+							<div className="mt-14 grid gap-10 md:grid-cols-3 md:gap-8">
+								{steps.map((step, index) => (
+									<Reveal
+										key={step.title}
+										delay={index * 0.1}
+										className={cn(index === 1 && "md:mt-16", index === 2 && "md:mt-32")}
+									>
+										<div className="border-t-2 border-brand-primary/40 pt-5">
+											<div className="font-display text-[13px] font-bold tracking-[0.2em] text-brand-primary">
+												{`0${index + 1}`}
+											</div>
+											<h3 className="mt-4 text-[19px] font-semibold tracking-[-0.01em]">
+												{step.title}
+											</h3>
+											<p className="mt-3 max-w-[38ch] text-[14px] leading-relaxed text-foreground/55">
+												{step.body}
+											</p>
+										</div>
+									</Reveal>
+								))}
 							</div>
 						</div>
-					</div>
-				</div>
-			</section>
+					</section>
 
-			<div className="h-[1px] bg-white/5 my-16 mx-8"></div>
+					{/* Features */}
+					<section
+						id="features"
+						className="scroll-mt-24 border-t border-foreground/10 px-6 py-20 md:px-8 md:py-28"
+					>
+						<div className="mx-auto w-full max-w-6xl">
+							<Reveal>
+								<SectionLabel>What&apos;s inside</SectionLabel>
+								<h2 className="mt-6 max-w-[24ch] font-display text-balance text-[clamp(1.85rem,3.6vw,2.75rem)] font-bold leading-[1.08] tracking-[-0.025em]">
+									Everything the log needs. Nothing it doesn&apos;t.
+								</h2>
+							</Reveal>
 
-			{/* Features Section */}
-			<section id="features" className="px-8 pb-16 max-w-6xl mx-auto w-full">
-				<div className="space-y-3 mb-10">
-					<div className="text-brand-primary text-[12px] uppercase tracking-widest font-bold">Core features</div>
-					<h2 className="text-3xl font-medium text-white leading-tight tracking-tight">Everything a serious<br />lifter actually needs</h2>
-				</div>
+							<div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
+								<Reveal className="sm:col-span-2 lg:col-span-4">
+									<FeatureCard
+										icon={<Trophy aria-hidden className="h-4 w-4 text-brand-primary" />}
+										title="Two kinds of PR, caught live"
+										desc="A weight PR and a rep PR are different achievements. Both are detected mid-session, materialized for O(1) lookup, and celebrated the moment they land."
+									>
+										<div className="mt-5 flex flex-wrap gap-2">
+											<span className="rounded-md border border-brand-primary/30 bg-brand-primary/10 px-2.5 py-1 text-[11.5px] font-semibold tabular-nums text-brand-primary">
+												Weight PR · 82.5 → 85 kg
+											</span>
+											<span className="rounded-md border border-foreground/15 bg-foreground/5 px-2.5 py-1 text-[11.5px] font-semibold tabular-nums text-foreground/60">
+												Rep PR · 5 → 7 @ 82.5 kg
+											</span>
+										</div>
+									</FeatureCard>
+								</Reveal>
 
-				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-					<FeatureCard
-						icon={<Timer className="w-4 h-4 text-brand-primary" />}
-						title="Auto rest timer"
-						desc="Starts automatically after every set. No tapping around between heavy sets."
-					/>
-					<FeatureCard
-						icon={<Zap className="w-4 h-4 text-brand-primary" />}
-						title="Live PR detection"
-						desc="Instant notification the moment you break a personal record, mid-session."
-					/>
-					<FeatureCard
-						icon={<Plus className="w-4 h-4 text-brand-primary" />}
-						title="Warm-up generator"
-						desc="Rep-aware warm-up sets auto-calculated from your working weight."
-					/>
-					<FeatureCard
-						icon={<Play className="w-4 h-4 text-brand-primary" />}
-						title="Plan designer"
-						desc="Build multi-week training plans with custom exercises per day."
-					/>
-					<FeatureCard
-						icon={<LineChart className="w-4 h-4 text-brand-primary" />}
-						title="PR timeline"
-						desc="Per-exercise progress charts with max weight, estimated 1RM, and volume."
-					/>
-					<FeatureCard
-						icon={<ShieldCheck className="w-4 h-4 text-brand-primary" />}
-						title="Quick log"
-						desc="One tap to repeat your last session as a starting template."
-					/>
-				</div>
-			</section>
+								<Reveal delay={0.08} className="lg:col-span-2">
+									<FeatureCard
+										icon={<Timer aria-hidden className="h-4 w-4 text-brand-primary" />}
+										title="Rest timer that starts itself"
+										desc="Set it once per exercise. It runs while you recover and gets out of the way when the next set starts."
+									>
+										<div className="mt-5 font-display text-[34px] font-bold leading-none tabular-nums text-foreground/80">
+											1:47
+										</div>
+									</FeatureCard>
+								</Reveal>
 
-			<div className="h-[1px] bg-white/5 mx-8"></div>
+								<Reveal delay={0.04} className="lg:col-span-2">
+									<FeatureCard
+										icon={<Flame aria-hidden className="h-4 w-4 text-brand-primary" />}
+										title="Warm-up ladder"
+										desc="Rep-aware warm-up sets calculated from whatever is on the bar that day."
+									>
+										<div className="mt-5 space-y-1 text-[12.5px] tabular-nums text-foreground/50">
+											<div>40 kg × 5</div>
+											<div>60 kg × 3</div>
+											<div>70 kg × 2</div>
+											<div className="font-semibold text-foreground/80">100 kg × 5 · work set</div>
+										</div>
+									</FeatureCard>
+								</Reveal>
 
-			{/* How it Works Section */}
-			<section id="how-it-works" className="px-8 py-16 max-w-6xl mx-auto w-full">
-				<div className="space-y-3 mb-10">
-					<div className="text-brand-primary text-[12px] uppercase tracking-widest font-bold">How it works</div>
-					<h2 className="text-3xl font-medium text-white leading-tight tracking-tight">Plan. Train. Grow.</h2>
-				</div>
+								<Reveal delay={0.1} className="lg:col-span-2">
+									<FeatureCard
+										icon={<TriangleAlert aria-hidden className="h-4 w-4 text-brand-primary" />}
+										title="Plateau alerts"
+										desc="No movement in weight or reps for three weeks? The session says so while you still have sets left."
+									>
+										<div className="mt-5 rounded-md border border-brand-primary/30 bg-brand-primary/[0.07] px-3 py-2 text-[12px] font-medium text-brand-primary">
+											OHP · flat for 3 weeks
+										</div>
+									</FeatureCard>
+								</Reveal>
 
-				<div className="border border-white/10 rounded-2xl overflow-hidden grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-white/10">
-					<div className="p-7 space-y-4">
-						<div className="text-4xl font-medium text-brand-primary/20">01</div>
-						<h3 className="text-[16px] font-medium text-white">Design your program</h3>
-						<p className="text-[13px] text-white/40 leading-relaxed">Build a multi-week plan with specific exercises, sets, and target reps for each training day.</p>
-					</div>
-					<div className="p-7 space-y-4">
-						<div className="text-4xl font-medium text-brand-primary/20">02</div>
-						<h3 className="text-[16px] font-medium text-white">Execute in the gym</h3>
-						<p className="text-[13px] text-white/40 leading-relaxed">Log sets as you go. Rest timer auto-runs. PRs get flagged the second you hit them.</p>
-					</div>
-					<div className="p-7 space-y-4">
-						<div className="text-4xl font-medium text-brand-primary/20">03</div>
-						<h3 className="text-[16px] font-medium text-white">Track your progress</h3>
-						<p className="text-[13px] text-white/40 leading-relaxed">Watch your strength curve climb over weeks. Spot plateaus. Know what's actually working.</p>
-					</div>
-				</div>
-			</section>
+								<Reveal delay={0.14} className="lg:col-span-2">
+									<FeatureCard
+										icon={<CalendarRange aria-hidden className="h-4 w-4 text-brand-primary" />}
+										title="Cycle architect"
+										desc="Multi-week blocks with drag-and-drop training days, custom exercises, and target reps per slot."
+									>
+										<div className="mt-5 flex flex-wrap gap-1.5 text-[11px] font-semibold">
+											<span className="rounded bg-brand-primary/15 px-2 py-1 text-brand-primary">Mon · Push</span>
+											<span className="rounded bg-brand-primary/15 px-2 py-1 text-brand-primary">Tue · Pull</span>
+											<span className="rounded bg-foreground/5 px-2 py-1 text-foreground/40">Wed · Rest</span>
+											<span className="rounded bg-brand-primary/15 px-2 py-1 text-brand-primary">Thu · Legs</span>
+										</div>
+									</FeatureCard>
+								</Reveal>
 
-			<div className="h-[1px] bg-white/5 mx-8"></div>
-
-			{/* Stats Row */}
-			<section className="px-8 py-16 max-w-6xl mx-auto w-full">
-				<div className="grid grid-cols-3 divide-x divide-white/10 border border-white/10 rounded-2xl overflow-hidden">
-					<div className="py-7 px-4 text-center">
-						<div className="text-3xl font-medium text-brand-primary">100K+</div>
-						<div className="text-[11px] text-white/35 uppercase tracking-widest mt-1">Sets logged</div>
-					</div>
-					<div className="py-7 px-4 text-center">
-						<div className="text-3xl font-medium text-brand-primary">8,400+</div>
-						<div className="text-[11px] text-white/35 uppercase tracking-widest mt-1">PRs tracked</div>
-					</div>
-					<div className="py-7 px-4 text-center">
-						<div className="text-3xl font-medium text-brand-primary">2,100+</div>
-						<div className="text-[11px] text-white/35 uppercase tracking-widest mt-1">Sessions completed</div>
-					</div>
-				</div>
-			</section>
-
-			<div className="h-[1px] bg-white/5 mx-8"></div>
-
-			{/* AI Banner Section */}
-			<section className="px-8 py-16 max-w-6xl mx-auto w-full">
-				<div className="bg-brand-primary/[0.03] border border-brand-primary/15 rounded-2xl p-7 md:p-10 flex flex-col md:flex-row items-center gap-8 md:gap-16">
-					<div className="flex-1 space-y-5">
-						<div className="inline-flex bg-brand-primary/15 text-brand-primary text-[11px] font-bold px-2.5 py-1 rounded-full">Coming soon</div>
-						<h3 className="text-2xl font-medium text-white">Your AI training coach</h3>
-						<p className="text-[13px] text-white/40 leading-relaxed max-w-md">After every session, get a debrief on what went well, what PRs you hit, and what to focus on next time. Based on your actual data — not generic advice.</p>
-						<div className="flex flex-wrap gap-2">
-							<span className="text-[11px] text-white/50 bg-white/5 border border-white/10 rounded-full px-3 py-1">Session debrief</span>
-							<span className="text-[11px] text-white/50 bg-white/5 border border-white/10 rounded-full px-3 py-1">Program generator</span>
-							<span className="text-[11px] text-white/50 bg-white/5 border border-white/10 rounded-full px-3 py-1">Weekly check-in</span>
+								<Reveal delay={0.06} className="sm:col-span-2 lg:col-span-6">
+									<FeatureCard
+										icon={<LineChart aria-hidden className="h-4 w-4 text-brand-primary" />}
+										title="Timelines, 1RM, and muscle heatmaps"
+										desc="Per-lift volume and estimated 1RM curves, bodyweight correlation, and a muscle-group breakdown that shows what you actually trained — not what you meant to."
+									>
+										<div className="mt-5 flex h-16 items-end gap-1.5" aria-hidden>
+											{[34, 42, 38, 51, 47, 58, 55, 64, 60, 71, 77, 86].map((height, index) => (
+												<div
+													key={index}
+													className="flex-1 rounded-sm bg-brand-primary/20"
+													style={{ height: `${height}%` }}
+												/>
+											))}
+										</div>
+									</FeatureCard>
+								</Reveal>
+							</div>
 						</div>
-					</div>
+					</section>
 
-					<div className="w-full md:w-[180px] flex-shrink-0">
-						<div className="bg-brand-primary/[0.06] border border-brand-primary/15 rounded-xl p-5 text-center">
-							<div className="text-[10px] text-white/30 mb-2.5 uppercase font-bold">Session debrief</div>
-							<div className="text-[12px] text-white/60 leading-relaxed font-medium italic">"Great bench session. 3 PRs hit. Push volume is up 12% this week."</div>
-							<div className="mt-4 h-[1px] bg-brand-primary/20 w-full"></div>
-							<div className="text-[10px] text-brand-primary font-bold mt-3 uppercase tracking-tighter">Powered by PeakAI</div>
+					{/* Roadmap */}
+					<section className="border-t border-foreground/10 px-6 py-16 md:px-8 md:py-20">
+						<div className="mx-auto grid w-full max-w-6xl items-center gap-10 md:grid-cols-12">
+							<Reveal className="md:col-span-7">
+								<SectionLabel>In development</SectionLabel>
+								<h2 								className="mt-5 font-display text-[clamp(1.5rem,2.6vw,2rem)] font-bold leading-tight tracking-[-0.02em]">
+									A coach that reads your log
+								</h2>
+								<p className="mt-4 max-w-[54ch] text-[14.5px] leading-relaxed text-foreground/55">
+									Session debriefs, program suggestions and weekly check-ins generated from your
+									actual sets — not a template. This one is still being built; everything else on
+									this page ships today.
+								</p>
+								<div className="mt-6 flex flex-wrap gap-2 text-[11.5px] text-foreground/50">
+									<span className="rounded-full border border-foreground/10 bg-foreground/5 px-3 py-1">
+										Session debrief
+									</span>
+									<span className="rounded-full border border-foreground/10 bg-foreground/5 px-3 py-1">
+										Program generator
+									</span>
+									<span className="rounded-full border border-foreground/10 bg-foreground/5 px-3 py-1">
+										Weekly check-in
+									</span>
+								</div>
+							</Reveal>
+							<Reveal delay={0.1} className="md:col-span-5">
+								<div className="rounded-xl border border-foreground/10 bg-foreground/[0.03] p-5">
+									<div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground/35">
+										Planned debrief
+									</div>
+									<p className="mt-3 text-[13.5px] font-medium leading-relaxed text-foreground/65">
+										&quot;Bench moved 2.5 kg this week and volume is up 12%. Keep the same load
+										next session, then push for the rep PR.&quot;
+									</p>
+									<div className="mt-4 border-t border-foreground/10 pt-3 text-[10.5px] font-bold uppercase tracking-[0.14em] text-brand-primary">
+										Not shipped yet
+									</div>
+								</div>
+							</Reveal>
 						</div>
-					</div>
-				</div>
-			</section>
+					</section>
 
-			{/* CTA Section */}
-			<section className="px-8 py-20 text-center border-t border-white/5">
-				<div className="max-w-md mx-auto space-y-8">
-					<h2 className="text-4xl font-medium text-white leading-tight tracking-tight">Ready to actually<br />track your progress?</h2>
-					<p className="text-[15px] text-white/40">Free to use. No fluff. Built for lifters who are serious about getting stronger.</p>
-					<div className="space-y-4">
-						<Link href="/auth/signup">
-							<button className="bg-brand-primary text-white text-[15px] font-medium px-10 py-3 rounded-lg hover:bg-brand-primary/90 transition-all shadow-xl shadow-brand-primary/20">
-								Create your account
-							</button>
-						</Link>
-						<div className="text-[12px] text-white/25">No credit card required</div>
-					</div>
-				</div>
-			</section>
+					{/* Final CTA */}
+					<section className="relative overflow-hidden border-t border-foreground/10 px-6 py-24 text-center md:px-8">
+						<div aria-hidden className="landing-glow absolute inset-0" />
+						<div className="relative mx-auto max-w-xl space-y-7">
+							<h2 							className="font-display text-balance text-[clamp(1.9rem,4.5vw,3rem)] font-bold leading-[1.08] tracking-[-0.03em]">
+								Start with your next session.
+							</h2>
+							<p className="text-[15.5px] leading-relaxed text-foreground/55">
+								The first workout takes two minutes to log. After that, the record keeps itself.
+							</p>
+							<div className="flex flex-wrap items-center justify-center gap-4">
+								<Link
+									href="/auth/signup"
+									className="rounded-xl bg-brand-primary px-8 py-3.5 text-[14.5px] font-semibold text-black shadow-xl shadow-brand-primary/20 transition-all hover:bg-brand-primary/90 active:scale-[0.98]"
+								>
+									Create your account
+								</Link>
+								<button
+									type="button"
+									onClick={openDemo}
+									className="rounded-xl border border-foreground/15 px-8 py-3.5 text-[14.5px] font-medium text-foreground/70 transition-all hover:border-foreground/30 hover:bg-foreground/5 active:scale-[0.98]"
+								>
+									Try the demo
+								</button>
+							</div>
+							<p className="text-[12.5px] text-foreground/35">No credit card required</p>
+						</div>
+					</section>
+				</main>
 
-			{/* Footer */}
-			<footer className="flex items-center justify-between px-8 py-5 border-t border-white/5 bg-[#0d0d0d]">
-				<div className="text-[13px] text-white/30">FitTrack</div>
-				<div className="flex gap-5 text-[12px] text-white/25">
-					<a href="#" className="hover:text-white transition-colors">Privacy</a>
-					<a href="#" className="hover:text-white transition-colors">Terms</a>
-					<a href="#" className="hover:text-white transition-colors">GitHub</a>
-				</div>
-			</footer>
+				{/* Footer */}
+				<footer className="border-t border-foreground/10 px-6 py-10 md:px-8">
+					<div className="mx-auto flex w-full max-w-6xl flex-col gap-7 md:flex-row md:items-center md:justify-between">
+						<div>
+							<div className="font-display text-[14px] font-bold tracking-tight">
+								TRAK<span className="text-brand-primary">.FIT</span>
+							</div>
+							<p className="mt-1.5 text-[12.5px] text-foreground/40">
+								Workout tracking for people who count reps, not steps.
+							</p>
+						</div>
+						<nav className="flex flex-wrap gap-x-6 gap-y-2.5 text-[12.5px] text-foreground/45">
+							<a href="#why" className="transition-colors hover:text-foreground">
+								Why we built it
+							</a>
+							<a href="#problems" className="transition-colors hover:text-foreground">
+								What it fixes
+							</a>
+							<a href="#how" className="transition-colors hover:text-foreground">
+								How it works
+							</a>
+							<a href="#features" className="transition-colors hover:text-foreground">
+								Features
+							</a>
+							<Link href="/auth/signin" className="transition-colors hover:text-foreground">
+								Sign in
+							</Link>
+							<a
+								href="https://github.com/lokesh-dc/fitness-tracker"
+								target="_blank"
+								rel="noreferrer"
+								className="transition-colors hover:text-foreground"
+							>
+								GitHub
+							</a>
+						</nav>
+						<div className="text-[12px] text-foreground/30">© 2026 TRAK.FIT</div>
+					</div>
+				</footer>
+			</div>
+		</MotionConfig>
+	);
+}
+
+function SectionLabel({ children, className }: { children: React.ReactNode; className?: string }) {
+	return (
+		<div
+			className={cn(
+				"flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-primary",
+				className,
+			)}
+		>
+			<span aria-hidden className="h-px w-8 bg-brand-primary/60" />
+			{children}
 		</div>
 	);
 }
 
-function FeatureCard({ icon, title, desc }: { icon: React.ReactNode, title: string, desc: string }) {
+function Reveal({
+	children,
+	className,
+	delay = 0,
+}: {
+	children: React.ReactNode;
+	className?: string;
+	delay?: number;
+}) {
 	return (
-		<div className="p-6 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-brand-primary/30 transition-all group">
-			<div className="w-10 h-10 bg-brand-primary/10 rounded-xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
+		<motion.div
+			initial={{ opacity: 0, y: 26 }}
+			whileInView={{ opacity: 1, y: 0 }}
+			viewport={{ once: true, margin: "-60px" }}
+			transition={{ duration: 0.7, ease: [0.25, 1, 0.5, 1], delay }}
+			className={className}
+		>
+			{children}
+		</motion.div>
+	);
+}
+
+function FeatureCard({
+	icon,
+	title,
+	desc,
+	className,
+	children,
+}: {
+	icon: React.ReactNode;
+	title: string;
+	desc: string;
+	className?: string;
+	children?: React.ReactNode;
+}) {
+	return (
+		<div
+			className={cn(
+				"group h-full rounded-2xl border border-foreground/10 bg-foreground/[0.03] p-6 transition-colors hover:border-brand-primary/30",
+				className,
+			)}
+		>
+			<div className="flex h-9 w-9 items-center justify-center rounded-lg border border-foreground/10 bg-foreground/5 transition-transform group-hover:scale-110">
 				{icon}
 			</div>
-			<h3 className="text-[14px] font-medium text-white mb-2">{title}</h3>
-			<p className="text-[13px] text-white/40 leading-relaxed">{desc}</p>
+			<h3 className="mt-4 text-[15px] font-semibold tracking-[-0.01em]">{title}</h3>
+			<p className="mt-2 max-w-[60ch] text-[13.5px] leading-relaxed text-foreground/50">{desc}</p>
+			{children}
 		</div>
 	);
 }
