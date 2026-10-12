@@ -43,6 +43,26 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand-accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* Landing page display font (Space Grotesk via next/font) */
+@utility font-display {
+  font-family: var(--font-grotesk), "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+}
+
 @utility glass {
   background: var(--glass-bg);
   backdrop-filter: blur(12px);
@@ -71,6 +91,23 @@ body {
 /* Noise overlay — must be a regular CSS class, not a @utility (pseudo-elements not supported) */
 .noise-overlay {
   position: relative;
+}
+
+.landing-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--foreground), transparent 94%) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--foreground), transparent 94%) 1px, transparent 1px);
+  background-size: 72px 72px;
+  -webkit-mask-image: radial-gradient(ellipse 75% 65% at 50% 0%, black 25%, transparent 75%);
+  mask-image: radial-gradient(ellipse 75% 65% at 50% 0%, black 25%, transparent 75%);
+}
+
+.landing-glow {
+  background: radial-gradient(
+    ellipse 55% 45% at 50% -5%,
+    color-mix(in srgb, var(--brand-accent), transparent 82%),
+    transparent 70%
+  );
 }
 
 .noise-overlay::after {

@@ -33,8 +33,8 @@ export default function SignUp() {
 			await registerUser(formData);
 			setSuccess(true);
 			setLoading(false);
-		} catch (err: any) {
-			setError(err.message || "Something went wrong.");
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Something went wrong.");
 			setLoading(false);
 		}
 	};
@@ -60,10 +60,10 @@ export default function SignUp() {
 							<CheckCircle2 className="w-8 h-8 text-emerald-500" />
 						</div>
 						<div className="space-y-2">
-							<h2 className="text-2xl font-black text-white tracking-tight">
+							<h2 className="text-2xl font-black text-foreground tracking-tight">
 								VERIFY YOUR EMAIL
 							</h2>
-							<p className="text-white/60 font-medium leading-relaxed max-w-xs mx-auto text-xs">
+							<p className="text-foreground/60 font-medium leading-relaxed max-w-xs mx-auto text-xs">
 								We&apos;ve sent a verification link to your email address.
 								Please check your inbox to activate your account.
 							</p>
@@ -79,11 +79,11 @@ export default function SignUp() {
 					<motion.div key="form" className="space-y-6 lg:space-y-8">
 						{/* Header */}
 						<div className="space-y-1">
-							<h1 className="text-3xl lg:text-4xl font-black text-white tracking-tight leading-none">
+							<h1 className="text-3xl lg:text-4xl font-black text-foreground tracking-tight leading-none">
 								Join the <br />
 								<span className="text-brand-primary">Movement</span>
 							</h1>
-							<p className="text-white/50 text-xs font-medium max-w-sm">
+							<p className="text-foreground/50 text-xs font-medium max-w-sm">
 								Create your account today and start tracking your progress like
 								a pro.
 							</p>
@@ -105,40 +105,40 @@ export default function SignUp() {
 
 							<div className="space-y-4">
 								<div className="relative group">
-									<User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-focus-within:text-brand-primary transition-colors" />
+									<User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground/30 group-focus-within:text-brand-primary transition-colors" />
 									<input
 										name="name"
 										type="text"
 										required
-										className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-white outline-none focus:border-brand-primary/50 focus:bg-white/10 transition-all placeholder:text-white/20"
+										className="w-full bg-foreground/5 border border-foreground/10 rounded-2xl pl-12 pr-4 py-4 text-foreground outline-none focus:border-brand-primary/50 focus:bg-foreground/10 transition-all placeholder:text-foreground/30"
 										placeholder="Full Name"
 									/>
 								</div>
 
 								<div className="relative group">
-									<Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-focus-within:text-brand-primary transition-colors" />
+									<Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground/30 group-focus-within:text-brand-primary transition-colors" />
 									<input
 										name="email"
 										type="email"
 										required
-										className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-white outline-none focus:border-brand-primary/50 focus:bg-white/10 transition-all placeholder:text-white/20"
+										className="w-full bg-foreground/5 border border-foreground/10 rounded-2xl pl-12 pr-4 py-4 text-foreground outline-none focus:border-brand-primary/50 focus:bg-foreground/10 transition-all placeholder:text-foreground/30"
 										placeholder="Email Address"
 									/>
 								</div>
 
 								<div className="relative group">
-									<Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-focus-within:text-brand-primary transition-colors" />
+									<Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground/30 group-focus-within:text-brand-primary transition-colors" />
 									<input
 										name="password"
 										type={showPassword ? "text" : "password"}
 										required
-										className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-12 py-4 text-white outline-none focus:border-brand-primary/50 focus:bg-white/10 transition-all placeholder:text-white/20"
+										className="w-full bg-foreground/5 border border-foreground/10 rounded-2xl pl-12 pr-12 py-4 text-foreground outline-none focus:border-brand-primary/50 focus:bg-foreground/10 transition-all placeholder:text-foreground/30"
 										placeholder="Create Password"
 									/>
 									<button
 										type="button"
 										onClick={() => setShowPassword(!showPassword)}
-										className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/40 transition-colors">
+										className="absolute right-4 top-1/2 -translate-y-1/2 text-foreground/30 hover:text-foreground/50 transition-colors">
 										{showPassword ? (
 											<EyeOff className="w-5 h-5" />
 										) : (
@@ -162,7 +162,7 @@ export default function SignUp() {
 							</button>
 						</form>
 
-						<p className="text-center text-white/40 text-xs font-bold uppercase tracking-widest">
+						<p className="text-center text-foreground/40 text-xs font-bold uppercase tracking-widest">
 							Already have an account?{" "}
 							<Link
 								href="/auth/signin"

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1350px; overflow: hidden; }
+  body {
+    position: relative;
+    background: #0d0d0d;
+    color: #f0f2f5;
+    font-family: 'Barlow', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(to right, rgba(240,242,245,0.055) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(240,242,245,0.055) 1px, transparent 1px);
+    background-size: 72px 72px;
+    -webkit-mask-image: radial-gradient(ellipse 70% 55% at 15% 5%, black 20%, transparent 75%);
+    mask-image: radial-gradient(ellipse 70% 55% at 15% 5%, black 20%, transparent 75%);
+  }
+  .glow {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 50% 38% at 18% 6%, rgba(249,115,22,0.16), transparent 70%);
+  }
+  .noise::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    opacity: 0.6;
+  }
+  .pad {
+    position: relative; z-index: 2;
+    width: 100%; height: 100%;
+    padding: 88px;
+    display: flex; flex-direction: column;
+  }
+  .wordmark { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 30px; letter-spacing: -0.02em; }
+  .wordmark span { color: #f97316; }
+  .label {
+    font-size: 21px; font-weight: 600; letter-spacing: 0.24em;
+    text-transform: uppercase; color: #f97316;
+    display: flex; align-items: center; gap: 20px;
+  }
+  .label::before { content: ''; width: 68px; height: 2px; background: rgba(249,115,22,0.65); }
+  h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700; font-size: 84px;
+    letter-spacing: -0.035em; line-height: 1.05;
+    max-width: 900px;
+  }
+  .row {
+    border-top: 1px solid rgba(240,242,245,0.12);
+    padding: 34px 0;
+    display: grid;
+    grid-template-columns: 84px 1fr;
+    gap: 8px 0;
+    align-items: baseline;
+  }
+  .row .num {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600; font-size: 24px;
+    color: #f97316;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.08em;
+  }
+  .row h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600; font-size: 37px;
+    letter-spacing: -0.02em;
+  }
+  .row p {
+    grid-column: 2;
+    font-size: 25px; line-height: 1.45;
+    color: rgba(240,242,245,0.45);
+    margin-top: 8px;
+    max-width: 760px;
+  }
+  footer {
+    border-top: 1px solid rgba(240,242,245,0.12);
+    padding-top: 38px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 23px; color: rgba(240,242,245,0.4);
+  }
+  footer .idx {
+    font-family: 'Space Grotesk', sans-serif;
+    letter-spacing: 0.14em; font-variant-numeric: tabular-nums;
+    color: rgba(240,242,245,0.35);
+  }
+</style>
+</head>
+<body class="noise">
+  <div class="grid"></div>
+  <div class="glow"></div>
+  <div class="pad">
+    <header style="display:flex; justify-content:space-between; align-items:center;">
+      <div class="wordmark">TRAK<span>.FIT</span></div>
+      <div class="label" style="font-size:17px;">Why we built it</div>
+    </header>
+
+    <div style="margin-top:72px;">
+      <div class="label">The problem</div>
+      <h2 style="margin-top:36px;">Progress dies in a <span style="color:#f97316;">notes app.</span></h2>
+    </div>
+
+    <div style="flex:1; display:flex; flex-direction:column; justify-content:center; margin-top:40px;">
+      <div class="row">
+        <span class="num">01</span>
+        <h3>You forget what you lifted</h3>
+        <p>The notes app scrolled past it and last week's bench weight became a guess.</p>
+      </div>
+      <div class="row">
+        <span class="num">02</span>
+        <h3>Rest times drift</h3>
+        <p>A quick 90 seconds turns into three minutes of scrolling between sets.</p>
+      </div>
+      <div class="row">
+        <span class="num">03</span>
+        <h3>Plateaus happen silently</h3>
+        <p>The lift sits at 80 kg for a month and nothing in your workflow says so.</p>
+      </div>
+      <div class="row" style="border-bottom:1px solid rgba(240,242,245,0.12);">
+        <span class="num">04</span>
+        <h3>PRs pass without notice</h3>
+        <p>A 5 kg jump on deadlift happens and the notebook doesn't care.</p>
+      </div>
+    </div>
+
+    <footer>
+      <span>TRAK.FIT keeps the record instead</span>
+      <span class="idx">02 / 04 &nbsp;→</span>
+    </footer>
+  </div>
+</body>
+</html>
