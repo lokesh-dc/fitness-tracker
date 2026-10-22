@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
 	saveWorkoutSession,
 	saveBodyWeight,
@@ -51,6 +51,7 @@ import { PRsFeedDisplay } from "./workout/PRsFeedDisplay";
 import PageWithSidebar from "./layout/PageWithSidebar";
 import { requestNotificationPermission } from "@/lib/notifications";
 import { ExerciseHistoryCard } from "./workout/ExerciseHistoryCard";
+import PlateauModal, { type PlateauProgression } from "./workout/PlateauModal";
 import { Confetti } from "./ui/Confetti";
 import ChangeWorkoutModal from "./ChangeWorkoutModal";
 import ExerciseSwapModal from "./ExerciseSwapModal";
@@ -102,6 +103,35 @@ function saveDraft(sessionDate: string, draft: WorkoutDraft) {
 		window.localStorage.setItem(draftKey(sessionDate), JSON.stringify(draft));
 	} catch {
 		// storage unavailable/full — ignore, in-memory session still works
+	}
+}
+
+function plateauPromptKey(sessionDate: string, exerciseKey: string) {
+	return `plateau-prompted:${sessionDate}:${exerciseKey}`;
+}
+
+function wasPlateauPrompted(sessionDate: string, exerciseKey: string) {
+	if (typeof window === "undefined") return false;
+	try {
+		return (
+			window.sessionStorage.getItem(
+				plateauPromptKey(sessionDate, exerciseKey),
+			) === "1"
+		);
+	} catch {
+		return false;
+	}
+}
+
+function markPlateauPrompted(sessionDate: string, exerciseKey: string) {
+	if (typeof window === "undefined") return;
+	try {
+		window.sessionStorage.setItem(
+			plateauPromptKey(sessionDate, exerciseKey),
+			"1",
+		);
+	} catch {
+		// Best-effort only; the in-memory ref still prevents repeat prompts.
 	}
 }
 
@@ -266,6 +296,9 @@ export default function WorkoutSession({
 	const [showCelebration, setShowCelebration] = useState(false);
 	const [savedLogId, setSavedLogId] = useState<string | null>(null);
 	const [plateauDetected, setPlateauDetected] = useState(false);
+	const [plateauModalIndex, setPlateauModalIndex] = useState<number | null>(null);
+	const plateauPrompted = useRef<Set<string>>(new Set());
+	const plateauForExercise = useRef<string | null>(null);
 	const [triggerConfetti, setTriggerConfetti] = useState(false);
 	const [showChangeWorkout, setShowChangeWorkout] = useState(false);
 	const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
@@ -286,7 +319,6 @@ export default function WorkoutSession({
 	const splitName = template?.splitName || (hasChangedWorkout ? "Custom Workout" : "Workout");
 	const dayOfWeek = template?.dayOfWeek ?? new Date().getDay();
 	const weekNumber = template?.weekNumber || 1;
-	const userId = template?.userId || "";
 
 	// Server falls back to UTC dates; use the client's local date for live sessions
 	// so workouts completed after midnight (IST) aren't stamped as yesterday.
@@ -328,9 +360,54 @@ export default function WorkoutSession({
 
 	const timer = useRestTimer();
 
+	const activeExerciseKey = useMemo(() => {
+		if (activeExerciseIndex === null) return null;
+		const exercise = exercises[activeExerciseIndex];
+		if (!exercise) return null;
+		return exercise.exerciseId || exercise.name;
+	}, [activeExerciseIndex, exercises]);
+
+	const handlePlateauDetected = useCallback(
+		(detected: boolean) => {
+			setPlateauDetected(detected);
+			if (detected) {
+				plateauForExercise.current = activeExerciseKey;
+			} else if (plateauForExercise.current === activeExerciseKey) {
+				plateauForExercise.current = null;
+			}
+		},
+		[activeExerciseKey],
+	);
+
 	useEffect(() => {
 		setPlateauDetected(false);
+		setPlateauModalIndex(null);
+		plateauForExercise.current = null;
 	}, [activeExerciseIndex]);
+
+	useEffect(() => {
+		if (!plateauDetected || !activeExerciseKey) return;
+		if (plateauForExercise.current !== activeExerciseKey) return;
+		if (activeMode !== "LIVE_SESSION") return;
+		if (activeExerciseIndex === null) return;
+
+		const exercise = exercises[activeExerciseIndex];
+		if (!exercise || exercise.isDone) return;
+		if (!exercise.sets.some((set) => !set.completed)) return;
+		if (plateauPrompted.current.has(activeExerciseKey)) return;
+		if (wasPlateauPrompted(effectiveDate, activeExerciseKey)) return;
+
+		plateauPrompted.current.add(activeExerciseKey);
+		markPlateauPrompted(effectiveDate, activeExerciseKey);
+		setPlateauModalIndex(activeExerciseIndex);
+	}, [
+		plateauDetected,
+		activeExerciseKey,
+		activeMode,
+		activeExerciseIndex,
+		exercises,
+		effectiveDate,
+	]);
 
 	useEffect(() => {
 		if (step > 0 && template && exercises.length > 0) {
@@ -451,6 +528,55 @@ export default function WorkoutSession({
 		});
 	};
 
+	const applyPlateauProgression = (
+		exerciseIndex: number,
+		progression: PlateauProgression,
+	) => {
+		setExercises((prev) => {
+			const newExs = [...prev];
+			const target = { ...newExs[exerciseIndex] };
+
+			if (progression === "reps") {
+				const currentReps =
+					target.sets.find((set) => !set.completed)?.reps ||
+					target.targetReps ||
+					0;
+				const nextReps = currentReps + 1;
+
+				target.targetReps = nextReps;
+				target.sets = target.sets.map((set) =>
+					set.completed
+						? set
+						: { ...set, reps: (set.reps || currentReps) + 1 },
+				);
+			} else {
+				const lastSet = target.sets[target.sets.length - 1];
+				const nextSet = lastSet
+					? {
+						...lastSet,
+						reps: lastSet.reps || target.targetReps || 0,
+						completed: false,
+					}
+					: {
+						weight: target.lastWeight || 0,
+						reps: target.targetReps || 0,
+						completed: false,
+					};
+
+				target.sets = [...target.sets, nextSet];
+				target.targetSets = Math.max(
+					target.targetSets || 0,
+					target.sets.length,
+				);
+			}
+
+			newExs[exerciseIndex] = target;
+			return newExs;
+		});
+
+		setPlateauModalIndex(null);
+	};
+
 	const moveExercise = (idx: number, direction: "up" | "down") => {
 		const targetIdx = direction === "up" ? idx - 1 : idx + 1;
 		if (targetIdx < 0 || targetIdx >= exercises.length) return;
@@ -534,6 +660,19 @@ export default function WorkoutSession({
 			}
 		/>
 	);
+
+	const plateauModal =
+		plateauModalIndex !== null && exercises[plateauModalIndex] ? (
+			<PlateauModal
+				key={`${exercises[plateauModalIndex].exerciseId || exercises[plateauModalIndex].name}-plateau`}
+				exercise={exercises[plateauModalIndex]}
+				onKeepSame={() => setPlateauModalIndex(null)}
+				onApply={(progression) => {
+					if (plateauModalIndex === null) return;
+					applyPlateauProgression(plateauModalIndex, progression);
+				}}
+			/>
+		) : null;
 
 	const handleSubmit = async () => {
 		const unfinishedExercises = exercises.filter((ex) => !(ex as any).isDone);
@@ -1474,6 +1613,8 @@ export default function WorkoutSession({
 
 	if (step === 3 && activeExerciseIndex !== null) {
 		const ex = exercises[activeExerciseIndex];
+		const canAdjustPlateau =
+			!ex.isDone && ex.sets.some((set) => !set.completed);
 		const footer = (
 			<GlassCard className="max-w-3xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 py-4 md:py-3 shadow-[0_-20px_40px_rgba(0,0,0,0.2)] border-foreground/10 backdrop-blur-xl">
 				<div className="flex items-center space-x-3">
@@ -1544,11 +1685,20 @@ export default function WorkoutSession({
 									<div />
 								)}
 							</div>
-							{plateauDetected && (
-								<span className="flex items-center gap-1 text-[10px] font-medium text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-full px-2 py-0.5 animate-in fade-in slide-in-from-right-2 duration-500">
-									⚠ No progress in 3 sessions
-								</span>
-							)}
+							{plateauDetected &&
+								(canAdjustPlateau ? (
+									<button
+										type="button"
+										onClick={() => setPlateauModalIndex(activeExerciseIndex)}
+										title="Review plateau options"
+										className="flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-0.5 text-[10px] font-medium text-amber-400 transition-colors hover:bg-amber-400/15 animate-in fade-in slide-in-from-right-2 duration-500">
+										⚠ No progress in 3 weeks
+									</button>
+								) : (
+									<span className="flex items-center gap-1 text-[10px] font-medium text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-full px-2 py-0.5 animate-in fade-in slide-in-from-right-2 duration-500">
+										⚠ No progress in 3 weeks
+									</span>
+								))}
 						</div>
 
 						<div className="flex items-start justify-between gap-4">
@@ -1667,10 +1817,10 @@ export default function WorkoutSession({
 					<ExerciseHistoryCard
 						key={`${ex.name}|${ex.exerciseId || ""}`}
 						exerciseName={ex.name}
-						userId={userId}
 						mode={activeMode}
-						onPlateauDetected={setPlateauDetected}
+						onPlateauDetected={handlePlateauDetected}
 					/>
+					{plateauModal}
 					{swapModal}
 				</SessionLayout>
 			</PageWithSidebar>

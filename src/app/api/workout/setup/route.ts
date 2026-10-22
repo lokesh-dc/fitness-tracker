@@ -3,6 +3,7 @@ import { getToken } from "next-auth/jwt";
 import { ObjectId } from 'mongodb';
 import { getDb } from '@/lib/db-utils';
 import { calculateEpley } from '@/lib/epley';
+import { detectPlateau } from '@/lib/plateau';
 
 import { getPlanByDate } from "@/app/actions/plan";
 import { getTodayBodyWeight, getTodayWorkoutLog } from "@/app/actions/logs";
@@ -99,13 +100,17 @@ export async function GET(req: Request) {
             (exerciseName && e.name === exerciseName)
           )
         )
-        .slice(0, 5)
         .map((log: any) => {
           const match = log.exercises.find((e: any) => 
             (e.exerciseId?.toString() === exerciseId) || 
             (exerciseName && e.name === exerciseName)
           );
           const sets = match?.sets?.filter((s: any) => parseFloat(s.weight) > 0 && parseInt(s.reps) > 0) ?? [];
+
+          // Skip sessions where the exercise was logged without any valid
+          // weight/reps (e.g. bodyweight or time-based exercises). Keeping
+          // them would make 0 <= 0 look like a plateau.
+          if (sets.length === 0) return null;
           
           // Calculate best 1RM for this session
           let best1RM = 0;
@@ -114,8 +119,8 @@ export async function GET(req: Request) {
             if (est && est > best1RM) best1RM = est;
           });
 
-          const maxWeight = sets.length > 0 ? Math.max(...sets.map((s: any) => parseFloat(s.weight))) : 0;
-          const maxReps = sets.length > 0 ? Math.max(...sets.map((s: any) => parseInt(s.reps))) : 0;
+          const maxWeight = Math.max(...sets.map((s: any) => parseFloat(s.weight)));
+          const maxReps = Math.max(...sets.map((s: any) => parseInt(s.reps)));
           const volume = sets.reduce((acc: number, s: any) => acc + (parseFloat(s.weight) * parseInt(s.reps)), 0);
           
           return { 
@@ -125,7 +130,9 @@ export async function GET(req: Request) {
             volume,
             estimated1RM: best1RM
           };
-        });
+        })
+        .filter((entry: any) => entry !== null)
+        .slice(0, 5);
 
       // Compute local PR from all 100 recent logs
       let localMaxWeight = 0;
@@ -149,22 +156,13 @@ export async function GET(req: Request) {
         }
       });
 
-      if (history.length < 3) {
-        plateauData[exerciseId] = { 
-          isPlateaued: false, 
-          history,
-          lastWeight: history[0]?.maxWeight || 0,
-          localMaxWeight,
-          localMaxReps
-        };
-        continue;
-      }
-
-      // Volume-based plateau detection (match web app)
-      const s0 = history[0].volume;
-      const s1 = history[1].volume;
-      const s2 = history[2].volume;
-      const isPlateaued = s0 <= s1 && s1 <= s2;
+      const isPlateaued = detectPlateau(
+        history.map((entry: any) => ({
+          date: entry.date,
+          maxWeight: entry.maxWeight,
+          estimated1RM: entry.estimated1RM,
+        }))
+      );
 
       plateauData[exerciseId] = {
         isPlateaued,

@@ -1,15 +1,19 @@
 "use server";
 
 import { getDb } from "@/lib/db-utils";
+import { bestEpleyFromSets, calculateEpley } from "@/lib/epley";
+import { detectPlateau } from "@/lib/plateau";
 import { ObjectId } from "mongodb";
 import { format } from "date-fns";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export type ExerciseHistorySession = {
   date: string; // formatted as "MMM DD" e.g. "Apr 22"
   totalSets: number;
-  topSetReps: number; // reps on the heaviest set
+  topSetReps: number; // max reps performed at the heaviest weight
   topSetWeight: number; // heaviest set weight
-  estimated1RM: number; // Epley, server-side
+  estimated1RM: number; // Epley 1RM for the top set shown on this row
   sets: { weight: number; reps: number }[]; // all sets for expanded view
 };
 
@@ -19,18 +23,25 @@ export type ExerciseHistoryResult = {
 };
 
 export async function getExerciseHistory(
-  userId: string,
   exerciseName: string
 ): Promise<ExerciseHistoryResult> {
-  if (!userId || !exerciseName) {
+  if (!exerciseName) {
     return { sessions: [], plateauDetected: false };
   }
 
   try {
+    const session = await getServerSession(authOptions);
+    const userId = (session?.user as { id?: string } | undefined)?.id;
+
+    if (!userId || !ObjectId.isValid(userId)) {
+      return { sessions: [], plateauDetected: false };
+    }
+
     const db = await getDb();
+    const userObjectId = new ObjectId(userId);
 
     const pipeline = [
-      { $match: { userId: new ObjectId(userId), "exercises.name": exerciseName } },
+      { $match: { userId: userObjectId, "exercises.name": exerciseName } },
       { $sort: { date: -1 } },
       { $limit: 8 }, // fetch extra to ensure 5 valid sessions after zero-weight filtering
       { $unwind: "$exercises" },
@@ -52,11 +63,6 @@ export async function getExerciseHistory(
             },
           },
           maxWeight: { $max: "$exercises.sets.weight" },
-          totalVolume: {
-            $sum: {
-              $multiply: ["$exercises.sets.weight", "$exercises.sets.reps"],
-            },
-          },
         },
       },
       { $sort: { _id: -1 } },
@@ -69,41 +75,54 @@ export async function getExerciseHistory(
       return { sessions: [], plateauDetected: false };
     }
 
-    const sessionsWithVolume: (ExerciseHistorySession & { totalVolume: number })[] = results.map((doc) => {
-      // Find the set with max weight to get its reps
-      const topSet = doc.sets.reduce((prev: any, current: any) => {
-        return prev.weight > current.weight ? prev : current;
+    const sessions: (ExerciseHistorySession & {
+      rawDate: Date | string;
+      best1RM: number;
+    })[] = results.map((doc) => {
+      const sets = doc.sets as { weight: number; reps: number }[];
+      const maxWeight = doc.maxWeight as number;
+
+      // Find the best set at the heaviest weight (max reps on ties).
+      const topSet = sets.reduce((prev, current) => {
+        if (current.weight > prev.weight) return current;
+        if (current.weight === prev.weight && current.reps > prev.reps) return current;
+        return prev;
       });
 
-      // Epley 1RM: maxWeight * (1 + reps / 30)
-      const estimated1RM = doc.maxWeight * (1 + topSet.reps / 30);
+      // Keep the displayed 1RM tied to the top set shown on the row, but use
+      // the best set of the whole session for plateau detection.
+      const estimated1RM = calculateEpley(maxWeight, topSet.reps) ?? maxWeight;
+      const best1RM = bestEpleyFromSets(sets)?.estimated1RM ?? estimated1RM;
 
       return {
         date: format(new Date(doc._id), "MMM dd"),
-        totalSets: doc.sets.length,
+        rawDate: doc._id,
+        totalSets: sets.length,
         topSetReps: topSet.reps,
-        topSetWeight: doc.maxWeight,
-        estimated1RM: Math.round(estimated1RM * 10) / 10,
-        sets: doc.sets,
-        totalVolume: doc.totalVolume,
+        topSetWeight: maxWeight,
+        estimated1RM,
+        best1RM,
+        sets,
       };
     });
 
-    // Plateau detection
-    let plateauDetected = false;
-    if (sessionsWithVolume.length >= 3) {
-      // sessions[0] is most recent
-      const s0 = sessionsWithVolume[0].totalVolume;
-      const s1 = sessionsWithVolume[1].totalVolume;
-      const s2 = sessionsWithVolume[2].totalVolume;
-
-      if (s0 <= s1 && s1 <= s2) {
-        plateauDetected = true;
-      }
-    }
+    const plateauDetected = detectPlateau(
+      sessions.map((session) => ({
+        date: session.rawDate,
+        maxWeight: session.topSetWeight,
+        estimated1RM: session.best1RM,
+      })),
+    );
 
     return {
-      sessions: sessionsWithVolume.map(({ totalVolume, ...rest }) => rest),
+      sessions: sessions.map((session) => ({
+        date: session.date,
+        totalSets: session.totalSets,
+        topSetReps: session.topSetReps,
+        topSetWeight: session.topSetWeight,
+        estimated1RM: session.estimated1RM,
+        sets: session.sets,
+      })),
       plateauDetected,
     };
   } catch (error) {

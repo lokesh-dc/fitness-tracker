@@ -10,14 +10,12 @@ import { cn } from "@/lib/utils";
 
 type Props = {
   exerciseName: string;
-  userId: string;
   mode: WorkoutMode;
   onPlateauDetected?: (detected: boolean) => void;
 };
 
 export const ExerciseHistoryCard = memo(function ExerciseHistoryCard({
   exerciseName,
-  userId,
   mode,
   onPlateauDetected,
 }: Props) {
@@ -38,7 +36,7 @@ export const ExerciseHistoryCard = memo(function ExerciseHistoryCard({
       setLoading(true);
       setError(false);
       try {
-        const result = await getExerciseHistory(userId, exerciseName);
+        const result = await getExerciseHistory(exerciseName);
         if (isMounted) {
           setSessions(result.sessions);
           if (onPlateauDetected) {
@@ -62,7 +60,7 @@ export const ExerciseHistoryCard = memo(function ExerciseHistoryCard({
     return () => {
       isMounted = false;
     };
-  }, [exerciseName, userId, mode, onPlateauDetected]);
+  }, [exerciseName, mode, onPlateauDetected]);
 
   if (mode !== "LIVE_SESSION") return null;
 

@@ -26,7 +26,7 @@ This document provides a comprehensive list of every feature available in the TR
 - **Integrated Rest Timer**: Fully customizable, auto-triggering rest intervals with visual progress bars and background notifications.
 - **Warmup Calculator**: Automatic set-by-set warmup generation (40%, 60%, 80% intensity) based on working weight.
 - **Live PR Intelligence**: Instant detection of weight and rep PRs as sets are logged.
-- **Plateau Detection**: Real-time alerts if no progress (weight or reps) is detected for an exercise over the last 3 sessions.
+- **Plateau Detection**: Real-time alerts if no progress (weight or e1RM) is detected for an exercise over the past 3 weeks, with a mid-session prompt to keep the same load or add a rep/set.
 - **History Integration**: Side-by-side view of previous PRs and last-session performance for every exercise during the workout.
 - **Gamified Celebration**: Full-screen Framer Motion animations and confetti on PR achievement.
 - **Session Summaries**: Post-workout breakdown of volume, intensity, sets, and estimated calories burned.
@@ -73,5 +73,5 @@ This document provides a comprehensive list of every feature available in the TR
 - **Atomic PR Engine**: O(1) performance for PR lookups via materialized `ExerciseRecords` collection (Atomic `$max` updates).
 - **Glassmorphism Design System**: Premium dark-themed UI utilizing Tailwind CSS 4.0 and custom CSS variables for accents.
 - **Server-First Architecture**: High performance and security using Next.js 15 Server Components and Actions.
-- **Plateau Logic**: Intelligent analysis of the last 3 workout logs to identify stalling progress and suggest intensity increases.
+- **Plateau Logic**: Intelligent analysis of the last 3 workout logs within a 3-week window to identify stalling progress and suggest a same-load session or a +1 rep/set progression.
 - **Mobile-First API**: Backend support for the companion FitTrackMobile app (Expo/React Native).
