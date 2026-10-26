@@ -11,7 +11,10 @@ import { cn } from "@/lib/utils";
 type Props = {
   exerciseName: string;
   mode: WorkoutMode;
-  onPlateauDetected?: (detected: boolean) => void;
+  onPlateauDetected?: (
+    detected: boolean,
+    sessions: ExerciseHistorySession[],
+  ) => void;
 };
 
 export const ExerciseHistoryCard = memo(function ExerciseHistoryCard({
@@ -40,7 +43,7 @@ export const ExerciseHistoryCard = memo(function ExerciseHistoryCard({
         if (isMounted) {
           setSessions(result.sessions);
           if (onPlateauDetected) {
-            onPlateauDetected(result.plateauDetected);
+            onPlateauDetected(result.plateauDetected, result.sessions);
           }
         }
       } catch (err) {

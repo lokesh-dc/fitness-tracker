@@ -52,6 +52,7 @@ import PageWithSidebar from "./layout/PageWithSidebar";
 import { requestNotificationPermission } from "@/lib/notifications";
 import { ExerciseHistoryCard } from "./workout/ExerciseHistoryCard";
 import PlateauModal, { type PlateauProgression } from "./workout/PlateauModal";
+import type { ExerciseHistorySession } from "@/app/actions/exercise-history";
 import { Confetti } from "./ui/Confetti";
 import ChangeWorkoutModal from "./ChangeWorkoutModal";
 import ExerciseSwapModal from "./ExerciseSwapModal";
@@ -296,9 +297,13 @@ export default function WorkoutSession({
 	const [showCelebration, setShowCelebration] = useState(false);
 	const [savedLogId, setSavedLogId] = useState<string | null>(null);
 	const [plateauDetected, setPlateauDetected] = useState(false);
+	const [plateauSessions, setPlateauSessions] = useState<
+		ExerciseHistorySession[]
+	>([]);
 	const [plateauModalIndex, setPlateauModalIndex] = useState<number | null>(null);
 	const plateauPrompted = useRef<Set<string>>(new Set());
 	const plateauForExercise = useRef<string | null>(null);
+	const activeExerciseKeyRef = useRef<string | null>(null);
 	const [triggerConfetti, setTriggerConfetti] = useState(false);
 	const [showChangeWorkout, setShowChangeWorkout] = useState(false);
 	const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
@@ -367,13 +372,20 @@ export default function WorkoutSession({
 		return exercise.exerciseId || exercise.name;
 	}, [activeExerciseIndex, exercises]);
 
+	activeExerciseKeyRef.current = activeExerciseKey;
+
 	const handlePlateauDetected = useCallback(
-		(detected: boolean) => {
+		(detected: boolean, sessions: ExerciseHistorySession[]) => {
+			// Ignore a late response from the previous exercise's history card.
+			if (activeExerciseKeyRef.current !== activeExerciseKey) return;
+
 			setPlateauDetected(detected);
 			if (detected) {
 				plateauForExercise.current = activeExerciseKey;
+				setPlateauSessions(sessions);
 			} else if (plateauForExercise.current === activeExerciseKey) {
 				plateauForExercise.current = null;
+				setPlateauSessions([]);
 			}
 		},
 		[activeExerciseKey],
@@ -381,6 +393,7 @@ export default function WorkoutSession({
 
 	useEffect(() => {
 		setPlateauDetected(false);
+		setPlateauSessions([]);
 		setPlateauModalIndex(null);
 		plateauForExercise.current = null;
 	}, [activeExerciseIndex]);
@@ -531,12 +544,79 @@ export default function WorkoutSession({
 	const applyPlateauProgression = (
 		exerciseIndex: number,
 		progression: PlateauProgression,
+		lastSession?: ExerciseHistorySession | null,
 	) => {
 		setExercises((prev) => {
 			const newExs = [...prev];
 			const target = { ...newExs[exerciseIndex] };
+			const session =
+				lastSession && lastSession.sets.length > 0 ? lastSession : null;
 
-			if (progression === "reps") {
+			if (session) {
+				const baselineSets = session.sets;
+				const buildSet = (base: { weight: number; reps: number }) => ({
+					weight: base.weight,
+					reps: progression === "reps" ? base.reps + 1 : base.reps,
+					completed: false,
+				});
+				const allSetsIncomplete = target.sets.every(
+					(set) => !set.completed,
+				);
+
+				target.lastWeight = session.topSetWeight || target.lastWeight || 0;
+
+				if (allSetsIncomplete) {
+					let nextSets = baselineSets.map(buildSet);
+					if (progression === "sets") {
+						nextSets = [
+							...nextSets,
+							buildSet(baselineSets[baselineSets.length - 1]),
+						];
+					}
+					target.sets = nextSets;
+					target.targetSets = nextSets.length;
+				} else {
+					let nextSets = target.sets.map((set, index) => {
+						if (set.completed) return set;
+						const base =
+							baselineSets[index] ??
+							baselineSets[baselineSets.length - 1];
+						return { ...set, ...buildSet(base) };
+					});
+					if (progression === "sets") {
+						nextSets = [
+							...nextSets,
+							buildSet(baselineSets[baselineSets.length - 1]),
+						];
+					}
+					target.sets = nextSets;
+					target.targetSets = Math.max(
+						target.targetSets || 0,
+						nextSets.length,
+					);
+				}
+
+				// Use the most common rep count (tie-break toward the higher
+				// reps) so the target reflects the working sets rather than
+				// only the heavier top set.
+				const repsCounts = new Map<number, number>();
+				for (const set of baselineSets) {
+					repsCounts.set(set.reps, (repsCounts.get(set.reps) || 0) + 1);
+				}
+				let targetReps = baselineSets[0].reps;
+				let mostCommonCount = 0;
+				for (const [reps, count] of repsCounts) {
+					if (
+						count > mostCommonCount ||
+						(count === mostCommonCount && reps > targetReps)
+					) {
+						targetReps = reps;
+						mostCommonCount = count;
+					}
+				}
+				target.targetReps =
+					progression === "reps" ? targetReps + 1 : targetReps;
+			} else if (progression === "reps") {
 				const currentReps =
 					target.sets.find((set) => !set.completed)?.reps ||
 					target.targetReps ||
@@ -549,19 +629,19 @@ export default function WorkoutSession({
 						? set
 						: { ...set, reps: (set.reps || currentReps) + 1 },
 				);
-			} else {
+			} else if (progression === "sets") {
 				const lastSet = target.sets[target.sets.length - 1];
 				const nextSet = lastSet
 					? {
-						...lastSet,
-						reps: lastSet.reps || target.targetReps || 0,
-						completed: false,
-					}
+							...lastSet,
+							reps: lastSet.reps || target.targetReps || 0,
+							completed: false,
+						}
 					: {
-						weight: target.lastWeight || 0,
-						reps: target.targetReps || 0,
-						completed: false,
-					};
+							weight: target.lastWeight || 0,
+							reps: target.targetReps || 0,
+							completed: false,
+						};
 
 				target.sets = [...target.sets, nextSet];
 				target.targetSets = Math.max(
@@ -661,15 +741,21 @@ export default function WorkoutSession({
 		/>
 	);
 
+	const plateauSession = plateauSessions[0] ?? null;
 	const plateauModal =
 		plateauModalIndex !== null && exercises[plateauModalIndex] ? (
 			<PlateauModal
 				key={`${exercises[plateauModalIndex].exerciseId || exercises[plateauModalIndex].name}-plateau`}
 				exercise={exercises[plateauModalIndex]}
-				onKeepSame={() => setPlateauModalIndex(null)}
+				lastSession={plateauSession}
+				onClose={() => setPlateauModalIndex(null)}
 				onApply={(progression) => {
 					if (plateauModalIndex === null) return;
-					applyPlateauProgression(plateauModalIndex, progression);
+					applyPlateauProgression(
+						plateauModalIndex,
+						progression,
+						plateauSession,
+					);
 				}}
 			/>
 		) : null;
@@ -1692,11 +1778,11 @@ export default function WorkoutSession({
 										onClick={() => setPlateauModalIndex(activeExerciseIndex)}
 										title="Review plateau options"
 										className="flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-0.5 text-[10px] font-medium text-amber-400 transition-colors hover:bg-amber-400/15 animate-in fade-in slide-in-from-right-2 duration-500">
-										⚠ No progress in 3 weeks
+										⚠ No progress in 3 sessions
 									</button>
 								) : (
 									<span className="flex items-center gap-1 text-[10px] font-medium text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-full px-2 py-0.5 animate-in fade-in slide-in-from-right-2 duration-500">
-										⚠ No progress in 3 weeks
+										⚠ No progress in 3 sessions
 									</span>
 								))}
 						</div>
