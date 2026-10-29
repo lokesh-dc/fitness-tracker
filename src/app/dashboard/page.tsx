@@ -30,6 +30,7 @@ import {
 	getTomorrowPlanDetail,
 	getThisMonthStats,
 	getWeeklyVolumeComparison,
+	getMuscleRecovery,
 } from "@/app/actions/analytics";
 import { getOnboardingProfile } from "@/app/actions/profile";
 import OnboardingBanner from "@/components/onboarding/OnboardingBanner";
@@ -37,6 +38,7 @@ import { TomorrowPrompt } from "@/components/dashboard/TomorrowPrompt";
 import { CoolDownStretches } from "@/components/CoolDownStretches";
 import { WorkoutMergePrompt } from "@/components/dashboard/WorkoutMergePrompt";
 import { getYesterdayMissedWorkout } from "@/app/actions/merge";
+import { MuscleRecoveryDashCard } from "@/components/dashboard/MuscleRecoveryDashCard";
 
 export const dynamic = "force-dynamic";
 
@@ -90,6 +92,7 @@ export default async function DashboardPage() {
 		thisWeekWeight,
 		monthStats,
 		weeklyVolume,
+		muscleRecovery,
 	] = await Promise.all([
 		getPlanByDate().catch(() => null),
 		getActivePlanInfo().catch(() => null),
@@ -137,6 +140,7 @@ export default async function DashboardPage() {
 			differencePercent: 0,
 			trendDirection: "neutral" as const,
 		})),
+		getMuscleRecovery().catch(() => []),
 	]);
 
 	const today = new Date();
@@ -321,6 +325,9 @@ export default async function DashboardPage() {
 							stats={monthStats}
 							weeklyVolume={weeklyVolume}
 						/>
+
+						{/* ── Muscle Recovery Card ── */}
+						<MuscleRecoveryDashCard recovery={muscleRecovery} />
 					</div>
 				</PageWithSidebar>
 			</main>
