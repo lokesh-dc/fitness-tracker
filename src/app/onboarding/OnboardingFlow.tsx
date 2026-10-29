@@ -100,7 +100,7 @@ export default function OnboardingFlow({ initialData }: OnboardingFlowProps) {
 	const handleFinish = async () => {
 		setIsSubmitting(true);
 		await saveOnboardingStep({ onboardingComplete: true });
-		router.push("/plan/new");
+		router.push("/onboarding/first-session");
 	};
 
 	useEffect(() => {
@@ -124,15 +124,17 @@ export default function OnboardingFlow({ initialData }: OnboardingFlowProps) {
 			6: [1, 2, 3, 4, 5, 6],
 			7: [0, 1, 2, 3, 4, 5, 6],
 		};
-		setPreferredTrainingDays(suggestions[trainingDaysPerWeek]);
+		const clamped = Math.min(7, Math.max(1, Math.round(Number(trainingDaysPerWeek) || 3)));
+		setPreferredTrainingDays(suggestions[clamped] || [1, 3, 5]);
 	}, [trainingDaysPerWeek]);
 
 	const toggleDay = (day: number) => {
-		setPreferredTrainingDays((prev) =>
-			prev.includes(day)
-				? prev.filter((d) => d !== day)
-				: [...prev, day].sort(),
-		);
+		setPreferredTrainingDays((prev) => {
+			const safe = prev || [];
+			return safe.includes(day)
+				? safe.filter((d) => d !== day)
+				: [...safe, day].sort();
+		});
 	};
 
 	const variants = {
@@ -437,7 +439,7 @@ export default function OnboardingFlow({ initialData }: OnboardingFlowProps) {
 															Select Preferred Days
 														</span>
 														<span className="text-[10px] font-black text-orange-500/60 uppercase tracking-[0.2em]">
-															{preferredTrainingDays.length} / 7
+															{(preferredTrainingDays || []).length} / 7
 														</span>
 													</div>
 													<div className="flex justify-between gap-2">
@@ -448,7 +450,7 @@ export default function OnboardingFlow({ initialData }: OnboardingFlowProps) {
 																	onClick={() => toggleDay(idx)}
 																	className={cn(
 																		"flex-1 aspect-square rounded-xl text-xs md:text-[10px] font-black transition-all border-2",
-																		preferredTrainingDays.includes(idx)
+																		(preferredTrainingDays || []).includes(idx)
 																			? "bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-500/20"
 																			: "bg-foreground/5 border-foreground/5 text-foreground/30 hover:bg-foreground/10",
 																	)}>
@@ -512,7 +514,7 @@ export default function OnboardingFlow({ initialData }: OnboardingFlowProps) {
 													<div className="flex gap-1">
 														{["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map(
 															(day, idx) =>
-																preferredTrainingDays.includes(idx) && (
+																(preferredTrainingDays || []).includes(idx) && (
 																	<span
 																		key={day}
 																		className="text-[8px] bg-orange-500/20 border border-orange-500/30 px-2 py-1 rounded text-orange-500 font-black uppercase tracking-tighter">

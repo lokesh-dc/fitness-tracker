@@ -55,6 +55,7 @@ export function PlanDesigner({
 	showDraftOption = false,
 	duplicateMode = false,
 	onDirtyStateChange,
+	onSavedRedirectUrl,
 }: {
 	initialData?: { plan: PlanDocument; templates: WorkoutTemplate[] } | null;
 	editPlanId?: string;
@@ -65,6 +66,7 @@ export function PlanDesigner({
 	showDraftOption?: boolean;
 	duplicateMode?: boolean;
 	onDirtyStateChange?: (dirty: boolean) => void;
+	onSavedRedirectUrl?: string;
 }) {
 	const router = useRouter();
 
@@ -431,7 +433,7 @@ export function PlanDesigner({
 			setShowSuccess(true);
 			setTimeout(() => {
 				setShowSuccess(false);
-				router.push(editPlanId ? `/plan/${editPlanId}` : "/plan");
+				router.push(onSavedRedirectUrl || (editPlanId ? `/plan/${editPlanId}` : "/plan"));
 			}, 2000);
 		} catch (error) {
 			alert("Failed to save plan.");

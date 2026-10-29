@@ -8,6 +8,7 @@ import {
 	TrendingDown,
 	Minus,
 	Loader2,
+	Target,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import {
@@ -20,18 +21,21 @@ import {
 	CartesianGrid,
 } from "recharts";
 import { ThisWeekWeightSummary, WeightTrendData } from "@/types/workout";
+import { UserProfile } from "@/types/profile";
 import { LogWeightModal } from "@/components/LogWeightModal";
 import { getBodyWeightTrend } from "@/app/actions/analytics";
+import { cn } from "@/lib/utils";
 
 export { LogWeightModal, AppleWeightWheelPicker } from "@/components/LogWeightModal";
 
 interface WeightTimelineWidgetProps {
 	data: ThisWeekWeightSummary;
+	profile?: UserProfile | null;
 }
 
 type ViewRange = "7d" | "all";
 
-export function WeightTimelineWidget({ data }: WeightTimelineWidgetProps) {
+export function WeightTimelineWidget({ data, profile }: WeightTimelineWidgetProps) {
 	const [mounted, setMounted] = useState(false);
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [selectedDateStr, setSelectedDateStr] = useState<string>(() => {
@@ -74,6 +78,53 @@ export function WeightTimelineWidget({ data }: WeightTimelineWidgetProps) {
 		setSelectedDateStr(targetDate);
 		setIsModalOpen(true);
 	};
+
+	// Goal and timeline calculation based on user's onboarding profile
+	const startingWeight = profile?.currentWeight ?? null;
+	const targetWeight = profile?.targetWeight ?? null;
+	const currentWeight = data.currentWeight;
+
+	const goalType: "loss" | "gain" | "maintain" | null = (() => {
+		if (targetWeight === null || startingWeight === null) return null;
+		const diff = targetWeight - startingWeight;
+		if (Math.abs(diff) < 0.5) return "maintain";
+		return diff < 0 ? "loss" : "gain";
+	})();
+
+	const distanceToGoal = (() => {
+		if (targetWeight === null || currentWeight === null) return null;
+		return targetWeight - currentWeight;
+	})();
+
+	const isGoalReached = (() => {
+		if (distanceToGoal === null || !goalType) return false;
+		if (goalType === "loss") return distanceToGoal >= 0;
+		if (goalType === "gain") return distanceToGoal <= 0;
+		return Math.abs(distanceToGoal) < 0.5;
+	})();
+
+	const timelineLabel =
+		profile?.targetTimeline === "1m"
+			? "1 month"
+			: profile?.targetTimeline === "3m"
+				? "3 months"
+				: profile?.targetTimeline === "1y"
+					? "1 year"
+					: null;
+
+	// Is the weekly change favorable relative to user's stated goal?
+	const isFavorable = (() => {
+		if (!goalType || goalType === "maintain") {
+			return data.changeDirection === "down";
+		}
+		if (goalType === "loss") {
+			return data.changeDirection === "down";
+		}
+		if (goalType === "gain") {
+			return data.changeDirection === "up";
+		}
+		return true;
+	})();
 
 	// Prepare data for the 7-day timeline area chart
 	let lastKnownVal = data.startWeight || data.currentWeight || null;
@@ -165,13 +216,29 @@ export function WeightTimelineWidget({ data }: WeightTimelineWidgetProps) {
 								Weekly change
 							</span>
 							{data.changeDirection === "up" && data.changeKg !== null ? (
-								<div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/[0.06] border border-amber-500/15 text-amber-500/65 font-medium text-xs tabular-nums">
-									<TrendingUp className="w-3 h-3 text-amber-500/65" />
+								<div
+									className={cn(
+										"inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border font-medium text-xs tabular-nums",
+										isFavorable
+											? "bg-emerald-500/[0.06] border-emerald-500/15 text-emerald-400"
+											: "bg-rose-500/[0.08] border-rose-500/20 text-rose-400",
+									)}>
+									<TrendingUp
+										className={cn("w-3 h-3", isFavorable ? "text-emerald-400" : "text-rose-400")}
+									/>
 									<span>+{data.changeKg.toFixed(1)} kg</span>
 								</div>
 							) : data.changeDirection === "down" && data.changeKg !== null ? (
-								<div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-500/[0.06] border border-emerald-500/15 text-emerald-500/65 font-medium text-xs tabular-nums">
-									<TrendingDown className="w-3 h-3 text-emerald-500/65" />
+								<div
+									className={cn(
+										"inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border font-medium text-xs tabular-nums",
+										isFavorable
+											? "bg-emerald-500/[0.06] border-emerald-500/15 text-emerald-400"
+											: "bg-rose-500/[0.08] border-rose-500/20 text-rose-400",
+									)}>
+									<TrendingDown
+										className={cn("w-3 h-3", isFavorable ? "text-emerald-400" : "text-rose-400")}
+									/>
 									<span>{data.changeKg.toFixed(1)} kg</span>
 								</div>
 							) : data.changeDirection === "neutral" ? (
@@ -186,6 +253,35 @@ export function WeightTimelineWidget({ data }: WeightTimelineWidgetProps) {
 							)}
 						</div>
 					</div>
+
+					{/* ── Goal & Target Pill ── */}
+					{targetWeight !== null && (
+						<div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-foreground/[0.02] border border-foreground/[0.05] mb-2.5 text-[11px]">
+							<div className="flex items-center gap-1.5 font-bold text-foreground/75">
+								<Target className="w-3.5 h-3.5 text-brand-primary shrink-0" />
+								<span>
+									Goal: <span className="text-foreground">{targetWeight} kg</span>
+									<span className="text-foreground/40 font-normal ml-1">
+										{goalType === "loss" ? "(Weight Loss)" : goalType === "gain" ? "(Weight Gain)" : "(Maintenance)"}
+									</span>
+								</span>
+							</div>
+							<div className="flex items-center gap-2 text-[10px] text-foreground/40 font-medium">
+								{distanceToGoal !== null && (
+									<span
+										className={cn(
+											"font-bold",
+											isGoalReached ? "text-emerald-400" : "text-foreground/60",
+										)}>
+										{isGoalReached
+											? "Target reached! 🎉"
+											: `${Math.abs(distanceToGoal).toFixed(1)} kg ${distanceToGoal < 0 ? "to lose" : "to gain"}`}
+									</span>
+								)}
+								{timelineLabel && <span>· {timelineLabel} timeline</span>}
+							</div>
+						</div>
+					)}
 
 					{/* ── 7-Day Chart ── */}
 					<div className="w-full h-[140px] -mx-2 relative">
@@ -350,6 +446,35 @@ export function WeightTimelineWidget({ data }: WeightTimelineWidgetProps) {
 							{allTimeData.length} data point{allTimeData.length === 1 ? "" : "s"}
 						</span>
 					</div>
+
+					{/* ── Goal & Target Pill ── */}
+					{targetWeight !== null && (
+						<div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-foreground/[0.02] border border-foreground/[0.05] mb-3 text-[11px]">
+							<div className="flex items-center gap-1.5 font-bold text-foreground/75">
+								<Target className="w-3.5 h-3.5 text-brand-primary shrink-0" />
+								<span>
+									Goal: <span className="text-foreground">{targetWeight} kg</span>
+									<span className="text-foreground/40 font-normal ml-1">
+										{goalType === "loss" ? "(Weight Loss)" : goalType === "gain" ? "(Weight Gain)" : "(Maintenance)"}
+									</span>
+								</span>
+							</div>
+							<div className="flex items-center gap-2 text-[10px] text-foreground/40 font-medium">
+								{distanceToGoal !== null && (
+									<span
+										className={cn(
+											"font-bold",
+											isGoalReached ? "text-emerald-400" : "text-foreground/60",
+										)}>
+										{isGoalReached
+											? "Target reached! 🎉"
+											: `${Math.abs(distanceToGoal).toFixed(1)} kg ${distanceToGoal < 0 ? "to lose" : "to gain"}`}
+									</span>
+								)}
+								{timelineLabel && <span>· {timelineLabel} timeline</span>}
+							</div>
+						</div>
+					)}
 
 					{allTimeLoading ? (
 						<div className="w-full h-[200px] flex items-center justify-center">

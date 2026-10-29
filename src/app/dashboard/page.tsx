@@ -39,6 +39,8 @@ import { CoolDownStretches } from "@/components/CoolDownStretches";
 import { WorkoutMergePrompt } from "@/components/dashboard/WorkoutMergePrompt";
 import { getYesterdayMissedWorkout } from "@/app/actions/merge";
 import { MuscleRecoveryDashCard } from "@/components/dashboard/MuscleRecoveryDashCard";
+import { getOnboardingState } from "@/app/actions/onboarding";
+import { StartFirstSessionCard } from "@/components/onboarding/StartFirstSessionCard";
 
 export const dynamic = "force-dynamic";
 
@@ -93,6 +95,7 @@ export default async function DashboardPage() {
 		monthStats,
 		weeklyVolume,
 		muscleRecovery,
+		onboardingState,
 	] = await Promise.all([
 		getPlanByDate().catch(() => null),
 		getActivePlanInfo().catch(() => null),
@@ -141,7 +144,15 @@ export default async function DashboardPage() {
 			trendDirection: "neutral" as const,
 		})),
 		getMuscleRecovery().catch(() => []),
+		getOnboardingState(userId).catch(() => ({ status: "INERT" as const })),
 	]);
+
+	// Route first-run new users to the guided first session
+	if (onboardingState.status === "FIRST_RUN") {
+		redirect("/onboarding/first-session");
+	}
+
+	const isFirstWorkoutUser = onboardingState.status === "SKIPPED";
 
 	const today = new Date();
 
@@ -172,6 +183,7 @@ export default async function DashboardPage() {
 							monthDates={monthDates}
 							weekSnapshot={weekSnapshot}
 							nextWorkout={nextWorkout}
+							isFirstWorkoutUser={isFirstWorkoutUser}
 						/>
 					}>
 					<div className="space-y-5">
@@ -184,6 +196,11 @@ export default async function DashboardPage() {
 								nextWorkout={nextWorkout?.name || "No Plan"}
 							/>
 						</div>
+
+						{/* ── First Session Prompt for Skipped Onboarding ── */}
+						{isFirstWorkoutUser && !isTodayDone && (
+							<StartFirstSessionCard />
+						)}
 
 						{/* ── PRIMARY: Today's Workout ── */}
 						<section>
@@ -318,7 +335,10 @@ export default async function DashboardPage() {
 						</section>
 
 {/* ── Weight Timeline Widget ── */}
-						<WeightTimelineWidget data={thisWeekWeight} />
+						<WeightTimelineWidget
+							data={thisWeekWeight}
+							profile={userProfile}
+						/>
 
 						{/* ── Analytics Snapshot ── */}
 						<AnalyticsSummaryWidget
@@ -327,7 +347,10 @@ export default async function DashboardPage() {
 						/>
 
 						{/* ── Muscle Recovery Card ── */}
-						<MuscleRecoveryDashCard recovery={muscleRecovery} />
+						<MuscleRecoveryDashCard
+							recovery={muscleRecovery}
+							isFirstWorkoutUser={isFirstWorkoutUser}
+						/>
 					</div>
 				</PageWithSidebar>
 			</main>
