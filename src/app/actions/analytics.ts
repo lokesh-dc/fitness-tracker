@@ -21,7 +21,8 @@ import {
   RepRangeDistribution,
   BestSession,
   MuscleGroupDetailPageData,
-  NotImprovedExercise
+  NotImprovedExercise,
+  MuscleRecovery,
 } from "@/types/workout";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -30,6 +31,8 @@ import {
   toUTCEndOfDay,
   toUTCDayString,
 } from "@/lib/day-boundary";
+import { MUSCLES, SECONDARY_WEIGHT } from "@/lib/muscles";
+import { recoveryForMuscle } from "@/lib/recovery";
 
 export async function getHighestWeightPR(exerciseName: string): Promise<{ weight: number; reps: number }> {
   try {
@@ -2538,4 +2541,206 @@ function getRepRangeInterpretation(dist: RepRangeDistribution, muscleGroup: stri
   if (dist.strengthHyper === maxVal) return `You spend most of your time in the strength-hypertrophy crossover range (6-10 reps) for ${muscleGroup}. This is great for both power and size.`;
   if (dist.hypertrophy === maxVal) return `You focus on the traditional hypertrophy range for ${muscleGroup}.`;
   return `You focus on high-rep endurance training for ${muscleGroup}.`;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Muscle recovery                                                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Returns estimated recovery data for every canonical muscle based on
+ * WorkoutLog entries in the last 7 days.
+ *
+ * Rules:
+ *  - Primary sets contribute weight 1; secondary sets contribute SECONDARY_WEIGHT (0.5).
+ *  - Zero-weight or zero-rep sets are filtered out.
+ *  - exerciseId is stored as a string in WorkoutLog, so we match by name
+ *    (the reliable path for 99%+ of logs).
+ *  - Always returns all 16 muscles; untrained ones have state='untrained'.
+ *  - Read-only. No DB writes.
+ */
+export async function getMuscleRecovery(): Promise<MuscleRecovery[]> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      // Return all muscles as untrained for unauthenticated calls
+      return MUSCLES.map((m) => ({
+        muscle: m,
+        state: "untrained",
+        pct: 0,
+        hoursLeft: 0,
+        lastTrainedAt: null,
+        lastSessionSets: 0,
+        totalSets7d: 0,
+        totalVolume7d: 0,
+      }));
+    }
+
+    const userId = new ObjectId((session.user as { id: string }).id);
+    const db = await getDb();
+    const logs = db.collection("WorkoutLog");
+
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const rows = await logs
+      .aggregate([
+        // Step 1: logs in the last 7 days for this user
+        { $match: { userId, date: { $gte: since } } },
+        { $unwind: "$exercises" },
+        { $unwind: "$exercises.sets" },
+        // Step 2: filter ghost / warmup sets (warm-ups never appear in logs per spec)
+        {
+          $match: {
+            "exercises.sets.weight": { $gt: 0 },
+            "exercises.sets.reps": { $gt: 0 },
+          },
+        },
+        // Step 3: look up exercise by name (99%+ resolve; by-ID is unreliable because
+        // WorkoutLog stores a custom string exerciseId, not the Exercises _id)
+        {
+          $lookup: {
+            from: "Exercises",
+            localField: "exercises.name",
+            foreignField: "name",
+            as: "ex",
+          },
+        },
+        {
+          $unwind: {
+            path: "$ex",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        // Step 4: build contrib list — primary muscle at weight 1, secondaries at SECONDARY_WEIGHT
+        {
+          $addFields: {
+            contrib: {
+              $concatArrays: [
+                // Primary: use resolved muscleGroup, fall back to exercises.name for unresolved
+                [
+                  {
+                    m: {
+                      $ifNull: ["$ex.muscleGroup", null],
+                    },
+                    w: 1,
+                  },
+                ],
+                // Secondaries
+                {
+                  $map: {
+                    input: { $ifNull: ["$ex.secondaryMuscles", []] },
+                    as: "s",
+                    in: { m: "$$s", w: SECONDARY_WEIGHT },
+                  },
+                },
+              ],
+            },
+            setVolume: {
+              $multiply: ["$exercises.sets.weight", "$exercises.sets.reps"],
+            },
+          },
+        },
+        // Step 5: flatten contributions, drop entries where muscle is null / Cardio / Other
+        { $unwind: "$contrib" },
+        {
+          $match: {
+            "contrib.m": {
+              $in: MUSCLES as unknown as string[],
+            },
+          },
+        },
+        // Step 6: group by (muscle, log) to get per-session effective sets
+        {
+          $group: {
+            _id: { muscle: "$contrib.m", logId: "$_id" },
+            effSets: { $sum: "$contrib.w" },
+            // Volume is weighted by contribution weight
+            volume: {
+              $sum: { $multiply: ["$setVolume", "$contrib.w"] },
+            },
+            // Use completedAt if available, else date
+            trainedAt: {
+              $max: { $ifNull: ["$completedAt", "$date"] },
+            },
+          },
+        },
+        // Step 7: sort sessions most-recent first so $first in next group = last session
+        { $sort: { trainedAt: -1 } },
+        // Step 8: collapse sessions into one row per muscle
+        {
+          $group: {
+            _id: "$_id.muscle",
+            lastTrainedAt: { $first: "$trainedAt" },
+            lastSessionSets: { $first: "$effSets" },
+            totalSets7d: { $sum: "$effSets" },
+            totalVolume7d: { $sum: "$volume" },
+          },
+        },
+      ])
+      .toArray();
+
+    // Build a map for O(1) lookup
+    const map = new Map(
+      rows.map((r) => [
+        r._id as string,
+        {
+          lastTrainedAt: r.lastTrainedAt as Date | null,
+          lastSessionSets: r.lastSessionSets as number,
+          totalSets7d: r.totalSets7d as number,
+          totalVolume7d: r.totalVolume7d as number,
+        },
+      ]),
+    );
+
+    const now = Date.now();
+
+    // Always return all 16 muscles
+    return MUSCLES.map((muscle) => {
+      const row = map.get(muscle);
+
+      if (!row || !row.lastTrainedAt || row.lastSessionSets <= 0) {
+        return {
+          muscle,
+          state: "untrained" as const,
+          pct: 0,
+          hoursLeft: 0,
+          lastTrainedAt: null,
+          lastSessionSets: 0,
+          totalSets7d: 0,
+          totalVolume7d: 0,
+        };
+      }
+
+      const { state, pct, hoursLeft } = recoveryForMuscle(
+        muscle,
+        row.lastTrainedAt,
+        row.lastSessionSets,
+        now,
+      );
+
+      return {
+        muscle,
+        state,
+        pct,
+        hoursLeft,
+        lastTrainedAt: row.lastTrainedAt.toISOString(),
+        lastSessionSets: Math.round(row.lastSessionSets * 10) / 10,
+        totalSets7d: Math.round(row.totalSets7d * 10) / 10,
+        totalVolume7d: Math.round(row.totalVolume7d),
+      };
+    });
+  } catch (error) {
+    console.error("getMuscleRecovery error:", error);
+    // Return all muscles as untrained on error so the page still renders
+    return MUSCLES.map((m) => ({
+      muscle: m,
+      state: "untrained" as const,
+      pct: 0,
+      hoursLeft: 0,
+      lastTrainedAt: null,
+      lastSessionSets: 0,
+      totalSets7d: 0,
+      totalVolume7d: 0,
+    }));
+  }
 }

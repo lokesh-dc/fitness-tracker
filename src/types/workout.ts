@@ -1,3 +1,5 @@
+import type { Muscle } from "@/lib/muscles";
+
 export interface SetLog {
   weight: number;
   reps: number;
@@ -7,7 +9,12 @@ export interface SetLog {
 export interface ExerciseDefinition {
   id?: string;
   name: string;
-  muscleGroup: string;
+  /** Canonical muscle, or `Cardio` for conditioning work that has no single muscle. */
+  muscleGroup: Muscle | 'Cardio';
+  /** Optional muscles this exercise also works (max 3, never includes the primary). */
+  secondaryMuscles?: Muscle[];
+  /** Backup of the pre-migration value, kept for rollback. */
+  legacyMuscleGroup?: string;
   unit: 'reps' | 'steps' | 'secs' | 'mins';
   image?: string;
   isCustom?: boolean;
@@ -486,6 +493,29 @@ export interface WeeklyMuscleVolume {
   totalSets: number;
   sessionCount: number;
   rollingAvgVolume?: number; // Calculated server-side
+}
+
+/* ------------------------------------------------------------------------- */
+/* Muscle recovery                                                           */
+/* ------------------------------------------------------------------------- */
+
+export type RecoveryState = 'fatigued' | 'recovering' | 'ready' | 'untrained';
+
+export interface MuscleRecovery {
+  muscle: Muscle;
+  state: RecoveryState;
+  /** 0-100, estimated recovery. 0 for untrained muscles. */
+  pct: number;
+  /** Whole hours until full recovery; 0 when ready or untrained. */
+  hoursLeft: number;
+  /** ISO timestamp of the most recent session that worked the muscle. */
+  lastTrainedAt: string | null;
+  /** Effective sets in the most recent session (secondary sets count 0.5). */
+  lastSessionSets: number;
+  /** Effective sets over the rolling 7-day window. */
+  totalSets7d: number;
+  /** Weighted training volume in kg over the rolling 7-day window. */
+  totalVolume7d: number;
 }
 
 export interface ExerciseDetailData {

@@ -432,10 +432,13 @@ export default function WorkoutSession({
 	}, [step, template, exercises.length]);
 
 	// Restore an in-progress draft (swaps, skips, marked sets) once on mount.
+	// For merged sessions, always start fresh — the merged template is the source of truth
+	// and a stale draft from a previous unrelated session must never overwrite it.
 	const draftRestored = useRef(false);
 	useEffect(() => {
 		if (draftRestored.current) return;
 		draftRestored.current = true;
+		if (isMerged) return; // merged sessions never resume from draft
 		const draft = loadDraft(effectiveDate);
 		if (!draft || draft.exercises.length === 0) return;
 		setExercises(draft.exercises);
@@ -451,7 +454,7 @@ export default function WorkoutSession({
 			setHasChangedWorkout(draft.hasChangedWorkout);
 		}
 		if (draft.activeMode) setActiveMode(draft.activeMode);
-	}, [effectiveDate]);
+	}, [effectiveDate, isMerged]);
 
 	// Persist the current session state whenever it changes.
 	useEffect(() => {

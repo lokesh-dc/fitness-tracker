@@ -2,6 +2,7 @@
 
 import { getDb } from "@/lib/db-utils";
 import { ExerciseDefinition } from "@/types/workout";
+import type { Muscle } from "@/lib/muscles";
 
 export async function getExercises(): Promise<ExerciseDefinition[]> {
     try {
@@ -31,7 +32,7 @@ export async function addCustomExercise(data: { name: string; muscleGroup: strin
 
         const doc = {
             name: data.name,
-            muscleGroup: data.muscleGroup,
+            muscleGroup: data.muscleGroup as Muscle | 'Cardio',
             unit: data.unit,
             isCustom: true,
             createdAt: new Date(),

@@ -4,6 +4,7 @@ import {
 	getUserExercises,
 	getMostImprovedExercise,
 	getWeeklyVolumeComparison,
+	getMuscleRecovery,
 } from "@/app/actions/analytics";
 import { getWorkoutHistory } from "@/app/actions/logs";
 import { WorkoutLog } from "@/types/workout";
@@ -13,7 +14,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { format, parseISO } from "date-fns";
-import type { WeightTrendData } from "@/types/workout";
+import type { WeightTrendData, MuscleRecovery } from "@/types/workout";
 
 import { Header } from "@/components/Header";
 import { AnalyticsTabs } from "@/components/analytics/AnalyticsTabs";
@@ -23,6 +24,8 @@ import {
 	AnalyticsSidebar,
 	AnalyticsMobileStrip,
 } from "@/components/sidebar/AnalyticsSidebar";
+import { MuscleRecoveryMap } from "@/components/analytics/MuscleRecoveryMap";
+import { ScrollToAnchor } from "@/components/ScrollToAnchor";
 
 export const dynamic = "force-dynamic";
 
@@ -206,13 +209,21 @@ export default async function AnalyticsPage() {
 			userId
 				? getWeeklyVolumeComparison(userId)
 				: Promise.resolve({
-					thisWeekVolume: 0,
-					lastWeekVolume: 0,
-					differenceKg: 0,
-					differencePercent: 0,
-					trendDirection: "neutral" as const,
-				}),
+						thisWeekVolume: 0,
+						lastWeekVolume: 0,
+						differenceKg: 0,
+						differencePercent: 0,
+						trendDirection: "neutral" as const,
+					}),
 		]);
+
+	// Recovery fetch in its own try/catch — failure shows empty state, page still renders
+	let muscleRecovery: MuscleRecovery[] = [];
+	try {
+		muscleRecovery = await getMuscleRecovery();
+	} catch {
+		// silently degrade
+	}
 
 	const recentHistory = (allLogs || [])
 		.filter((log: WorkoutLog) => log.exercises && log.exercises.length > 0)
@@ -245,6 +256,7 @@ export default async function AnalyticsPage() {
 
 	return (
 		<div className="flex flex-col">
+			<ScrollToAnchor />
 			<Header title="Analytics" subtitle="Where your training stands" />
 
 			<main className="flex-1 px-6 w-full pb-12 transition-all duration-500 animate-in fade-in slide-in-from-bottom-4">
@@ -264,12 +276,14 @@ export default async function AnalyticsPage() {
 							<AnalyticsSidebar
 								mostImproved={mostImproved}
 								weeklyVolume={weeklyVolume}
+								muscleRecovery={muscleRecovery}
 							/>
 						}
 						mobileWidgets={
 							<AnalyticsMobileStrip
 								mostImproved={mostImproved}
 								weeklyVolume={weeklyVolume}
+								muscleRecovery={muscleRecovery}
 							/>
 						}>
 						<section
@@ -291,10 +305,20 @@ export default async function AnalyticsPage() {
 						</section>
 
 						<section
-							className="animate-in fade-in slide-in-from-bottom-4 duration-500"
+							id="muscle-recovery"
+							className="animate-in fade-in slide-in-from-bottom-4 duration-500 scroll-mt-32"
 							style={{ animationDelay: "200ms" }}>
+							<SectionHeading index="03" title="Muscle recovery" />
+							<div className="mt-4 space-y-4">
+								<MuscleRecoveryMap recovery={muscleRecovery} />
+							</div>
+						</section>
+
+						<section
+							className="animate-in fade-in slide-in-from-bottom-4 duration-500"
+							style={{ animationDelay: "260ms" }}>
 							<SectionHeading
-								index="03"
+								index="04"
 								title="Records"
 								meta={`${prCount} all-time`}
 							/>
@@ -313,13 +337,11 @@ export default async function AnalyticsPage() {
 													{format(new Date(pr.date), "MMMM d, yyyy")}
 												</p>
 											</div>
-
 											{pr.increment > 0 && (
 												<span className="shrink-0 rounded-md bg-emerald-500/10 px-2 py-1 text-[10px] font-bold tabular-nums text-emerald-500">
 													+{fmtKg(pr.increment)} kg
 												</span>
 											)}
-
 											<div className="shrink-0 text-right">
 												<p className="text-lg font-extrabold tabular-nums tracking-tight text-foreground">
 													{fmtKg(pr.weight)}
@@ -328,7 +350,6 @@ export default async function AnalyticsPage() {
 													kg
 												</p>
 											</div>
-
 											<ChevronRight className="h-4 w-4 shrink-0 text-foreground/25 transition-colors group-hover:text-foreground/60" />
 										</Link>
 									))}
@@ -348,8 +369,8 @@ export default async function AnalyticsPage() {
 
 						<section
 							className="animate-in fade-in slide-in-from-bottom-4 duration-500"
-							style={{ animationDelay: "260ms" }}>
-							<SectionHeading index="04" title="Recent history" />
+							style={{ animationDelay: "320ms" }}>
+							<SectionHeading index="05" title="Recent history" />
 							{recentHistory.length > 0 ? (
 								<div className="mt-4 overflow-hidden rounded-[1.5rem] border border-foreground/[0.06] bg-foreground/[0.02]">
 									{recentHistory.map((history) => (

@@ -48,7 +48,10 @@ export default async function WorkoutPage({
 
 	const [initialBodyWeight, initialWorkoutLog, userSettings, allExercises, customPlan] = await Promise.all([
 		isFuturePrep ? Promise.resolve(null) : getTodayBodyWeight(date),
-		isFuturePrep ? Promise.resolve(null) : getTodayWorkoutLog(date),
+		// For merged sessions, never load today's log — the merged template is the source of truth.
+		// Loading today's log when isMerged risks shadowing the merged exercises if any partial
+		// log already exists for the day (e.g. from a previous incomplete session).
+		isFuturePrep || isMerged ? Promise.resolve(null) : getTodayWorkoutLog(date),
 		getUserSettings(),
 		getExercises(),
 		isFuturePrep || isMerged ? Promise.resolve(null) : getCustomWorkoutPlan(date),
