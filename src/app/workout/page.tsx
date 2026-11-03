@@ -117,6 +117,7 @@ export default async function WorkoutPage({
 					date={isFuturePrep ? undefined : date}
 					mode={isMerged ? 'LIVE_SESSION' : explicitMode}
 					userDefaultRest={userSettings.defaultRestDuration}
+					logWeightBeforeWorkout={userSettings.logWeightBeforeWorkout}
 					allExercises={allExercises}
 					customExerciseNames={customPlan?.exerciseNames || null}
 					isMerged={isMerged}

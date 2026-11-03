@@ -22,6 +22,7 @@ export async function GET(request: Request) {
       email: user.email,
       name: user.name,
       emailVerified: (user as any).emailVerified || null,
+      gender: user.gender || "male",
     };
 
     const secret = process.env.NEXTAUTH_SECRET || "development_secret_only_for_dev_mode";

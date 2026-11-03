@@ -27,7 +27,8 @@ export function Navigation() {
 		pathname === "/workout" ||
 		isOnboarding ||
 		pathname === "/plan/designer" ||
-		pathname === "/plan/generate";
+		pathname === "/plan/generate" ||
+		pathname.startsWith("/profile");
 
 
 	const navItems = [

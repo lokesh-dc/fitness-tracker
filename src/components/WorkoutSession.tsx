@@ -161,6 +161,7 @@ interface WorkoutSessionProps {
 	date?: string;
 	mode?: WorkoutMode;
 	userDefaultRest?: number;
+	logWeightBeforeWorkout?: boolean;
 	allExercises?: ExerciseDefinition[];
 	customExerciseNames?: string[] | null;
 	isMerged?: boolean;
@@ -176,6 +177,7 @@ export default function WorkoutSession({
 	date,
 	mode = "LIVE_SESSION",
 	userDefaultRest = 90,
+	logWeightBeforeWorkout = true,
 	allExercises = [],
 	customExerciseNames = null,
 	isMerged = false,
@@ -184,6 +186,9 @@ export default function WorkoutSession({
 	// Sync logic for initial weight and step
 	const effectiveBodyWeight =
 		initialWorkoutLog?.bodyWeight || initialBodyWeight || 0;
+
+	const stepAfterStart = () =>
+		!logWeightBeforeWorkout || effectiveBodyWeight > 0 ? 2 : 1;
 
 	const [activeMode, setActiveMode] = useState<WorkoutMode>(mode);
 	const [showFirstWorkoutSummary, setShowFirstWorkoutSummary] = useState(false);
@@ -505,7 +510,9 @@ export default function WorkoutSession({
 		const draft = loadDraft(effectiveDate);
 		if (!draft || draft.exercises.length === 0) return;
 		setExercises(draft.exercises);
-		if (typeof draft.step === "number") setStep(draft.step);
+		if (typeof draft.step === "number") {
+			setStep(draft.step === 1 && !logWeightBeforeWorkout ? 2 : draft.step);
+		}
 		if (
 			draft.activeExerciseIndex !== null &&
 			draft.activeExerciseIndex !== undefined
@@ -835,7 +842,7 @@ export default function WorkoutSession({
 		try {
 			const savedLog = await saveWorkoutSession(
 				{
-					bodyWeight,
+					bodyWeight: bodyWeight && bodyWeight > 0 ? bodyWeight : undefined,
 					exercises: exercises.map((ex) => ({
 						exerciseId: ex.exerciseId,
 						name: ex.name,
@@ -1063,7 +1070,7 @@ export default function WorkoutSession({
 		}
 		if (isLastWarmup) {
 			setShowMobilityWarmup(false);
-			setStep(effectiveBodyWeight > 0 ? 2 : 1);
+			setStep(stepAfterStart());
 		} else {
 			setWarmupIndex((i) => Math.min(i + 1, warmupMovements.length - 1));
 		}
@@ -1071,7 +1078,7 @@ export default function WorkoutSession({
 
 	const handleWarmupSkip = () => {
 		setShowMobilityWarmup(false);
-		setStep(effectiveBodyWeight > 0 ? 2 : 1);
+		setStep(stepAfterStart());
 	};
 
 	const handleSkipExercise = async (idx: number) => {
@@ -1239,7 +1246,7 @@ export default function WorkoutSession({
 							setShowMobilityWarmup(true);
 							sessionStats.startSession();
 						} else {
-							setStep(effectiveBodyWeight > 0 ? 2 : 1);
+							setStep(stepAfterStart());
 						}
 					}}
 					className="w-full md:w-auto px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center bg-brand-primary text-black hover:scale-105 active:scale-95 shadow-[0_20px_40px_rgba(249,115,22,0.3)]">
@@ -1677,17 +1684,36 @@ export default function WorkoutSession({
 								Body Weight
 							</span>
 							<span className="text-lg font-black text-brand-primary">
-								{bodyWeight}{" "}
-								<span className="text-xs text-foreground/40">KG</span>
+								{bodyWeight && bodyWeight > 0 ? (
+									<>
+										{bodyWeight}{" "}
+										<span className="text-xs text-foreground/40">KG</span>
+									</>
+								) : (
+									<span className="text-xs text-foreground/40 font-bold uppercase tracking-wider">
+										Not Recorded
+									</span>
+								)}
 							</span>
 						</div>
 						<button
 							onClick={() => setStep(1)}
 							className="p-2 text-foreground/40 hover:text-brand-primary transition-colors rounded-lg hover:bg-brand-primary/10 flex items-center space-x-2">
-							<Edit2 className="w-4 h-4" />
-							<span className="text-[10px] items-center font-bold uppercase tracking-wider hidden sm:inline-block">
-								Edit
-							</span>
+							{bodyWeight && bodyWeight > 0 ? (
+								<>
+									<Edit2 className="w-4 h-4" />
+									<span className="text-[10px] items-center font-bold uppercase tracking-wider hidden sm:inline-block">
+										Edit
+									</span>
+								</>
+							) : (
+								<>
+									<Plus className="w-4 h-4" />
+									<span className="text-[10px] items-center font-bold uppercase tracking-wider">
+										Add
+									</span>
+								</>
+							)}
 						</button>
 					</GlassCard>
 
