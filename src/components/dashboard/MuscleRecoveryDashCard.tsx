@@ -32,9 +32,13 @@ function fmtHours(h: number): string {
 
 interface MuscleRecoveryDashCardProps {
   recovery: MuscleRecovery[];
+  isFirstWorkoutUser?: boolean;
 }
 
-export function MuscleRecoveryDashCard({ recovery }: MuscleRecoveryDashCardProps) {
+export function MuscleRecoveryDashCard({
+  recovery,
+  isFirstWorkoutUser = false,
+}: MuscleRecoveryDashCardProps) {
   const trained = recovery.filter((r) => r.state !== "untrained");
 
   // Empty state — subtle, non-intrusive
@@ -47,7 +51,11 @@ export function MuscleRecoveryDashCard({ recovery }: MuscleRecoveryDashCardProps
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-foreground/50">Muscle Recovery</p>
-            <p className="text-xs text-foreground/30 mt-0.5">Log a workout to see recovery status</p>
+            <p className="text-xs text-foreground/30 mt-0.5">
+              {isFirstWorkoutUser
+                ? "Train a muscle to see recovery here"
+                : "Log a workout to see recovery status"}
+            </p>
           </div>
           <ChevronRight className="w-4 h-4 text-foreground/15 group-hover:text-foreground/40 transition-colors shrink-0" />
         </GlassCard>

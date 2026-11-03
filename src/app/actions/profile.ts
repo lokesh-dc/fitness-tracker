@@ -15,22 +15,30 @@ export async function saveOnboardingStep(data: Partial<UserProfile>) {
     const userId = (session.user as any).id;
     const db = await getDb();
 
+    const { _id, userId: _, ...safeData } = data as any;
     const updateData: any = {
-      ...data,
+      ...safeData,
       updatedAt: new Date(),
     };
+
+    const setOnInsertData: any = {
+      userId: new ObjectId(userId),
+      createdAt: new Date(),
+    };
+
+    if (!("onboardingComplete" in updateData)) {
+      setOnInsertData.onboardingComplete = false;
+    }
+    if (!("bannerDismissed" in updateData)) {
+      setOnInsertData.bannerDismissed = false;
+    }
 
     // If it's a new profile, we need to set createdAt
     await db.collection("user_profiles").updateOne(
       { userId: new ObjectId(userId) },
       {
         $set: updateData,
-        $setOnInsert: {
-          userId: new ObjectId(userId),
-          onboardingComplete: false,
-          bannerDismissed: false,
-          createdAt: new Date()
-        }
+        $setOnInsert: setOnInsertData,
       },
       { upsert: true }
     );

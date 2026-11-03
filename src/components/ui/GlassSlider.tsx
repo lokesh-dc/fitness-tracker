@@ -26,8 +26,17 @@ export function GlassSlider({
 	unit,
 	hideHeader,
 }: GlassSliderProps) {
+	const safeValue = typeof value === "number" && !isNaN(value) ? value : min;
+	const [localInput, setLocalInput] = React.useState<string>(String(safeValue));
+
+	React.useEffect(() => {
+		if (typeof value === "number" && !isNaN(value)) {
+			setLocalInput(String(value));
+		}
+	}, [value]);
+
 	const percentage = Math.min(
-		Math.max(((value - min) / (max - min)) * 100, 0),
+		Math.max(((safeValue - min) / (max - min)) * 100, 0),
 		100,
 	);
 
@@ -39,14 +48,29 @@ export function GlassSlider({
 						<div className="flex items-baseline gap-1">
 							<input
 								type="number"
-								value={value}
+								value={localInput}
 								onChange={(e) => {
-									const val = parseFloat(e.target.value);
-									if (!isNaN(val)) onChange(val);
+									const raw = e.target.value;
+									setLocalInput(raw);
+									if (raw === "") return;
+									const val = parseFloat(raw);
+									if (!isNaN(val)) {
+										const clamped = Math.min(max, Math.max(min, val));
+										onChange(clamped);
+									}
 								}}
 								onBlur={() => {
-									if (value < min) onChange(min);
-									if (value > max) onChange(max);
+									const val = parseFloat(localInput);
+									if (isNaN(val) || val < min) {
+										onChange(min);
+										setLocalInput(String(min));
+									} else if (val > max) {
+										onChange(max);
+										setLocalInput(String(max));
+									} else {
+										onChange(val);
+										setLocalInput(String(val));
+									}
 								}}
 								className="text-5xl font-black text-foreground bg-transparent text-center w-full max-w-[140px] outline-none focus:text-brand-primary transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
 							/>

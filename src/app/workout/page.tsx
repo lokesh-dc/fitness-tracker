@@ -15,12 +15,13 @@ export const dynamic = "force-dynamic";
 export default async function WorkoutPage({
 	searchParams,
 }: {
-	searchParams: Promise<{ date?: string; mode?: WorkoutMode; mergedId?: string }>;
+	searchParams: Promise<{ date?: string; mode?: WorkoutMode; mergedId?: string; tour?: string }>;
 }) {
 
 	const resolvedParams = await searchParams;
 	const date = resolvedParams.date;
 	const mergedId = resolvedParams.mergedId;
+	const isTour = resolvedParams.tour === "true";
 	const today = format(new Date(), "yyyy-MM-dd");
 	const explicitMode = resolvedParams.mode || (date && date !== today ? 'MANUAL_LOG' : 'LIVE_SESSION');
 	const isFuturePrep = date && date > today && explicitMode === 'LIVE_SESSION';
@@ -82,6 +83,7 @@ export default async function WorkoutPage({
 					allExercises={allExercises}
 					customExerciseNames={customPlan?.exerciseNames || null}
 					isMerged={isMerged}
+					tour={isTour}
 				/>
 			</div>
 		</div>

@@ -10,9 +10,10 @@ interface WeekSnapshotWidgetProps {
     completedDays: number[];
     plannedDays: number[];
   } | null;
+  isFirstWorkoutUser?: boolean;
 }
 
-export function WeekSnapshotWidget({ data }: WeekSnapshotWidgetProps) {
+export function WeekSnapshotWidget({ data, isFirstWorkoutUser = false }: WeekSnapshotWidgetProps) {
   if (!data) return null;
 
   const days = ["M", "T", "W", "T", "F", "S", "S"];
@@ -44,9 +45,15 @@ export function WeekSnapshotWidget({ data }: WeekSnapshotWidgetProps) {
       </div>
 
       <div className="pt-2 border-t border-foreground/5 text-center">
-        <p className="text-[10px] font-bold text-foreground/40 uppercase tracking-tight">
-          <span className="text-foreground">{sessionsCompleted}</span> of <span className="text-foreground">{sessionsPlanned || "?"}</span> sessions done
-        </p>
+        {isFirstWorkoutUser && sessionsCompleted === 0 ? (
+          <p className="text-[10px] font-bold text-foreground/40 uppercase tracking-tight">
+            No sessions yet this week
+          </p>
+        ) : (
+          <p className="text-[10px] font-bold text-foreground/40 uppercase tracking-tight">
+            <span className="text-foreground">{sessionsCompleted}</span> of <span className="text-foreground">{sessionsPlanned || "?"}</span> sessions done
+          </p>
+        )}
       </div>
     </GlassCard>
   );

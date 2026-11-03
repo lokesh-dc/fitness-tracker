@@ -10,19 +10,21 @@ interface HomeSidebarProps {
   monthDates: string[];
   weekSnapshot: any;
   nextWorkout: any;
+  isFirstWorkoutUser?: boolean;
 }
 
 export function HomeSidebar({ 
   streakData, 
   monthDates, 
   weekSnapshot, 
-  nextWorkout 
+  nextWorkout,
+  isFirstWorkoutUser = false,
 }: HomeSidebarProps) {
   return (
     <>
-      <StreakWidget data={streakData} />
+      <StreakWidget data={streakData} isFirstWorkoutUser={isFirstWorkoutUser} />
       <CalendarWidget initialDates={monthDates} />
-      <WeekSnapshotWidget data={weekSnapshot} />
+      <WeekSnapshotWidget data={weekSnapshot} isFirstWorkoutUser={isFirstWorkoutUser} />
       <NextWorkoutWidget data={nextWorkout} />
     </>
   );

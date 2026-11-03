@@ -10,9 +10,10 @@ interface StreakWidgetProps {
     longestStreak: number;
     lastWorkoutDate: string | null;
   } | null;
+  isFirstWorkoutUser?: boolean;
 }
 
-export function StreakWidget({ data }: StreakWidgetProps) {
+export function StreakWidget({ data, isFirstWorkoutUser = false }: StreakWidgetProps) {
   if (!data) return null;
 
   const { currentStreak, longestStreak, lastWorkoutDate } = data;
@@ -29,12 +30,14 @@ export function StreakWidget({ data }: StreakWidgetProps) {
         <Flame className={`w-4 h-4 ${currentStreak > 0 ? 'text-black/80 fill-black/20' : 'text-black/20'}`} />
       </div>
 
-      <div className="flex flex-col items-center justify-center py-2">
+      <div className="flex flex-col items-center justify-center py-2 text-center">
         <span className="text-4xl font-black text-black tabular-nums">
           {currentStreak}
         </span>
         <span className="text-[10px] font-bold text-black/60 uppercase tracking-tight mt-1">
-          Days Burning
+          {isFirstWorkoutUser && currentStreak === 0
+            ? "Finish your first workout to start a streak"
+            : "Days Burning"}
         </span>
       </div>
 

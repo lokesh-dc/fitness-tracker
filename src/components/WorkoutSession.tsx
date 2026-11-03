@@ -56,6 +56,9 @@ import type { ExerciseHistorySession } from "@/app/actions/exercise-history";
 import { Confetti } from "./ui/Confetti";
 import ChangeWorkoutModal from "./ChangeWorkoutModal";
 import ExerciseSwapModal from "./ExerciseSwapModal";
+import { useCoachMarks } from "@/hooks/useCoachMarks";
+import { CoachMarkOverlay } from "./onboarding/CoachMarkOverlay";
+import { FirstWorkoutSummary } from "./onboarding/FirstWorkoutSummary";
 
 const DAYS = [
 	"Sunday",
@@ -156,6 +159,7 @@ interface WorkoutSessionProps {
 	allExercises?: ExerciseDefinition[];
 	customExerciseNames?: string[] | null;
 	isMerged?: boolean;
+	tour?: boolean;
 }
 
 export default function WorkoutSession({
@@ -169,12 +173,15 @@ export default function WorkoutSession({
 	allExercises = [],
 	customExerciseNames = null,
 	isMerged = false,
+	tour = false,
 }: WorkoutSessionProps) {
 	// Sync logic for initial weight and step
 	const effectiveBodyWeight =
 		initialWorkoutLog?.bodyWeight || initialBodyWeight || 0;
 
 	const [activeMode, setActiveMode] = useState<WorkoutMode>(mode);
+	const [showFirstWorkoutSummary, setShowFirstWorkoutSummary] = useState(false);
+	const coachMarks = useCoachMarks(tour && activeMode === "LIVE_SESSION");
 	const [step, setStep] = useState<number>(0);
 	const [activeExerciseIndex, setActiveExerciseIndex] = useState<number | null>(
 		null,
@@ -1431,6 +1438,7 @@ export default function WorkoutSession({
 				</div>
 
 				<button
+					data-tour="finish-workout"
 					onClick={handleSubmit}
 					disabled={isSubmitting}
 					className={cn(
@@ -1534,8 +1542,13 @@ export default function WorkoutSession({
 						exerciseDetails={celebrationExerciseDetails}
 						muscleGroups={muscleGroupsTrained}
 						splitName={splitName}
-						onClose={() => setShowCelebration(false)}
-						targetUrl="/"
+						onClose={() => {
+							setShowCelebration(false);
+							if (tour) {
+								setShowFirstWorkoutSummary(true);
+							}
+						}}
+						targetUrl={tour ? "" : "/"}
 						logId={savedLogId || undefined}
 						exercises={exercises}
 						durationSeconds={sessionStats.stats.elapsedSeconds}
@@ -1543,6 +1556,30 @@ export default function WorkoutSession({
 						bodyWeight={bodyWeight}
 					/>
 				)}
+
+				{showFirstWorkoutSummary && (
+					<FirstWorkoutSummary
+						stats={{
+							totalVolume,
+							totalSets,
+							totalReps: celebrationStats.totalReps,
+							durationSeconds: sessionStats.stats.elapsedSeconds,
+						}}
+						trainedMuscles={muscleGroupsTrained}
+						onClose={() => setShowFirstWorkoutSummary(false)}
+					/>
+				)}
+
+				<CoachMarkOverlay
+					isActive={coachMarks.isActive}
+					currentStep={coachMarks.currentStep}
+					currentStepIdx={coachMarks.currentStepIdx}
+					totalSteps={coachMarks.totalSteps}
+					targetRect={coachMarks.targetRect}
+					onNext={coachMarks.nextStep}
+					onPrev={coachMarks.prevStep}
+					onSkip={coachMarks.skipTour}
+				/>
 
 				{showCompleteConfirm && (
 					<div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -1812,11 +1849,13 @@ export default function WorkoutSession({
 							)}
 						</div>
 
-						<WarmupSetsPanel
-							workingWeight={ex.sets[0]?.weight}
-							repsField={ex.sets[0]?.reps ?? ex.targetReps}
-							mode={activeMode}
-						/>
+						<div data-tour="warmup-panel">
+							<WarmupSetsPanel
+								workingWeight={ex.sets[0]?.weight}
+								repsField={ex.sets[0]?.reps ?? ex.targetReps}
+								mode={activeMode}
+							/>
+						</div>
 
 						<div className="space-y-3">
 							<div className="grid grid-cols-12 gap-4 text-[10px] font-black text-foreground/20 uppercase tracking-[0.2em] px-2">
@@ -1829,6 +1868,7 @@ export default function WorkoutSession({
 							{ex.sets.map((set, setIndex) => (
 								<div
 									key={setIndex}
+									data-tour={setIndex === 0 ? "set-inputs" : undefined}
 									className="grid grid-cols-12 gap-3 items-center group">
 									<div className="col-span-1 text-xs font-black text-foreground/40">
 										{setIndex + 1}
@@ -1865,6 +1905,7 @@ export default function WorkoutSession({
 									</div>
 									<div className="col-span-4 flex items-center justify-end gap-2 pr-1">
 										<button
+											data-tour={setIndex === 0 ? "set-complete" : undefined}
 											onClick={() =>
 												updateSet(
 													activeExerciseIndex,
@@ -2044,13 +2085,15 @@ const SessionLayout = ({
 		)}
 
 		{timer && (
-			<RestTimerBar
-				secondsLeft={timer.secondsLeft}
-				totalDuration={timer.totalDuration}
-				isRunning={timer.isRunning}
-				onSkip={timer.skip}
-				onAdjust={timer.adjust}
-			/>
+			<div data-tour="rest-timer">
+				<RestTimerBar
+					secondsLeft={timer.secondsLeft}
+					totalDuration={timer.totalDuration}
+					isRunning={timer.isRunning}
+					onSkip={timer.skip}
+					onAdjust={timer.adjust}
+				/>
+			</div>
 		)}
 	</div>
 );
