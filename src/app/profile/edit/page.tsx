@@ -4,6 +4,7 @@ import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { Header } from "@/components/Header";
 import { EditProfileClient } from "./EditProfileClient";
+import { getOnboardingProfile } from "@/app/actions/profile";
 import { redirect } from "next/navigation";
 
 export default async function EditProfilePage() {
@@ -12,15 +13,18 @@ export default async function EditProfilePage() {
 
   const client = await clientPromise;
   const db = client.db();
-  const user = await db.collection("users").findOne({
-    _id: new ObjectId((session.user as any).id),
-  });
+  const userId = new ObjectId((session.user as any).id);
+
+  const [user, onboardingProfile] = await Promise.all([
+    db.collection("users").findOne({ _id: userId }),
+    getOnboardingProfile(),
+  ]);
 
   if (!user) redirect("/profile");
 
   return (
     <div className="flex flex-col">
-      <Header title="Edit Profile" />
+      <Header title="Edit Profile" showBack backHref="/profile" />
 
       <main className="flex-1 px-6 space-y-6 max-w-2xl mx-auto w-full pb-12 transition-all duration-500 animate-in fade-in slide-in-from-bottom-4">
         <EditProfileClient 
@@ -28,6 +32,10 @@ export default async function EditProfilePage() {
           initialEmail={user.email || session.user.email || ""}
           initialGender={user.gender}
           initialWeight={user.weight}
+          initialHeight={onboardingProfile?.height}
+          initialTargetWeight={onboardingProfile?.targetWeight}
+          initialPreferredDays={onboardingProfile?.preferredTrainingDays}
+          initialUnit={onboardingProfile?.unit || "kg"}
         />
       </main>
     </div>

@@ -51,6 +51,7 @@ export const authOptions: NextAuthOptions = {
             email: user.email,
             name: user.name,
             emailVerified: user.emailVerified,
+            gender: user.gender,
           };
         }
         return null;
@@ -61,10 +62,14 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
         token.emailVerified = (user as any).emailVerified;
+        token.gender = (user as any).gender;
+      }
+      if (trigger === "update" && session?.gender) {
+        token.gender = session.gender;
       }
       return token;
     },
@@ -72,6 +77,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         (session.user as any).id = token.id;
         (session.user as any).emailVerified = token.emailVerified;
+        (session.user as any).gender = token.gender;
       }
       return session;
     },
