@@ -51,7 +51,9 @@ export default function LayoutShell({
 			<div
 				className={cn(
 					"flex-1",
-					!hideNav && !isOnboarding && "md:pl-20 pt-28 md:pt-32",
+					!hideNav &&
+						!isOnboarding &&
+						(isWorkoutPage ? "md:pl-20 pt-8" : "md:pl-20 pt-28 md:pt-32"),
 					isOnboarding || isPlanDesigner || isWorkoutPage ? "pb-0" : "pb-0",
 				)}>
 				{children}

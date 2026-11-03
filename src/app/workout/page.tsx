@@ -11,7 +11,6 @@ import { getCustomWorkoutPlan } from "@/app/actions/custom-workout";
 import { getMergedTemplate } from "@/app/actions/merge";
 import WorkoutSession from "@/components/WorkoutSession";
 import { WorkoutMode, WorkoutTemplate } from "@/types/workout";
-import { Header } from "@/components/Header";
 import { getUserSettings } from "@/app/actions/user";
 import { format } from "date-fns";
 
@@ -108,7 +107,6 @@ export default async function WorkoutPage({
 
 	return (
 		<div className="flex flex-col pb-24 md:pb-0">
-			<Header title={isMerged ? "Merged Workout" : "Workout Session"} />
 			<div className="px-6">
 				<WorkoutSession
 					template={plan}
