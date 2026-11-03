@@ -45,7 +45,10 @@ import { useRestTimer } from "@/hooks/useRestTimer";
 import { RestTimerBar } from "./RestTimerBar";
 import { WarmupSetsPanel } from "./WarmupSetsPanel";
 import { MobilityWarmupPanel } from "./workout/MobilityWarmupPanel";
-import { resolveMovements, type MobilityMovement } from "@/lib/mobility-warmup-data";
+import {
+	resolveMovements,
+	type MobilityMovement,
+} from "@/lib/mobility-warmup-data";
 import { useSessionStats } from "@/hooks/useSessionStats";
 import { PRsFeedDisplay } from "./workout/PRsFeedDisplay";
 import PageWithSidebar from "./layout/PageWithSidebar";
@@ -94,7 +97,8 @@ function loadDraft(sessionDate: string): WorkoutDraft | null {
 		const raw = window.localStorage.getItem(draftKey(sessionDate));
 		if (!raw) return null;
 		const parsed = JSON.parse(raw) as WorkoutDraft;
-		if (!parsed || parsed.v !== 1 || !Array.isArray(parsed.exercises)) return null;
+		if (!parsed || parsed.v !== 1 || !Array.isArray(parsed.exercises))
+			return null;
 		return parsed;
 	} catch {
 		return null;
@@ -153,6 +157,7 @@ interface WorkoutSessionProps {
 	initialBodyWeight?: number | null;
 	initialWorkoutLog?: WorkoutLog | null;
 	initialPRs?: Record<string, { weight: number; reps: number }>;
+	lastSessionSets?: Record<string, { weight: number; reps: number }[]>;
 	date?: string;
 	mode?: WorkoutMode;
 	userDefaultRest?: number;
@@ -167,6 +172,7 @@ export default function WorkoutSession({
 	initialBodyWeight,
 	initialWorkoutLog,
 	initialPRs = {},
+	lastSessionSets = {},
 	date,
 	mode = "LIVE_SESSION",
 	userDefaultRest = 90,
@@ -186,6 +192,43 @@ export default function WorkoutSession({
 	const [activeExerciseIndex, setActiveExerciseIndex] = useState<number | null>(
 		null,
 	);
+
+	function getPrefilledSets(
+		ex: {
+			exerciseId?: string;
+			name: string;
+			targetSets?: number;
+			targetReps?: number;
+			lastWeight?: number;
+		},
+		modeForSets: WorkoutMode = activeMode,
+	) {
+		const exKey = ex.exerciseId;
+		const exNameKey = ex.name?.toLowerCase().trim();
+		const pastSets =
+			(exKey && lastSessionSets?.[exKey]) ||
+			(exNameKey && lastSessionSets?.[exNameKey]) ||
+			(ex.name && lastSessionSets?.[ex.name]);
+
+		if (pastSets && pastSets.length > 0) {
+			const totalCount = Math.max(ex.targetSets || 1, pastSets.length);
+			return Array.from({ length: totalCount }).map((_, idx) => {
+				const pastSet = pastSets[idx] || pastSets[pastSets.length - 1];
+				return {
+					weight: pastSet.weight || 0,
+					reps: pastSet.reps || ex.targetReps || 0,
+					completed: modeForSets === "MANUAL_LOG",
+				};
+			});
+		}
+
+		return Array.from({ length: ex.targetSets || 1 }).map(() => ({
+			weight: ex.lastWeight || 0,
+			reps: ex.targetReps || 0,
+			completed: modeForSets === "MANUAL_LOG",
+		}));
+	}
+
 	const initialExercises = (() => {
 		const loggedExs = initialWorkoutLog?.exercises;
 		const hasLog = Array.isArray(loggedExs) && loggedExs.length > 0;
@@ -216,9 +259,7 @@ export default function WorkoutSession({
 						initialPRs[le.name]?.weight ||
 						0,
 					prReps:
-						initialPRs[le.exerciseId]?.reps ||
-						initialPRs[le.name]?.reps ||
-						0,
+						initialPRs[le.exerciseId]?.reps || initialPRs[le.name]?.reps || 0,
 					restDuration: tpl?.restDuration ?? 90,
 					unit: "reps",
 					isDone: true,
@@ -237,13 +278,13 @@ export default function WorkoutSession({
 					if (alreadyThere) continue;
 					built.push({
 						...t,
-						sets: Array.from({ length: t.targetSets || 1 }).map(() => ({
-							weight: 0,
-							reps: t.targetReps || 0,
-							completed: activeMode === "MANUAL_LOG",
-						})),
-						pr: initialPRs[t.exerciseId]?.weight || 0,
-						prReps: initialPRs[t.exerciseId]?.reps || 0,
+						sets: getPrefilledSets(t, activeMode),
+						pr:
+							initialPRs[t.exerciseId]?.weight ||
+							initialPRs[t.name]?.weight ||
+							0,
+						prReps:
+							initialPRs[t.exerciseId]?.reps || initialPRs[t.name]?.reps || 0,
 						isDone: false,
 					});
 				}
@@ -252,41 +293,47 @@ export default function WorkoutSession({
 		}
 
 		if (customExerciseNames && customExerciseNames.length > 0) {
-			return customExerciseNames.map((name, idx) => ({
-				exerciseId: "custom-" + idx + "-" + Date.now(),
-				name,
-				targetSets: 3,
-				targetReps: 10,
-				lastWeight: 0,
-				pr: initialPRs[name]?.weight || 0,
-				prReps: initialPRs[name]?.reps || 0,
-				restDuration: 90,
-				unit: "reps" as const,
-				isDone: false,
-				sets: Array.from({ length: 3 }).map(() => ({
-					weight: 0,
-					reps: 10,
-					completed: activeMode === "MANUAL_LOG",
-				})),
-			}));
+			return customExerciseNames.map((name, idx) => {
+				const sets = getPrefilledSets(
+					{ name, targetSets: 3, targetReps: 10 },
+					activeMode,
+				);
+				return {
+					exerciseId: "custom-" + idx + "-" + Date.now(),
+					name,
+					targetSets: sets.length,
+					targetReps: sets[0]?.reps || 10,
+					lastWeight: sets[0]?.weight || 0,
+					pr: initialPRs[name]?.weight || 0,
+					prReps: initialPRs[name]?.reps || 0,
+					restDuration: 90,
+					unit: "reps" as const,
+					isDone: false,
+					sets,
+				};
+			});
 		}
 		if (template?.exercises) {
 			return template.exercises.map((ex) => {
 				const loggedEx = initialWorkoutLog?.exercises?.find(
-					(le: any) => le.exerciseId === ex.exerciseId,
+					(le: any) =>
+						(ex.exerciseId && le.exerciseId === ex.exerciseId) ||
+						(le.name &&
+							ex.name &&
+							le.name.toLowerCase() === ex.name.toLowerCase()),
 				);
 				const initialSets = loggedEx
 					? loggedEx.sets
-					: Array.from({ length: ex.targetSets || 1 }).map(() => ({
-						weight: ex.lastWeight || 0,
-						reps: ex.targetReps || 0,
-						completed: activeMode === "MANUAL_LOG",
-					}));
+					: getPrefilledSets(ex, activeMode);
 				return {
 					...ex,
 					sets: initialSets,
-					pr: initialPRs[ex.exerciseId]?.weight || 0,
-					prReps: initialPRs[ex.exerciseId]?.reps || 0,
+					pr:
+						initialPRs[ex.exerciseId]?.weight ||
+						initialPRs[ex.name]?.weight ||
+						0,
+					prReps:
+						initialPRs[ex.exerciseId]?.reps || initialPRs[ex.name]?.reps || 0,
 					isDone: !!loggedEx,
 				};
 			});
@@ -307,7 +354,9 @@ export default function WorkoutSession({
 	const [plateauSessions, setPlateauSessions] = useState<
 		ExerciseHistorySession[]
 	>([]);
-	const [plateauModalIndex, setPlateauModalIndex] = useState<number | null>(null);
+	const [plateauModalIndex, setPlateauModalIndex] = useState<number | null>(
+		null,
+	);
 	const plateauPrompted = useRef<Set<string>>(new Set());
 	const plateauForExercise = useRef<string | null>(null);
 	const activeExerciseKeyRef = useRef<string | null>(null);
@@ -323,12 +372,17 @@ export default function WorkoutSession({
 	const [warmupDone, setWarmupDone] = useState<Set<string>>(new Set());
 
 	const warmupMovements = useMemo(
-		() => resolveMovements((template as any)?.mobilityWarmupIds, (template as any)?.customMobilityWarmups),
+		() =>
+			resolveMovements(
+				(template as any)?.mobilityWarmupIds,
+				(template as any)?.customMobilityWarmups,
+			),
 		[template],
 	);
 	const isLastWarmup = warmupIndex === warmupMovements.length - 1;
 
-	const splitName = template?.splitName || (hasChangedWorkout ? "Custom Workout" : "Workout");
+	const splitName =
+		template?.splitName || (hasChangedWorkout ? "Custom Workout" : "Workout");
 	const dayOfWeek = template?.dayOfWeek ?? new Date().getDay();
 	const weekNumber = template?.weekNumber || 1;
 
@@ -345,12 +399,14 @@ export default function WorkoutSession({
 		const log = initialWorkoutLog;
 		if (!log?.completedAt) return false;
 		const saved = log.exercises || [];
-		if (exercises.length === 0 || exercises.length !== saved.length) return false;
+		if (exercises.length === 0 || exercises.length !== saved.length)
+			return false;
 		for (let i = 0; i < exercises.length; i++) {
 			const cur = exercises[i];
 			const prev = saved[i];
 			if (!prev) return false;
-			if (cur.name !== prev.name || cur.exerciseId !== prev.exerciseId) return false;
+			if (cur.name !== prev.name || cur.exerciseId !== prev.exerciseId)
+				return false;
 			if (!!cur.isSkipped !== !!prev.isSkipped) return false;
 			const fmt = (s: Array<{ weight: number; reps: number }>) =>
 				s.map((x) => `${x.weight}|${x.reps}`).join(",");
@@ -569,9 +625,7 @@ export default function WorkoutSession({
 					reps: progression === "reps" ? base.reps + 1 : base.reps,
 					completed: false,
 				});
-				const allSetsIncomplete = target.sets.every(
-					(set) => !set.completed,
-				);
+				const allSetsIncomplete = target.sets.every((set) => !set.completed);
 
 				target.lastWeight = session.topSetWeight || target.lastWeight || 0;
 
@@ -589,8 +643,7 @@ export default function WorkoutSession({
 					let nextSets = target.sets.map((set, index) => {
 						if (set.completed) return set;
 						const base =
-							baselineSets[index] ??
-							baselineSets[baselineSets.length - 1];
+							baselineSets[index] ?? baselineSets[baselineSets.length - 1];
 						return { ...set, ...buildSet(base) };
 					});
 					if (progression === "sets") {
@@ -600,10 +653,7 @@ export default function WorkoutSession({
 						];
 					}
 					target.sets = nextSets;
-					target.targetSets = Math.max(
-						target.targetSets || 0,
-						nextSets.length,
-					);
+					target.targetSets = Math.max(target.targetSets || 0, nextSets.length);
 				}
 
 				// Use the most common rep count (tie-break toward the higher
@@ -635,9 +685,7 @@ export default function WorkoutSession({
 
 				target.targetReps = nextReps;
 				target.sets = target.sets.map((set) =>
-					set.completed
-						? set
-						: { ...set, reps: (set.reps || currentReps) + 1 },
+					set.completed ? set : { ...set, reps: (set.reps || currentReps) + 1 },
 				);
 			} else if (progression === "sets") {
 				const lastSet = target.sets[target.sets.length - 1];
@@ -685,16 +733,17 @@ export default function WorkoutSession({
 		const def = allExercises.find(
 			(d) => d.name.toLowerCase() === ex.name.toLowerCase(),
 		);
-		const byLower = new Map(
-			allExercises.map((d) => [d.name.toLowerCase(), d]),
-		);
+		const byLower = new Map(allExercises.map((d) => [d.name.toLowerCase(), d]));
 		const inPlan = new Set(
 			exercises
 				.map((e) => e.name.toLowerCase())
 				.filter((n) => n !== ex.name.toLowerCase()),
 		);
 		const names: string[] = [];
-		for (const name of [...(ex.alternatives || []), ...(def?.alternatives || [])]) {
+		for (const name of [
+			...(ex.alternatives || []),
+			...(def?.alternatives || []),
+		]) {
 			const lower = name.toLowerCase();
 			if (lower !== ex.name.toLowerCase() && !names.includes(lower)) {
 				names.push(lower);
@@ -722,13 +771,7 @@ export default function WorkoutSession({
 			target.pr = 0;
 			target.prReps = 0;
 			target.lastWeight = 0;
-			target.sets = Array.from({
-				length: target.targetSets || 1,
-			}).map(() => ({
-				weight: 0,
-				reps: target.targetReps || 0,
-				completed: activeMode === "MANUAL_LOG",
-			}));
+			target.sets = getPrefilledSets(target, activeMode);
 			next[index] = target;
 			return next;
 		});
@@ -738,9 +781,7 @@ export default function WorkoutSession({
 	const swapModal = (
 		<ExerciseSwapModal
 			open={swapIndex !== null}
-			currentName={
-				swapIndex !== null ? exercises[swapIndex]?.name || "" : ""
-			}
+			currentName={swapIndex !== null ? exercises[swapIndex]?.name || "" : ""}
 			alternatives={
 				swapIndex !== null ? getExerciseAlternatives(exercises[swapIndex]) : []
 			}
@@ -889,10 +930,10 @@ export default function WorkoutSession({
 					isNew: true, // Mark as completed in current session
 					...(hasNewPR
 						? {
-							pr: maxWeightThisSession,
-							prReps: maxRepsAtMaxWeight,
-							isNewPR: true,
-						}
+								pr: maxWeightThisSession,
+								prReps: maxRepsAtMaxWeight,
+								isNewPR: true,
+							}
 						: {}),
 				} as any;
 				return newExs;
@@ -914,19 +955,21 @@ export default function WorkoutSession({
 				await deleteCustomWorkoutPlan(effectiveDate);
 				const restoredExercises: Exercise[] = template.exercises.map((ex) => {
 					const loggedEx = initialWorkoutLog?.exercises?.find(
-						(le: any) => le.exerciseId === ex.exerciseId,
+						(le: any) =>
+							(ex.exerciseId && le.exerciseId === ex.exerciseId) ||
+							(le.name &&
+								ex.name &&
+								le.name.toLowerCase() === ex.name.toLowerCase()),
 					);
 					return {
 						...ex,
-						sets: loggedEx
-							? loggedEx.sets
-							: Array.from({ length: ex.targetSets || 1 }).map(() => ({
-								weight: ex.lastWeight || 0,
-								reps: ex.targetReps || 0,
-								completed: activeMode === "MANUAL_LOG",
-							})),
-						pr: initialPRs[ex.exerciseId]?.weight || 0,
-						prReps: initialPRs[ex.exerciseId]?.reps || 0,
+						sets: loggedEx ? loggedEx.sets : getPrefilledSets(ex, activeMode),
+						pr:
+							initialPRs[ex.exerciseId]?.weight ||
+							initialPRs[ex.name]?.weight ||
+							0,
+						prReps:
+							initialPRs[ex.exerciseId]?.reps || initialPRs[ex.name]?.reps || 0,
 						isDone: !!loggedEx,
 					};
 				});
@@ -945,32 +988,30 @@ export default function WorkoutSession({
 			await saveCustomWorkoutPlan(selectedNames, effectiveDate);
 
 			const currentNames = exercises.map((ex) => ex.name);
-			const namesToKeep = currentNames.filter((n) =>
-				selectedNames.includes(n),
-			);
-			const namesToAdd = selectedNames.filter(
-				(n) => !currentNames.includes(n),
-			);
+			const namesToKeep = currentNames.filter((n) => selectedNames.includes(n));
+			const namesToAdd = selectedNames.filter((n) => !currentNames.includes(n));
 
 			const keptExercises = exercises.filter((ex) =>
 				namesToKeep.includes(ex.name),
 			);
-			const newExercises: Exercise[] = namesToAdd.map((name, idx) => ({
-				exerciseId: "custom-" + idx + "-" + Date.now(),
-				name,
-				targetSets: 3,
-				targetReps: 10,
-				lastWeight: 0,
-				pr: 0,
-				prReps: 0,
-				restDuration: 90,
-				unit: "reps" as const,
-				sets: Array.from({ length: 3 }).map(() => ({
-					weight: 0,
-					reps: 10,
-					completed: activeMode === "MANUAL_LOG",
-				})),
-			}));
+			const newExercises: Exercise[] = namesToAdd.map((name, idx) => {
+				const sets = getPrefilledSets(
+					{ name, targetSets: 3, targetReps: 10 },
+					activeMode,
+				);
+				return {
+					exerciseId: "custom-" + idx + "-" + Date.now(),
+					name,
+					targetSets: sets.length,
+					targetReps: sets[0]?.reps || 10,
+					lastWeight: sets[0]?.weight || 0,
+					pr: 0,
+					prReps: 0,
+					restDuration: 90,
+					unit: "reps" as const,
+					sets,
+				};
+			});
 
 			setExercises([...keptExercises, ...newExercises]);
 			setHasChangedWorkout(true);
@@ -986,19 +1027,21 @@ export default function WorkoutSession({
 			if (template?.exercises) {
 				const restoredExercises: Exercise[] = template.exercises.map((ex) => {
 					const loggedEx = initialWorkoutLog?.exercises?.find(
-						(le: any) => le.exerciseId === ex.exerciseId,
+						(le: any) =>
+							(ex.exerciseId && le.exerciseId === ex.exerciseId) ||
+							(le.name &&
+								ex.name &&
+								le.name.toLowerCase() === ex.name.toLowerCase()),
 					);
 					return {
 						...ex,
-						sets: loggedEx
-							? loggedEx.sets
-							: Array.from({ length: ex.targetSets || 1 }).map(() => ({
-								weight: ex.lastWeight || 0,
-								reps: ex.targetReps || 0,
-								completed: activeMode === "MANUAL_LOG",
-							})),
-						pr: initialPRs[ex.exerciseId]?.weight || 0,
-						prReps: initialPRs[ex.exerciseId]?.reps || 0,
+						sets: loggedEx ? loggedEx.sets : getPrefilledSets(ex, activeMode),
+						pr:
+							initialPRs[ex.exerciseId]?.weight ||
+							initialPRs[ex.name]?.weight ||
+							0,
+						prReps:
+							initialPRs[ex.exerciseId]?.reps || initialPRs[ex.name]?.reps || 0,
 						isDone: !!loggedEx,
 					};
 				});
@@ -1102,15 +1145,13 @@ export default function WorkoutSession({
 			<div className="max-w-lg mx-auto flex gap-3 w-full">
 				<button
 					onClick={handleWarmupSkip}
-					className="w-[40%] py-4 rounded-2xl border border-foreground/10 text-foreground/50 hover:text-foreground hover:border-foreground/20 active:scale-95 transition-all text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
-				>
+					className="w-[40%] py-4 rounded-2xl border border-foreground/10 text-foreground/50 hover:text-foreground hover:border-foreground/20 active:scale-95 transition-all text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2">
 					<SkipForward className="w-4 h-4" />
 					Skip All
 				</button>
 				<button
 					onClick={handleWarmupNext}
-					className="w-[60%] py-4 rounded-2xl bg-brand-primary text-black font-black text-xs uppercase tracking-[0.2em] shadow-[0_10px_30px_rgba(249,115,22,0.3)] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center"
-				>
+					className="w-[60%] py-4 rounded-2xl bg-brand-primary text-black font-black text-xs uppercase tracking-[0.2em] shadow-[0_10px_30px_rgba(249,115,22,0.3)] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center">
 					{isLastWarmup ? (
 						<>
 							<CheckCircle2 className="w-4 h-4 mr-2" /> Done
@@ -1128,11 +1169,18 @@ export default function WorkoutSession({
 				<SessionLayout
 					title="Mobility Warmup"
 					maxWidth="max-w-lg"
-					onBack={() => { setShowMobilityWarmup(false); setStep(0); }}
+					onBack={() => {
+						setShowMobilityWarmup(false);
+						setStep(0);
+					}}
 					exercises={warmupExercises}
 					completedCount={warmupDone.size}
 					totalCount={warmupMovements.length}
-					progress={warmupMovements.length > 0 ? (warmupDone.size / warmupMovements.length) * 100 : 0}
+					progress={
+						warmupMovements.length > 0
+							? (warmupDone.size / warmupMovements.length) * 100
+							: 0
+					}
 					mode={activeMode}
 					timer={null}
 					footer={warmupFooter}>
@@ -1481,9 +1529,9 @@ export default function WorkoutSession({
 				acc +
 				(ex.isDone && !ex.isSkipped
 					? ex.sets.reduce(
-						(sAcc: any, s: any) => sAcc + (s.weight || 0) * (s.reps || 0),
-						0,
-					)
+							(sAcc: any, s: any) => sAcc + (s.weight || 0) * (s.reps || 0),
+							0,
+						)
 					: 0),
 			0,
 		);
@@ -1507,8 +1555,6 @@ export default function WorkoutSession({
 			calories: caloriesBurned,
 		};
 
-
-
 		const celebrationExerciseDetails = exercises
 			.filter((ex: any) => ex.isDone && !ex.isSkipped)
 			.map((ex: any) => {
@@ -1525,13 +1571,13 @@ export default function WorkoutSession({
 
 		const muscleGroupsTrained = [
 			...new Set(
-				celebrationExerciseDetails
-					.map((ex) => ex.muscleGroup)
-					.filter(Boolean),
+				celebrationExerciseDetails.map((ex) => ex.muscleGroup).filter(Boolean),
 			),
 		] as string[];
 
-		const unfinishedCount = exercises.filter((ex) => !(ex as any).isDone).length;
+		const unfinishedCount = exercises.filter(
+			(ex) => !(ex as any).isDone,
+		).length;
 
 		return (
 			<PageWithSidebar>
@@ -1583,27 +1629,29 @@ export default function WorkoutSession({
 
 				{showCompleteConfirm && (
 					<div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-						<div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowCompleteConfirm(false)} />
+						<div
+							className="absolute inset-0 bg-black/90 backdrop-blur-md"
+							onClick={() => setShowCompleteConfirm(false)}
+						/>
 						<div className="bg-background border border-foreground/10 rounded-2xl p-6 max-w-sm w-full relative z-[101] space-y-6 shadow-2xl">
 							<div className="space-y-2 text-center">
 								<h3 className="text-lg font-black text-foreground uppercase tracking-tight">
 									Finish Early?
 								</h3>
 								<p className="text-sm font-medium text-foreground/60">
-									{unfinishedCount} exercise{unfinishedCount !== 1 ? "s" : ""} not logged — finish anyway?
+									{unfinishedCount} exercise{unfinishedCount !== 1 ? "s" : ""}{" "}
+									not logged — finish anyway?
 								</p>
 							</div>
 							<div className="flex gap-3">
 								<button
 									onClick={() => setShowCompleteConfirm(false)}
-									className="flex-1 py-3 rounded-xl border border-foreground/10 text-foreground/60 hover:text-foreground hover:border-foreground/20 transition-all text-[10px] font-black uppercase tracking-widest"
-								>
+									className="flex-1 py-3 rounded-xl border border-foreground/10 text-foreground/60 hover:text-foreground hover:border-foreground/20 transition-all text-[10px] font-black uppercase tracking-widest">
 									Keep Going
 								</button>
 								<button
 									onClick={doSaveWorkout}
-									className="flex-1 py-3 rounded-xl bg-brand-primary text-black font-black text-[10px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-[0_10px_20px_rgba(249,115,22,0.3)]"
-								>
+									className="flex-1 py-3 rounded-xl bg-brand-primary text-black font-black text-[10px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-[0_10px_20px_rgba(249,115,22,0.3)]">
 									Finish Anyway
 								</button>
 							</div>
@@ -1664,17 +1712,21 @@ export default function WorkoutSession({
 								<div className="flex items-center gap-3">
 									<div className="flex flex-col items-center space-y-0.5 mr-1">
 										<button
-											onClick={(e) => { e.stopPropagation(); moveExercise(exIndex, "up"); }}
+											onClick={(e) => {
+												e.stopPropagation();
+												moveExercise(exIndex, "up");
+											}}
 											disabled={exIndex === 0}
-											className="p-0.5 text-foreground/20 hover:text-brand-primary transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
-										>
+											className="p-0.5 text-foreground/20 hover:text-brand-primary transition-colors disabled:opacity-20 disabled:cursor-not-allowed">
 											<ChevronUp className="w-3 h-3" />
 										</button>
 										<button
-											onClick={(e) => { e.stopPropagation(); moveExercise(exIndex, "down"); }}
+											onClick={(e) => {
+												e.stopPropagation();
+												moveExercise(exIndex, "down");
+											}}
 											disabled={exIndex === exercises.length - 1}
-											className="p-0.5 text-foreground/20 hover:text-brand-primary transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
-										>
+											className="p-0.5 text-foreground/20 hover:text-brand-primary transition-colors disabled:opacity-20 disabled:cursor-not-allowed">
 											<ChevronDown className="w-3 h-3" />
 										</button>
 									</div>
@@ -1693,15 +1745,14 @@ export default function WorkoutSession({
 									</div>
 								</div>
 								<div className="flex items-center gap-2">
-									{!ex.isSkipped &&
-										getExerciseAlternatives(ex).length > 0 && (
-											<button
-												onClick={() => setSwapIndex(exIndex)}
-												className="p-2 text-foreground/20 hover:text-brand-primary transition-colors rounded-lg hover:bg-brand-primary/10"
-												title="Swap — do an OR alternative">
-												<ArrowLeftRight className="w-4 h-4" />
-											</button>
-										)}
+									{!ex.isSkipped && getExerciseAlternatives(ex).length > 0 && (
+										<button
+											onClick={() => setSwapIndex(exIndex)}
+											className="p-2 text-foreground/20 hover:text-brand-primary transition-colors rounded-lg hover:bg-brand-primary/10"
+											title="Swap — do an OR alternative">
+											<ArrowLeftRight className="w-4 h-4" />
+										</button>
+									)}
 									{!ex.isDone && (
 										<button
 											onClick={() => handleSkipExercise(exIndex)}
@@ -1742,34 +1793,45 @@ export default function WorkoutSession({
 		const canAdjustPlateau =
 			!ex.isDone && ex.sets.some((set) => !set.completed);
 		const footer = (
-			<GlassCard className="max-w-3xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 py-4 md:py-3 shadow-[0_-20px_40px_rgba(0,0,0,0.2)] border-foreground/10 backdrop-blur-xl">
-				<div className="flex items-center space-x-3">
-					<div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center">
-						<Dumbbell className="w-5 h-5 text-brand-primary" />
+			<GlassCard className="max-w-3xl mx-auto flex flex-col gap-3 p-4 shadow-[0_-20px_40px_rgba(0,0,0,0.2)] border-foreground/10 backdrop-blur-xl">
+				<div className="flex items-center justify-center gap-3 w-full text-center">
+					<div className="w-9 h-9 rounded-xl bg-brand-primary/10 flex items-center justify-center shrink-0">
+						<Dumbbell className="w-4 h-4 text-brand-primary" />
 					</div>
-					<div className="flex flex-col text-left">
-						<span className="text-[10px] font-black text-foreground uppercase tracking-wider">
+					<div className="flex flex-col items-center justify-center text-center min-w-0">
+						<span className="text-xs font-black text-foreground uppercase tracking-wider truncate">
 							{ex.name}
 						</span>
-						<span className="text-[8px] font-bold text-foreground/40 uppercase">
+						<span className="text-[9px] font-bold text-foreground/40 uppercase tracking-widest">
 							{ex.sets.filter((s) => s.completed).length} of {ex.sets.length}{" "}
 							Sets Completed
 						</span>
 					</div>
 				</div>
 
-				<button
-					onClick={handleSingleExerciseSubmit}
-					disabled={isSubmittingExercise}
-					className="w-full md:w-auto px-10 py-4 md:py-3 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center bg-brand-primary text-black hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(249,115,22,0.3)]">
-					{isSubmittingExercise ? (
-						<Loader2 className="w-5 h-5 animate-spin" />
-					) : (
-						<>
-							<CheckCircle2 className="w-5 h-5 mr-3" /> Save Exercise
-						</>
-					)}
-				</button>
+				<div className="flex items-center gap-3 w-full">
+					<button
+						type="button"
+						onClick={() => setStep(2)}
+						className="glass-button h-12 px-4 rounded-2xl border-foreground/10 flex items-center justify-center gap-2 shrink-0 hover:bg-foreground/5 transition-all text-xs font-bold uppercase tracking-wider"
+						title="Back to workout">
+						<ChevronLeft className="w-5 h-5 text-foreground" />
+						<span className="hidden sm:inline text-foreground/70">Back</span>
+					</button>
+
+					<button
+						onClick={handleSingleExerciseSubmit}
+						disabled={isSubmittingExercise}
+						className="flex-1 h-12 px-6 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center bg-brand-primary text-black hover:scale-[1.01] active:scale-95 shadow-[0_0_20px_rgba(249,115,22,0.3)]">
+						{isSubmittingExercise ? (
+							<Loader2 className="w-5 h-5 animate-spin" />
+						) : (
+							<>
+								<CheckCircle2 className="w-4 h-4 mr-2" /> Save Exercise
+							</>
+						)}
+					</button>
+				</div>
 			</GlassCard>
 		);
 
@@ -1777,9 +1839,7 @@ export default function WorkoutSession({
 			<PageWithSidebar>
 				<SessionLayout
 					timer={activeMode === "LIVE_SESSION" ? timer : null}
-					title={ex.name}
-					subtitle="Logging Exercise"
-					onBack={() => setStep(2)}
+					hideTopBar
 					footer={footer}
 					exercises={exercises}
 					completedCount={completedCount}
@@ -1984,10 +2044,12 @@ const SessionLayout = ({
 	mode,
 	timer,
 	stats,
+	hideTopBar = false,
 }: {
-	title: string;
+	title?: string;
 	subtitle?: string;
 	onBack?: () => void;
+	hideTopBar?: boolean;
 	footer?: React.ReactNode;
 	children: React.ReactNode;
 	maxWidth?: string;
@@ -2000,7 +2062,12 @@ const SessionLayout = ({
 	timer: any;
 	stats?: any;
 }) => (
-	<div className={cn(maxWidth, "mx-auto space-y-8 pt-4 pb-12")}>
+	<div
+		className={cn(
+			maxWidth,
+			"mx-auto space-y-6 pb-12",
+			hideTopBar ? "pt-2" : "pt-4",
+		)}>
 		{stats && <PRsFeedDisplay prsHit={stats.prsHit} variant="mobile-toast" />}
 		<div className="space-y-6">
 			{date && date !== format(new Date(), "yyyy-MM-dd") && (
@@ -2021,31 +2088,35 @@ const SessionLayout = ({
 					</div>
 				</div>
 			)}
-			<div className="flex justify-between items-center">
-				{onBack ? (
-					<button
-						onClick={onBack}
-						className="glass-button w-10 h-10 rounded-xl border-foreground/10 flex items-center justify-center">
-						<ChevronLeft className="w-5 h-5 text-foreground" />
-					</button>
-				) : (
-					<Link
-						href="/"
-						className="glass-button w-10 h-10 rounded-xl border-foreground/10 flex items-center justify-center">
-						<ChevronLeft className="w-5 h-5 text-foreground" />
-					</Link>
-				)}
-				<div className="text-center w-full">
-					{subtitle && (
-						<p className="text-[10px] font-black text-brand-primary uppercase tracking-[0.2em] mb-1">
-							{subtitle}
-						</p>
+			{!hideTopBar && (
+				<div className="flex justify-between items-center">
+					{onBack ? (
+						<button
+							onClick={onBack}
+							className="glass-button w-10 h-10 rounded-xl border-foreground/10 flex items-center justify-center">
+							<ChevronLeft className="w-5 h-5 text-foreground" />
+						</button>
+					) : (
+						<Link
+							href="/"
+							className="glass-button w-10 h-10 rounded-xl border-foreground/10 flex items-center justify-center">
+							<ChevronLeft className="w-5 h-5 text-foreground" />
+						</Link>
 					)}
-					<h1 className="text-xl line-clamp-1 text-center font-black text-foreground uppercase tracking-wider">
-						{title}
-					</h1>
+					<div className="text-center w-full">
+						{subtitle && (
+							<p className="text-[10px] font-black text-brand-primary uppercase tracking-[0.2em] mb-1">
+								{subtitle}
+							</p>
+						)}
+						{title && (
+							<h1 className="text-xl line-clamp-1 text-center font-black text-foreground uppercase tracking-wider">
+								{title}
+							</h1>
+						)}
+					</div>
 				</div>
-			</div>
+			)}
 
 			{/* Segmented Progress Bar */}
 			{mode !== "MANUAL_LOG" && (
