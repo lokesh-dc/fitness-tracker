@@ -894,6 +894,116 @@ export async function getExercisePRStatus(
   }
 }
 
+export type LastExerciseSets = {
+  weight: number;
+  reps: number;
+};
+
+export async function getLastExerciseSetsBulk(
+  exercises: { exerciseId?: string; name: string }[],
+  beforeDate?: string | Date,
+  overrideUserId?: string
+): Promise<Record<string, LastExerciseSets[]>> {
+  try {
+    if (!exercises || exercises.length === 0) return {};
+
+    let userIdStr = overrideUserId;
+    if (!userIdStr) {
+      const session = await getServerSession(authOptions);
+      if (!session?.user) return {};
+      userIdStr = (session.user as { id?: string }).id;
+    }
+    if (!userIdStr) return {};
+
+    const userId = new ObjectId(userIdStr);
+    const db = await getDb();
+
+    const escapeRegExp = (s: string) =>
+      s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    const exerciseIds = exercises
+      .map((e) => e.exerciseId)
+      .filter((id): id is string => Boolean(id));
+    const exerciseNames = exercises
+      .map((e) => e.name)
+      .filter(Boolean);
+
+    const matchConditions: any[] = [];
+    if (exerciseIds.length > 0) {
+      matchConditions.push({ "exercises.exerciseId": { $in: exerciseIds } });
+    }
+    if (exerciseNames.length > 0) {
+      matchConditions.push({
+        "exercises.name": {
+          $in: exerciseNames.map((n) => new RegExp(`^${escapeRegExp(n)}$`, "i")),
+        },
+      });
+    }
+
+    if (matchConditions.length === 0) return {};
+
+    const query: any = {
+      userId,
+      $or: matchConditions,
+    };
+
+    if (beforeDate) {
+      query.date = { $lt: toUTCStartOfDay(beforeDate) };
+    }
+
+    const logs = await db
+      .collection("WorkoutLog")
+      .find(query)
+      .project({ date: 1, createdAt: 1, exercises: 1 })
+      .sort({ date: -1, createdAt: -1 })
+      .limit(100)
+      .toArray();
+
+    const result: Record<string, LastExerciseSets[]> = {};
+
+    for (const ex of exercises) {
+      const exNameLower = ex.name.toLowerCase().trim();
+
+      // Find the most recent log containing this exercise with valid sets
+      for (const log of logs) {
+        if (!Array.isArray(log.exercises)) continue;
+
+        const foundEx = log.exercises.find((loggedEx: any) => {
+          if (!loggedEx) return false;
+          if (ex.exerciseId && loggedEx.exerciseId === ex.exerciseId) return true;
+          return (
+            loggedEx.name &&
+            loggedEx.name.toLowerCase().trim() === exNameLower
+          );
+        });
+
+        if (foundEx && Array.isArray(foundEx.sets) && foundEx.sets.length > 0) {
+          const validSets = foundEx.sets
+            .filter((s: any) => s && (Number(s.weight) > 0 || Number(s.reps) > 0))
+            .map((s: any) => ({
+              weight: Number(s.weight) || 0,
+              reps: Number(s.reps) || 0,
+            }));
+
+          if (validSets.length > 0) {
+            if (ex.exerciseId) {
+              result[ex.exerciseId] = validSets;
+            }
+            result[ex.name] = validSets;
+            result[exNameLower] = validSets;
+            break;
+          }
+        }
+      }
+    }
+
+    return result;
+  } catch (error) {
+    console.error("Error fetching bulk last exercise sets:", error);
+    return {};
+  }
+}
+
 export async function deleteWorkoutLog(logId: string): Promise<{ success: boolean }> {
   try {
     const session = await getServerSession(authOptions);

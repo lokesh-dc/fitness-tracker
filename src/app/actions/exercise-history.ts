@@ -43,7 +43,7 @@ export async function getExerciseHistory(
     const pipeline = [
       { $match: { userId: userObjectId, "exercises.name": exerciseName } },
       { $sort: { date: -1 } },
-      { $limit: 8 }, // fetch extra to ensure 5 valid sessions after zero-weight filtering
+      { $limit: 15 }, // fetch extra to ensure enough valid sessions after zero-weight filtering
       { $unwind: "$exercises" },
       { $match: { "exercises.name": exerciseName } },
       { $unwind: "$exercises.sets" },
@@ -66,7 +66,7 @@ export async function getExerciseHistory(
         },
       },
       { $sort: { _id: -1 } },
-      { $limit: 5 },
+      { $limit: 10 },
     ];
 
     const results = await db.collection("WorkoutLog").aggregate(pipeline).toArray();

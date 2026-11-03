@@ -153,6 +153,7 @@ interface WorkoutSessionProps {
 	initialBodyWeight?: number | null;
 	initialWorkoutLog?: WorkoutLog | null;
 	initialPRs?: Record<string, { weight: number; reps: number }>;
+	lastSessionSets?: Record<string, { weight: number; reps: number }[]>;
 	date?: string;
 	mode?: WorkoutMode;
 	userDefaultRest?: number;
@@ -167,6 +168,7 @@ export default function WorkoutSession({
 	initialBodyWeight,
 	initialWorkoutLog,
 	initialPRs = {},
+	lastSessionSets = {},
 	date,
 	mode = "LIVE_SESSION",
 	userDefaultRest = 90,
@@ -186,6 +188,43 @@ export default function WorkoutSession({
 	const [activeExerciseIndex, setActiveExerciseIndex] = useState<number | null>(
 		null,
 	);
+
+	function getPrefilledSets(
+		ex: {
+			exerciseId?: string;
+			name: string;
+			targetSets?: number;
+			targetReps?: number;
+			lastWeight?: number;
+		},
+		modeForSets: WorkoutMode = activeMode,
+	) {
+		const exKey = ex.exerciseId;
+		const exNameKey = ex.name?.toLowerCase().trim();
+		const pastSets =
+			(exKey && lastSessionSets?.[exKey]) ||
+			(exNameKey && lastSessionSets?.[exNameKey]) ||
+			(ex.name && lastSessionSets?.[ex.name]);
+
+		if (pastSets && pastSets.length > 0) {
+			const totalCount = Math.max(ex.targetSets || 1, pastSets.length);
+			return Array.from({ length: totalCount }).map((_, idx) => {
+				const pastSet = pastSets[idx] || pastSets[pastSets.length - 1];
+				return {
+					weight: pastSet.weight || 0,
+					reps: pastSet.reps || ex.targetReps || 0,
+					completed: modeForSets === "MANUAL_LOG",
+				};
+			});
+		}
+
+		return Array.from({ length: ex.targetSets || 1 }).map(() => ({
+			weight: ex.lastWeight || 0,
+			reps: ex.targetReps || 0,
+			completed: modeForSets === "MANUAL_LOG",
+		}));
+	}
+
 	const initialExercises = (() => {
 		const loggedExs = initialWorkoutLog?.exercises;
 		const hasLog = Array.isArray(loggedExs) && loggedExs.length > 0;
@@ -237,13 +276,9 @@ export default function WorkoutSession({
 					if (alreadyThere) continue;
 					built.push({
 						...t,
-						sets: Array.from({ length: t.targetSets || 1 }).map(() => ({
-							weight: 0,
-							reps: t.targetReps || 0,
-							completed: activeMode === "MANUAL_LOG",
-						})),
-						pr: initialPRs[t.exerciseId]?.weight || 0,
-						prReps: initialPRs[t.exerciseId]?.reps || 0,
+						sets: getPrefilledSets(t, activeMode),
+						pr: initialPRs[t.exerciseId]?.weight || initialPRs[t.name]?.weight || 0,
+						prReps: initialPRs[t.exerciseId]?.reps || initialPRs[t.name]?.reps || 0,
 						isDone: false,
 					});
 				}
@@ -252,41 +287,41 @@ export default function WorkoutSession({
 		}
 
 		if (customExerciseNames && customExerciseNames.length > 0) {
-			return customExerciseNames.map((name, idx) => ({
-				exerciseId: "custom-" + idx + "-" + Date.now(),
-				name,
-				targetSets: 3,
-				targetReps: 10,
-				lastWeight: 0,
-				pr: initialPRs[name]?.weight || 0,
-				prReps: initialPRs[name]?.reps || 0,
-				restDuration: 90,
-				unit: "reps" as const,
-				isDone: false,
-				sets: Array.from({ length: 3 }).map(() => ({
-					weight: 0,
-					reps: 10,
-					completed: activeMode === "MANUAL_LOG",
-				})),
-			}));
+			return customExerciseNames.map((name, idx) => {
+				const sets = getPrefilledSets(
+					{ name, targetSets: 3, targetReps: 10 },
+					activeMode,
+				);
+				return {
+					exerciseId: "custom-" + idx + "-" + Date.now(),
+					name,
+					targetSets: sets.length,
+					targetReps: sets[0]?.reps || 10,
+					lastWeight: sets[0]?.weight || 0,
+					pr: initialPRs[name]?.weight || 0,
+					prReps: initialPRs[name]?.reps || 0,
+					restDuration: 90,
+					unit: "reps" as const,
+					isDone: false,
+					sets,
+				};
+			});
 		}
 		if (template?.exercises) {
 			return template.exercises.map((ex) => {
 				const loggedEx = initialWorkoutLog?.exercises?.find(
-					(le: any) => le.exerciseId === ex.exerciseId,
+					(le: any) =>
+						(ex.exerciseId && le.exerciseId === ex.exerciseId) ||
+						(le.name && ex.name && le.name.toLowerCase() === ex.name.toLowerCase()),
 				);
 				const initialSets = loggedEx
 					? loggedEx.sets
-					: Array.from({ length: ex.targetSets || 1 }).map(() => ({
-						weight: ex.lastWeight || 0,
-						reps: ex.targetReps || 0,
-						completed: activeMode === "MANUAL_LOG",
-					}));
+					: getPrefilledSets(ex, activeMode);
 				return {
 					...ex,
 					sets: initialSets,
-					pr: initialPRs[ex.exerciseId]?.weight || 0,
-					prReps: initialPRs[ex.exerciseId]?.reps || 0,
+					pr: initialPRs[ex.exerciseId]?.weight || initialPRs[ex.name]?.weight || 0,
+					prReps: initialPRs[ex.exerciseId]?.reps || initialPRs[ex.name]?.reps || 0,
 					isDone: !!loggedEx,
 				};
 			});
@@ -722,13 +757,7 @@ export default function WorkoutSession({
 			target.pr = 0;
 			target.prReps = 0;
 			target.lastWeight = 0;
-			target.sets = Array.from({
-				length: target.targetSets || 1,
-			}).map(() => ({
-				weight: 0,
-				reps: target.targetReps || 0,
-				completed: activeMode === "MANUAL_LOG",
-			}));
+			target.sets = getPrefilledSets(target, activeMode);
 			next[index] = target;
 			return next;
 		});
@@ -914,19 +943,17 @@ export default function WorkoutSession({
 				await deleteCustomWorkoutPlan(effectiveDate);
 				const restoredExercises: Exercise[] = template.exercises.map((ex) => {
 					const loggedEx = initialWorkoutLog?.exercises?.find(
-						(le: any) => le.exerciseId === ex.exerciseId,
+						(le: any) =>
+							(ex.exerciseId && le.exerciseId === ex.exerciseId) ||
+							(le.name && ex.name && le.name.toLowerCase() === ex.name.toLowerCase()),
 					);
 					return {
 						...ex,
 						sets: loggedEx
 							? loggedEx.sets
-							: Array.from({ length: ex.targetSets || 1 }).map(() => ({
-								weight: ex.lastWeight || 0,
-								reps: ex.targetReps || 0,
-								completed: activeMode === "MANUAL_LOG",
-							})),
-						pr: initialPRs[ex.exerciseId]?.weight || 0,
-						prReps: initialPRs[ex.exerciseId]?.reps || 0,
+							: getPrefilledSets(ex, activeMode),
+						pr: initialPRs[ex.exerciseId]?.weight || initialPRs[ex.name]?.weight || 0,
+						prReps: initialPRs[ex.exerciseId]?.reps || initialPRs[ex.name]?.reps || 0,
 						isDone: !!loggedEx,
 					};
 				});
@@ -955,22 +982,21 @@ export default function WorkoutSession({
 			const keptExercises = exercises.filter((ex) =>
 				namesToKeep.includes(ex.name),
 			);
-			const newExercises: Exercise[] = namesToAdd.map((name, idx) => ({
-				exerciseId: "custom-" + idx + "-" + Date.now(),
-				name,
-				targetSets: 3,
-				targetReps: 10,
-				lastWeight: 0,
-				pr: 0,
-				prReps: 0,
-				restDuration: 90,
-				unit: "reps" as const,
-				sets: Array.from({ length: 3 }).map(() => ({
-					weight: 0,
-					reps: 10,
-					completed: activeMode === "MANUAL_LOG",
-				})),
-			}));
+			const newExercises: Exercise[] = namesToAdd.map((name, idx) => {
+				const sets = getPrefilledSets({ name, targetSets: 3, targetReps: 10 }, activeMode);
+				return {
+					exerciseId: "custom-" + idx + "-" + Date.now(),
+					name,
+					targetSets: sets.length,
+					targetReps: sets[0]?.reps || 10,
+					lastWeight: sets[0]?.weight || 0,
+					pr: 0,
+					prReps: 0,
+					restDuration: 90,
+					unit: "reps" as const,
+					sets,
+				};
+			});
 
 			setExercises([...keptExercises, ...newExercises]);
 			setHasChangedWorkout(true);
@@ -986,19 +1012,17 @@ export default function WorkoutSession({
 			if (template?.exercises) {
 				const restoredExercises: Exercise[] = template.exercises.map((ex) => {
 					const loggedEx = initialWorkoutLog?.exercises?.find(
-						(le: any) => le.exerciseId === ex.exerciseId,
+						(le: any) =>
+							(ex.exerciseId && le.exerciseId === ex.exerciseId) ||
+							(le.name && ex.name && le.name.toLowerCase() === ex.name.toLowerCase()),
 					);
 					return {
 						...ex,
 						sets: loggedEx
 							? loggedEx.sets
-							: Array.from({ length: ex.targetSets || 1 }).map(() => ({
-								weight: ex.lastWeight || 0,
-								reps: ex.targetReps || 0,
-								completed: activeMode === "MANUAL_LOG",
-							})),
-						pr: initialPRs[ex.exerciseId]?.weight || 0,
-						prReps: initialPRs[ex.exerciseId]?.reps || 0,
+							: getPrefilledSets(ex, activeMode),
+						pr: initialPRs[ex.exerciseId]?.weight || initialPRs[ex.name]?.weight || 0,
+						prReps: initialPRs[ex.exerciseId]?.reps || initialPRs[ex.name]?.reps || 0,
 						isDone: !!loggedEx,
 					};
 				});

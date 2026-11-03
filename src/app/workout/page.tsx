@@ -1,5 +1,10 @@
 import { getPlanByDate } from "@/app/actions/plan";
-import { getTodayBodyWeight, getTodayWorkoutLog } from "@/app/actions/logs";
+import {
+	getTodayBodyWeight,
+	getTodayWorkoutLog,
+	getLastExerciseSetsBulk,
+	type LastExerciseSets,
+} from "@/app/actions/logs";
 import { getHighestWeightPRsBulk } from "@/app/actions/analytics";
 import { getExercises } from "@/app/actions/exercises";
 import { getCustomWorkoutPlan } from "@/app/actions/custom-workout";
@@ -58,14 +63,47 @@ export default async function WorkoutPage({
 		isFuturePrep || isMerged ? Promise.resolve(null) : getCustomWorkoutPlan(date),
 	]);
 
+	const targetExercises: { exerciseId?: string; name: string }[] = [];
+	if (plan?.exercises) {
+		for (const ex of plan.exercises) {
+			targetExercises.push({ exerciseId: ex.exerciseId, name: ex.name });
+		}
+	}
+	if (customPlan?.exerciseNames) {
+		for (const name of customPlan.exerciseNames) {
+			if (!targetExercises.some((e) => e.name.toLowerCase() === name.toLowerCase())) {
+				targetExercises.push({ name });
+			}
+		}
+	}
+
 	let initialPRs: Record<string, { weight: number; reps: number }> = {};
+	let lastSessionSets: Record<string, LastExerciseSets[]> = {};
+
+	const exercisePromises: Promise<any>[] = [];
 	if (plan && plan.exercises) {
 		const exerciseIds = plan.exercises
 			.map((ex) => ex.exerciseId)
 			.filter(Boolean);
 		if (exerciseIds.length > 0) {
-			initialPRs = await getHighestWeightPRsBulk(exerciseIds);
+			exercisePromises.push(
+				getHighestWeightPRsBulk(exerciseIds).then((res) => {
+					initialPRs = res;
+				}),
+			);
 		}
+	}
+
+	if (targetExercises.length > 0) {
+		exercisePromises.push(
+			getLastExerciseSetsBulk(targetExercises, date || today).then((res) => {
+				lastSessionSets = res;
+			}),
+		);
+	}
+
+	if (exercisePromises.length > 0) {
+		await Promise.all(exercisePromises);
 	}
 
 	return (
@@ -77,6 +115,7 @@ export default async function WorkoutPage({
 					initialBodyWeight={initialBodyWeight}
 					initialWorkoutLog={initialWorkoutLog}
 					initialPRs={initialPRs}
+					lastSessionSets={lastSessionSets}
 					date={isFuturePrep ? undefined : date}
 					mode={isMerged ? 'LIVE_SESSION' : explicitMode}
 					userDefaultRest={userSettings.defaultRestDuration}
