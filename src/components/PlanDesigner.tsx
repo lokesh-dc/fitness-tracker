@@ -397,13 +397,16 @@ export function PlanDesigner({
 	};
 
 	const handleSave = async (status?: 'draft' | 'active') => {
+		// Auto-resolve any remaining reviews before saving so user is never blocked
 		if (pendingReviewTotal > 0) {
-			const dayNames = pendingDays.map((d) => DAYS[d]).join(", ");
-			if (pendingDays.length > 0) setCurrentDay(pendingDays[0]);
-			alert(
-				`${pendingReviewTotal} exercise match${pendingReviewTotal === 1 ? "" : "es"} still need attention on ${dayNames}. They are highlighted in red in the workout list — resolve them before saving.`,
-			);
-			return;
+			for (const tempId of Object.keys(pendingReviews)) {
+				const review = pendingReviews[tempId];
+				if (review.kind === "review" && review.candidates && review.candidates.length > 0) {
+					resolveExerciseReview(tempId, review.candidates[0].id, review.candidates[0].name);
+				} else if (review.kind === "new") {
+					await handleCreateNewExercise(tempId, review.aiName, review.muscleGroup);
+				}
+			}
 		}
 
 		setIsSubmitting(true);

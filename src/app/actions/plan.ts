@@ -380,7 +380,7 @@ export async function savePlanTemplates(
   }
 }
 
-export async function getUserPlanSummary() {
+export async function getUserPlanSummary(includeDeleted: boolean = false) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) return null;
@@ -388,9 +388,14 @@ export async function getUserPlanSummary() {
 
     const db = await getDb();
 
-    // Fetch all plans (soft-deleted ones included so they can be restored/duplicated)
+    const query: Record<string, any> = { userId };
+    if (!includeDeleted) {
+      query.status = { $ne: "deleted" };
+    }
+
+    // Fetch plans (soft-deleted plans excluded by default)
     const plansRaw = await db.collection("PlanDocument")
-      .find({ userId })
+      .find(query)
       .sort({ startDate: -1 })
       .toArray();
 
