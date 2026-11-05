@@ -1,5 +1,8 @@
 import { getPlanByDate, getActivePlanInfo } from "../actions/plan";
 import { getTodayWorkoutLog, getThisWeekWeightData } from "../actions/logs";
+import { getUserSettings } from "../actions/user";
+import { DEFAULT_USER_SETTINGS } from "@/types/user-settings";
+import { DailyWeightPrompt } from "@/components/dashboard/DailyWeightPrompt";
 import { WeightTimelineWidget } from "@/components/dashboard/WeightTimelineWidget";
 import { AnalyticsSummaryWidget } from "@/components/dashboard/AnalyticsSummaryWidget";
 import { redirect } from "next/navigation";
@@ -96,6 +99,7 @@ export default async function DashboardPage() {
 		weeklyVolume,
 		muscleRecovery,
 		onboardingState,
+		userSettings,
 	] = await Promise.all([
 		getPlanByDate().catch(() => null),
 		getActivePlanInfo().catch(() => null),
@@ -145,6 +149,7 @@ export default async function DashboardPage() {
 		})),
 		getMuscleRecovery().catch(() => []),
 		getOnboardingState(userId).catch(() => ({ status: "INERT" as const })),
+		getUserSettings(userId).catch(() => DEFAULT_USER_SETTINGS),
 	]);
 
 	// Route first-run new users to the guided first session
@@ -167,6 +172,12 @@ export default async function DashboardPage() {
 		userProfile?.bannerDismissed !== true;
 
 	const isRestDay = !plan || (plan as any)?.dayOfWeek === 0;
+
+	const todayWeightEntry = thisWeekWeight.days.find((d) => d.isToday);
+	const todayWeight =
+		typeof todayWeightEntry?.weight === "number" ? todayWeightEntry.weight : null;
+	const todayDateStr =
+		todayWeightEntry?.dateStr || format(today, "yyyy-MM-dd");
 
 	return (
 		<div className="flex flex-col">
@@ -305,6 +316,15 @@ export default async function DashboardPage() {
 
 						<NotificationPrompt />
 
+						{/* ── Daily Weight Prompt (promoted when pre-workout prompt is toggled off) ── */}
+						<DailyWeightPrompt
+							todayWeight={todayWeight}
+							initialWeight={thisWeekWeight.currentWeight || userProfile?.currentWeight || null}
+							todayDateStr={todayDateStr}
+							weekDays={thisWeekWeight.days}
+							logWeightBeforeWorkout={userSettings.logWeightBeforeWorkout}
+						/>
+
 						{/* ── AI Cooldown (shown after workout) ── */}
 						{todayWorkoutLog?.aiSummary && (
 							<section>
@@ -338,6 +358,7 @@ export default async function DashboardPage() {
 						<WeightTimelineWidget
 							data={thisWeekWeight}
 							profile={userProfile}
+							logWeightBeforeWorkout={userSettings.logWeightBeforeWorkout}
 						/>
 
 						{/* ── Analytics Snapshot ── */}

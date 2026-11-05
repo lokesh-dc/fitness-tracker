@@ -3,7 +3,8 @@ import { getPlanDetails } from "@/app/actions/plan";
 import { getExercises } from "@/app/actions/exercises";
 import { Header } from "@/components/Header";
 import { PlanModeChoice } from "@/components/PlanModeChoice";
-import { Zap } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
+import Link from "next/link";
 
 export default async function DesignerPage({
 	searchParams,
@@ -14,29 +15,33 @@ export default async function DesignerPage({
 
 	if (!editId && !duplicateId && mode !== "manual") {
 		return (
-			<div className="flex flex-col">
-				<Header
-					title="New plan"
-					subtitle="Choose how to build"
-				/>
-				<main className="flex-1 px-4 md:px-6 pb-28 md:pb-12 max-w-lg mx-auto w-full">
-					<div className="space-y-8">
-						{/* Hero context */}
-						<div className="flex flex-col gap-2 pt-2">
-							<div className="flex items-center gap-2.5">
-								<div className="w-8 h-8 rounded-xl bg-brand-primary/10 flex items-center justify-center shrink-0">
-									<Zap className="w-4 h-4 text-brand-primary" />
-								</div>
-								<p className="text-xs text-foreground/40 leading-relaxed">
-									Build a structured training cycle in minutes
-								</p>
-							</div>
+			<div className="flex flex-col min-h-screen">
+				<Header title="Create Plan" subtitle="Select routine architecture" />
+				<main className="flex-1 px-4 md:px-6 pb-28 md:pb-12 max-w-xl mx-auto w-full">
+					<div className="space-y-6 pt-2">
+						{/* Back link */}
+						<Link
+							href="/plan"
+							className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground/40 hover:text-foreground transition-colors group">
+							<ChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+							<span>Back to training cycles</span>
+						</Link>
+
+						{/* Hero context banner */}
+						<div className="relative overflow-hidden rounded-2xl border border-foreground/10 bg-foreground/[0.02] p-5">
+							<p className="text-sm font-semibold text-foreground/90">
+								Build your next training block
+							</p>
+							<p className="text-xs text-foreground/50 mt-1 leading-relaxed">
+								Pick how you want to build. You can modify every set, rep, and
+								exercise at any time.
+							</p>
 						</div>
 
 						<PlanModeChoice />
 
-						<p className="text-center text-[11px] text-foreground/25">
-							You can edit and adjust any plan after it&apos;s created.
+						<p className="text-center text-[11px] text-foreground/30 pt-2">
+							Plans can be modified or exported as templates whenever you train.
 						</p>
 					</div>
 				</main>
@@ -45,21 +50,30 @@ export default async function DesignerPage({
 	}
 
 	const [initialData, exercises] = await Promise.all([
-		editId ? getPlanDetails(editId) : duplicateId ? getPlanDetails(duplicateId) : null,
+		editId
+			? getPlanDetails(editId)
+			: duplicateId
+				? getPlanDetails(duplicateId)
+				: null,
 		getExercises(),
 	]);
 
+	const title = duplicateId
+		? "Duplicate Plan"
+		: editId
+			? "Edit Plan"
+			: "Plan Designer";
+
+	const subtitle = duplicateId
+		? "Clone and adjust your training routine"
+		: editId
+			? "Fine-tune splits, days, and exercises"
+			: "Build your custom training cycle";
+
 	return (
-		<div className="flex flex-col">
-			<Header
-				title={duplicateId ? "Duplicate plan" : editId ? "Edit plan" : "Plan wizard"}
-				subtitle={
-					duplicateId
-						? "Re-run your routine from a fresh start"
-						: "Design your routine"
-				}
-			/>
-			<main className="flex-1 px-4 md:px-6 pb-28 md:pb-12 max-w-4xl mx-auto w-full">
+		<div className="flex flex-col min-h-screen">
+			<Header title={title} subtitle={subtitle} />
+			<main className="flex-1 px-4 md:px-6 pb-28 md:pb-12 max-w-3xl mx-auto w-full">
 				<PlanDesigner
 					initialData={initialData}
 					editPlanId={editId}
