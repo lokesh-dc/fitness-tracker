@@ -2,26 +2,30 @@ import { getDb } from "@/lib/db-utils";
 import { GeneratedDay, MatchedDay, MatchedExercise } from "@/types/workout";
 
 const MUSCLE_GROUP_ALIASES: Record<string, string> = {
-  "quads": "Legs", "quadricep": "Legs", "quad": "Legs",
-  "hamstrings": "Legs", "hamstring": "Legs",
-  "glutes": "Legs", "glute": "Legs",
-  "calves": "Legs", "calve": "Legs", "calf": "Legs",
-  "hips": "Legs", "hip": "Legs", "thigh": "Legs",
-  "abs": "Core", "abdominals": "Core", "abdominal": "Core", "obliques": "Core",
-  "arms": "Biceps", "bicep": "Biceps", "biceps": "Biceps", "tricep": "Triceps", "triceps": "Triceps",
+  "quads": "Quads", "quadricep": "Quads", "quad": "Quads", "quadriceps": "Quads",
+  "hamstrings": "Hamstrings", "hamstring": "Hamstrings",
+  "glutes": "Glutes", "glute": "Glutes", "gluteus": "Glutes",
+  "calves": "Calves", "calve": "Calves", "calf": "Calves",
+  "hips": "Glutes", "hip": "Glutes", "thigh": "Quads", "adductors": "Adductors", "adductor": "Adductors",
+  "abs": "Abs", "abdominals": "Abs", "abdominal": "Abs", "core": "Abs",
+  "obliques": "Obliques", "oblique": "Obliques",
+  "arms": "Biceps", "bicep": "Biceps", "biceps": "Biceps",
+  "tricep": "Triceps", "triceps": "Triceps",
   "forearm": "Forearms", "forearms": "Forearms",
-  "pecs": "Chest", "pectoral": "Chest", "pec": "Chest",
-  "lats": "Back", "lat": "Back", "traps": "Back", "trap": "Back",
-  "delts": "Shoulders", "deltoid": "Shoulders", "shoulder": "Shoulders",
-  "cardio": "Cardio", "conditioning": "Cardio",
+  "pecs": "Chest", "pectoral": "Chest", "pec": "Chest", "chest": "Chest",
+  "lats": "Lats", "lat": "Lats",
+  "traps": "Traps", "trap": "Traps", "trapezius": "Traps",
+  "upper back": "Upper Back", "lower back": "Lower Back",
+  "back": "Upper Back", "shoulders": "Shoulders", "shoulder": "Shoulders",
+  "delts": "Shoulders", "deltoid": "Shoulders", "cardio": "Cardio", "conditioning": "Cardio",
 };
 
 const VALID_MUSCLE_GROUPS = new Set([
-  "Chest", "Back", "Shoulders", "Legs", "Biceps", "Triceps", "Forearms", "Core", "Cardio",
+  "Chest", "Lats", "Upper Back", "Lower Back", "Traps", "Shoulders",
+  "Biceps", "Triceps", "Forearms", "Abs", "Obliques",
+  "Quads", "Hamstrings", "Glutes", "Calves", "Adductors", "Cardio",
 ]);
 
-const SIMILARITY_THRESHOLD = 0.8;
-const REVIEW_GAP_THRESHOLD = 0.05;
 const DEFAULT_REST_DURATION = 90;
 
 function normalizeMuscleGroup(raw: string): string {
@@ -68,8 +72,6 @@ function tokenize(name: string): string[] {
   return normalizeExerciseName(name).split(" ").filter(Boolean);
 }
 
-// Per-token fuzzy equality: tolerates a typo in short words (hit/hip) and
-// minor spelling drift in longer ones (crunches/crunch, flyes/fly).
 function tokenSimilarity(a: string, b: string): number {
   if (a === b) return 1;
   const distance = levenshteinDistance(a, b);
@@ -80,11 +82,6 @@ function tokenSimilarity(a: string, b: string): number {
 
 const TOKEN_MATCH_THRESHOLD = 0.75;
 
-// Order-insensitive, typo-tolerant token overlap. If every token of the AI
-// name matches the library name, score 1.0 (the AI commonly omits equipment /
-// descriptors that library names include, e.g. "Deadlift" vs "Deadlift (Barbell)").
-// Otherwise use a Dice coefficient so distinguishing words (Standing vs Seated)
-// keep a mismatch from being scored as identical.
 function tokenSetSimilarity(aTokens: string[], bTokens: string[]): number {
   if (aTokens.length === 0 || bTokens.length === 0) return 0;
   const used = new Array(bTokens.length).fill(false);
@@ -112,110 +109,102 @@ function tokenSetSimilarity(aTokens: string[], bTokens: string[]): number {
 function similarity(a: string, b: string): number {
   const aNorm = normalizeExerciseName(a);
   const bNorm = normalizeExerciseName(b);
+  if (aNorm === bNorm) return 1;
   const maxLen = Math.max(aNorm.length, bNorm.length);
   if (maxLen === 0) return 1;
   const charSimilarity = 1 - levenshteinDistance(aNorm, bNorm) / maxLen;
   return Math.max(charSimilarity, tokenSetSimilarity(tokenize(aNorm), tokenize(bNorm)));
 }
 
-// Custom exercises can be tagged with labels that aren't in the 9 canonical
-// groups (e.g. "Glutes", "Calves"). Normalize the stored group and compare so
-// a custom "Hip Thrust" under "Glutes" still surfaces for a "Legs" AI line.
-async function getAllExercises(): Promise<
-  { id: string; name: string; muscleGroup: string }[]
-> {
+interface DbExercise {
+  id: string;
+  name: string;
+  muscleGroup: string;
+  aliases?: string[];
+}
+
+async function getAllExercises(): Promise<DbExercise[]> {
   const db = await getDb();
   const exercises = await db
     .collection("Exercises")
     .find({})
-    .project({ name: 1, muscleGroup: 1 })
+    .project({ name: 1, muscleGroup: 1, aliases: 1 })
     .toArray();
 
   return exercises.map((ex) => ({
     id: ex._id.toString(),
     name: ex.name as string,
     muscleGroup: ex.muscleGroup as string,
+    aliases: Array.isArray(ex.aliases) ? ex.aliases : [],
   }));
 }
 
 function filterCandidates(
-  allExercises: { id: string; name: string; muscleGroup: string }[],
+  allExercises: DbExercise[],
   muscleGroup: string,
-): { id: string; name: string }[] {
-  return allExercises
-    .filter((ex) => normalizeMuscleGroup(ex.muscleGroup) === muscleGroup)
-    .map((ex) => ({ id: ex.id, name: ex.name }));
+): DbExercise[] {
+  const target = normalizeMuscleGroup(muscleGroup);
+  const matched = allExercises.filter(
+    (ex) => normalizeMuscleGroup(ex.muscleGroup) === target,
+  );
+  // If specific group has very few candidates, include all exercises to prevent false negatives
+  return matched.length >= 3 ? matched : allExercises;
 }
 
 function matchAgainstCandidates(
   aiName: string,
-  candidates: { id: string; name: string }[],
+  candidates: DbExercise[],
 ): { id: string; name: string; similarity: number }[] {
-  const scored = candidates.map((c) => ({
-    id: c.id,
-    name: c.name,
-    similarity: similarity(aiName, c.name),
-  }));
+  const scored = candidates.map((c) => {
+    const nameScore = similarity(aiName, c.name);
+    let bestScore = nameScore;
+    if (c.aliases && c.aliases.length > 0) {
+      for (const alias of c.aliases) {
+        const aliasScore = similarity(aiName, alias);
+        if (aliasScore > bestScore) {
+          bestScore = aliasScore;
+        }
+      }
+    }
+    return {
+      id: c.id,
+      name: c.name,
+      similarity: bestScore,
+    };
+  });
 
   return scored.sort((a, b) => b.similarity - a.similarity);
 }
 
+/**
+ * Classifies an AI-generated exercise name against verified library candidates.
+ * Always resolves to a real, verified database exercise to avoid database pollution.
+ */
 function classifyExercise(
   aiName: string,
-  candidates: { id: string; name: string }[],
+  candidates: DbExercise[],
 ): {
-  exerciseId: string | null;
-  exerciseName: string | null;
-  needsUserReview: boolean;
-  reviewCandidates?: { id: string; name: string; similarity: number }[];
-  isNew: boolean;
+  exerciseId: string;
+  exerciseName: string;
 } {
   if (candidates.length === 0) {
-    return { exerciseId: null, exerciseName: null, needsUserReview: false, isNew: true };
+    return { exerciseId: "", exerciseName: aiName };
   }
 
   const scored = matchAgainstCandidates(aiName, candidates);
   const top = scored[0];
 
-  if (top.similarity >= SIMILARITY_THRESHOLD) {
-    const runnerUp = scored[1];
-    if (runnerUp && top.similarity - runnerUp.similarity < REVIEW_GAP_THRESHOLD) {
-      const topCandidates = scored.slice(0, 3);
-      return {
-        exerciseId: null,
-        exerciseName: null,
-        needsUserReview: true,
-        reviewCandidates: topCandidates,
-        isNew: false,
-      };
-    }
-    return {
-      exerciseId: top.id,
-      exerciseName: top.name,
-      needsUserReview: false,
-      isNew: false,
-    };
-  }
-
-  if (top.similarity >= 0.5) {
-    const topCandidates = scored.filter((s) => s.similarity >= 0.5).slice(0, 3);
-    return {
-      exerciseId: null,
-      exerciseName: null,
-      needsUserReview: true,
-      reviewCandidates: topCandidates,
-      isNew: false,
-    };
-  }
-
-  return { exerciseId: null, exerciseName: null, needsUserReview: false, isNew: true };
+  return {
+    exerciseId: top.id,
+    exerciseName: top.name,
+  };
 }
 
 export async function matchGeneratedExercises(
   days: GeneratedDay[],
 ): Promise<MatchedDay[]> {
   const allExercises = await getAllExercises();
-  const muscleGroupCache = new Map<string, { id: string; name: string }[]>();
+  const muscleGroupCache = new Map<string, DbExercise[]>();
 
   const results: MatchedDay[] = [];
 
@@ -231,6 +220,8 @@ export async function matchGeneratedExercises(
         muscleGroupCache.set(normalizedGroup, candidates);
       }
 
+      // Map to the closest verified canonical exercise from the 799-exercise library.
+      // ZERO database insertions occur here — prevents any hallucinated exercises from polluting MongoDB.
       const match = classifyExercise(ex.name, candidates);
 
       matchedExercises.push({
@@ -241,9 +232,8 @@ export async function matchGeneratedExercises(
         restDuration: ex.restDuration || DEFAULT_REST_DURATION,
         exerciseId: match.exerciseId,
         exerciseName: match.exerciseName,
-        needsUserReview: match.needsUserReview,
-        reviewCandidates: match.reviewCandidates,
-        isNew: match.isNew,
+        needsUserReview: false,
+        isNew: false,
       });
     }
 

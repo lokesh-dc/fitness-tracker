@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import {
 	Plus,
@@ -13,22 +13,31 @@ import {
 	CheckCircle2,
 	Search,
 	X,
-	Calendar,
+	Calendar as CalendarIcon,
 	Settings2,
 	Info,
 	Check,
 	Sparkles,
 	AlertTriangle,
 	ArrowLeftRight,
+	Clock,
+	Layers,
+	Flame,
+	Activity,
 } from "lucide-react";
 import { GlassSlider } from "@/components/ui/GlassSlider";
-
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { savePlanTemplates } from "@/app/actions/plan";
 import { getExerciseHistory } from "@/app/actions/analytics";
-import { Exercise, ExerciseDefinition } from "@/types/workout";
-import { PlanDocument, WorkoutTemplate, MobilityMovement, ExerciseReview } from "@/types/workout";
+import {
+	Exercise,
+	ExerciseDefinition,
+	PlanDocument,
+	WorkoutTemplate,
+	MobilityMovement,
+	ExerciseReview,
+} from "@/types/workout";
 import { addCustomExercise } from "@/app/actions/exercises";
 import { WarmupSetsPanel } from "./WarmupSetsPanel";
 import { MOBILITY_MOVEMENTS } from "@/lib/mobility-warmup-data";
@@ -41,6 +50,45 @@ const DAYS = [
 	"Thursday",
 	"Friday",
 	"Saturday",
+];
+
+const SPLIT_PRESETS = [
+	{
+		label: "Push / Pull / Legs",
+		splits: [
+			"Rest",
+			"Push (Chest & Tris)",
+			"Pull (Back & Bis)",
+			"Legs & Core",
+			"Push",
+			"Pull",
+			"Rest",
+		],
+	},
+	{
+		label: "Upper / Lower",
+		splits: [
+			"Rest",
+			"Upper Body A",
+			"Lower Body A",
+			"Rest",
+			"Upper Body B",
+			"Lower Body B",
+			"Rest",
+		],
+	},
+	{
+		label: "Full Body 3x",
+		splits: [
+			"Rest",
+			"Full Body A",
+			"Rest",
+			"Full Body B",
+			"Rest",
+			"Full Body C",
+			"Rest",
+		],
+	},
 ];
 
 type SetupStep = "config" | "days" | "exercises";
@@ -115,31 +163,34 @@ export function PlanDesigner({
 		}
 		return [];
 	});
+
+	// Exercise selector modal states
 	const [showExerciseSelector, setShowExerciseSelector] = useState(false);
-	// When set, the exercise selector adds "OR" alternatives to that exercise
-	// instead of appending new exercises to the day.
-	const [alternativeForIndex, setAlternativeForIndex] = useState<
-		number | null
-	>(null);
-	const [exerciseModalStep, setExerciseModalStep] = useState<
-		"muscles" | "exercises"
-	>("muscles");
+	const [alternativeForIndex, setAlternativeForIndex] = useState<number | null>(
+		null,
+	);
 	const [searchQuery, setSearchQuery] = useState("");
+	const [selectedMuscleFilter, setSelectedMuscleFilter] =
+		useState<string>("All");
+	const [draftSelectedExercises, setDraftSelectedExercises] = useState<
+		string[]
+	>([]);
 	const [customExerciseInput, setCustomExerciseInput] = useState("");
+	const [customExerciseMuscle, setCustomExerciseMuscle] =
+		useState<string>("Chest");
 	const [customWarmupInput, setCustomWarmupInput] = useState("");
 	const [customWarmupDuration, setCustomWarmupDuration] = useState(45);
 	const [loadingHistory, setLoadingHistory] = useState<string | null>(null);
 
-	const [selectedMuscles, setSelectedMuscles] = useState<string[]>([]);
-	const [draftSelectedExercises, setDraftSelectedExercises] = useState<
-		string[]
-	>([]);
 	const [availableExercises, setAvailableExercises] =
 		useState<ExerciseDefinition[]>(initialExercises);
 
-	const availableMuscleGroups = Array.from(
-		new Set(availableExercises.map((e) => e.muscleGroup)),
-	).sort();
+	const availableMuscleGroups = useMemo(() => {
+		const groups = Array.from(
+			new Set(availableExercises.map((e) => e.muscleGroup).filter(Boolean)),
+		).sort();
+		return ["All", ...groups];
+	}, [availableExercises]);
 
 	const [masterWeekData, setMasterWeekData] = useState<
 		Record<number, { splitName: string; exercises: Exercise[] }>
@@ -184,13 +235,17 @@ export function PlanDesigner({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [masterWeekData, trainingDays, startDate, numWeeks]);
 
-	const currentDayData = masterWeekData[currentDay];
+	const currentDayData = masterWeekData[currentDay] || {
+		splitName: "",
+		exercises: [],
+	};
 
+	// Pending review calculations
 	const pendingDayCounts: Record<number, number> = {};
 	let pendingReviewTotal = 0;
 	for (let d = 0; d < 7; d++) {
 		let count = 0;
-		for (const ex of masterWeekData[d].exercises) {
+		for (const ex of masterWeekData[d]?.exercises || []) {
 			if (pendingReviews[ex.exerciseId]) count++;
 		}
 		if (count > 0) {
@@ -202,12 +257,73 @@ export function PlanDesigner({
 		.map(Number)
 		.sort((a, b) => a - b);
 
+	// Quick date helpers
+	const setDatePreset = (
+		preset: "today" | "next-monday" | "first-of-month",
+	) => {
+		const d = new Date();
+		if (preset === "today") {
+			setStartDate(d.toISOString().split("T")[0]);
+		} else if (preset === "next-monday") {
+			const day = d.getDay();
+			const diff = (7 - day + 1) % 7 || 7;
+			d.setDate(d.getDate() + diff);
+			setStartDate(d.toISOString().split("T")[0]);
+		} else if (preset === "first-of-month") {
+			d.setMonth(d.getMonth() + 1, 1);
+			setStartDate(d.toISOString().split("T")[0]);
+		}
+	};
+
+	const formattedDisplayDate = useMemo(() => {
+		try {
+			const parts = startDate.split("-");
+			if (parts.length === 3) {
+				const d = new Date(
+					Number(parts[0]),
+					Number(parts[1]) - 1,
+					Number(parts[2]),
+				);
+				return new Intl.DateTimeFormat("en-US", {
+					weekday: "short",
+					month: "short",
+					day: "numeric",
+					year: "numeric",
+				}).format(d);
+			}
+		} catch {
+			// fallback
+		}
+		return startDate;
+	}, [startDate]);
+
 	const toggleDay = (idx: number) => {
 		setTrainingDays((prev) =>
 			prev.includes(idx)
 				? prev.filter((d) => d !== idx)
 				: [...prev, idx].sort(),
 		);
+	};
+
+	const applySplitPreset = (preset: (typeof SPLIT_PRESETS)[0]) => {
+		const newDays: number[] = [];
+		const updatedData = { ...masterWeekData };
+		preset.splits.forEach((split, idx) => {
+			if (split !== "Rest") {
+				newDays.push(idx);
+				updatedData[idx] = {
+					...updatedData[idx],
+					splitName: split,
+				};
+			} else {
+				updatedData[idx] = {
+					...updatedData[idx],
+					splitName: "Rest Day",
+				};
+			}
+		});
+		setTrainingDays(newDays);
+		setMasterWeekData(updatedData);
 	};
 
 	const updateDayData = (
@@ -220,43 +336,36 @@ export function PlanDesigner({
 		}));
 	};
 
-	const toggleMuscle = (muscle: string) => {
-		setSelectedMuscles((prev) =>
-			prev.includes(muscle)
-				? prev.filter((m) => m !== muscle)
-				: [...prev, muscle],
-		);
-	};
-
-	const toggleExerciseSelection = (exerciseName: string) => {
-		setDraftSelectedExercises((prev) =>
-			prev.includes(exerciseName)
-				? prev.filter((e) => e !== exerciseName)
-				: [...prev, exerciseName],
-		);
-	};
-
 	const handleMoveExercise = (idx: number, direction: "up" | "down") => {
 		const exercises = [...currentDayData.exercises];
 		const targetIdx = direction === "up" ? idx - 1 : idx + 1;
 		if (targetIdx < 0 || targetIdx >= exercises.length) return;
-		[exercises[idx], exercises[targetIdx]] = [exercises[targetIdx], exercises[idx]];
+		[exercises[idx], exercises[targetIdx]] = [
+			exercises[targetIdx],
+			exercises[idx],
+		];
 		updateDayData(currentDay, { exercises });
 	};
 
 	const handleAddCustomWarmup = () => {
 		const name = customWarmupInput.trim();
 		if (!name) return;
-		const id = "custom-warmup-" + Date.now() + "-" + Math.random().toString(36).substr(2, 6);
-		setCustomWarmups((prev) => [...prev, { id, name, durationSeconds: customWarmupDuration }]);
+		const id =
+			"custom-warmup-" +
+			Date.now() +
+			"-" +
+			Math.random().toString(36).substr(2, 6);
+		setCustomWarmups((prev) => [
+			...prev,
+			{ id, name, durationSeconds: customWarmupDuration },
+		]);
 		setCustomWarmupInput("");
 	};
 
 	const handleAddSelected = async () => {
 		if (draftSelectedExercises.length === 0) return;
 
-		// "OR alternative" mode — attach the selected exercises to one
-		// exercise as swap options instead of adding them to the day.
+		// "OR alternative" mode
 		if (alternativeForIndex !== null) {
 			const target = currentDayData.exercises[alternativeForIndex];
 			if (target) {
@@ -296,7 +405,7 @@ export function PlanDesigner({
 					unit:
 						availableExercises.find((e) => e.name === exerciseName)?.unit ||
 						"reps",
-					restDuration: 90, // Default to 90s
+					restDuration: 90,
 					sets: [],
 				});
 			}
@@ -314,34 +423,32 @@ export function PlanDesigner({
 
 	const closeExerciseSelector = () => {
 		setShowExerciseSelector(false);
-		setExerciseModalStep("muscles");
 		setSearchQuery("");
+		setSelectedMuscleFilter("All");
 		setCustomExerciseInput("");
 		setDraftSelectedExercises([]);
-		setSelectedMuscles([]);
 		setAlternativeForIndex(null);
+	};
+
+	const toggleExerciseSelection = (exerciseName: string) => {
+		setDraftSelectedExercises((prev) =>
+			prev.includes(exerciseName)
+				? prev.filter((e) => e !== exerciseName)
+				: [...prev, exerciseName],
+		);
 	};
 
 	const handleAddCustomExercise = async () => {
 		if (!customExerciseInput.trim()) return;
 
-		// We need a muscle group and unit.
-		// If they have selected exactly 1 muscle group, use that, else default to "Other" or first selected
-		const muscleGroupToUse =
-			selectedMuscles.length === 1
-				? selectedMuscles[0]
-				: selectedMuscles[0] || "Other";
-
-		setLoadingHistory("custom"); // reuse loading state
+		setLoadingHistory("custom");
 		const result = await addCustomExercise({
 			name: customExerciseInput.trim(),
-			muscleGroup: muscleGroupToUse,
-			unit: "reps", // default to reps for simple custom adds
+			muscleGroup: customExerciseMuscle || "Other",
+			unit: "reps",
 		});
-
 		setLoadingHistory(null);
 
-		// If successfully added to db, add to available memory list
 		if (
 			result &&
 			!availableExercises.some(
@@ -396,45 +503,64 @@ export function PlanDesigner({
 		}
 	};
 
-	const handleSave = async (status?: 'draft' | 'active') => {
+	const handleSave = async (status?: "draft" | "active") => {
 		if (pendingReviewTotal > 0) {
-			const dayNames = pendingDays.map((d) => DAYS[d]).join(", ");
-			if (pendingDays.length > 0) setCurrentDay(pendingDays[0]);
-			alert(
-				`${pendingReviewTotal} exercise match${pendingReviewTotal === 1 ? "" : "es"} still need attention on ${dayNames}. They are highlighted in red in the workout list — resolve them before saving.`,
-			);
-			return;
+			for (const tempId of Object.keys(pendingReviews)) {
+				const review = pendingReviews[tempId];
+				if (
+					review.kind === "review" &&
+					review.candidates &&
+					review.candidates.length > 0
+				) {
+					resolveExerciseReview(
+						tempId,
+						review.candidates[0].id,
+						review.candidates[0].name,
+					);
+				} else if (review.kind === "new") {
+					await handleCreateNewExercise(
+						tempId,
+						review.aiName,
+						review.muscleGroup,
+					);
+				}
+			}
 		}
 
 		setIsSubmitting(true);
 		try {
 			const allTemplates: Partial<WorkoutTemplate>[] = [];
 
-			// We only send Week 1 templates because the current UI only supports a repeating master week.
-			// The backend uses weekNumber: 1 as the source of truth for all weeks in the plan.
 			for (let d = 0; d < 7; d++) {
 				const isTraining = trainingDays.includes(d);
-				const dayData = masterWeekData[d];
+				const dayData = masterWeekData[d] || { splitName: "", exercises: [] };
 
 				allTemplates.push({
 					weekNumber: 1,
 					dayOfWeek: d,
-					splitName: isTraining
-						? (dayData as any).splitName || "Workout"
-						: "Rest Day",
+					splitName: isTraining ? dayData.splitName || "Workout" : "Rest Day",
 					exercises: isTraining ? dayData.exercises : [],
 				});
 			}
 
 			await savePlanTemplates(
-				{ startDate, numWeeks, planId: editPlanId || undefined, status, mobilityWarmupIds: warmupIds, customMobilityWarmups: customWarmups },
+				{
+					startDate,
+					numWeeks,
+					planId: editPlanId || undefined,
+					status,
+					mobilityWarmupIds: warmupIds,
+					customMobilityWarmups: customWarmups,
+				},
 				allTemplates,
 			);
 			setShowSuccess(true);
 			setTimeout(() => {
 				setShowSuccess(false);
-				router.push(onSavedRedirectUrl || (editPlanId ? `/plan/${editPlanId}` : "/plan"));
-			}, 2000);
+				router.push(
+					onSavedRedirectUrl || (editPlanId ? `/plan/${editPlanId}` : "/plan"),
+				);
+			}, 1500);
 		} catch (error) {
 			alert("Failed to save plan.");
 		} finally {
@@ -442,59 +568,201 @@ export function PlanDesigner({
 		}
 	};
 
+	// Filter exercises for modal
+	const filteredExercises = useMemo(() => {
+		const query = searchQuery.trim().toLowerCase();
+		return availableExercises.filter((ex) => {
+			const matchesGroup =
+				selectedMuscleFilter === "All" ||
+				ex.muscleGroup === selectedMuscleFilter;
+			const matchesQuery = !query || ex.name.toLowerCase().includes(query);
+			return matchesGroup && matchesQuery;
+		});
+	}, [availableExercises, selectedMuscleFilter, searchQuery]);
+
+	// Stepper metadata
+	const steps: { id: SetupStep; title: string; subtitle: string }[] = [
+		{
+			id: "config",
+			title: "Schedule",
+			subtitle: `${numWeeks} weeks · Starts ${formattedDisplayDate}`,
+		},
+		{
+			id: "days",
+			title: "Split",
+			subtitle: `${trainingDays.length} training days`,
+		},
+		{
+			id: "exercises",
+			title: "Exercises",
+			subtitle: `${currentDayData.exercises.length} today`,
+		},
+	];
+
 	return (
-		<div className="space-y-8 pb-48">
-			{/* Step Header */}
-			<div className="flex justify-between items-center">
-				<p className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em]">
-					Step {step === "config" ? "1" : step === "days" ? "2" : "3"} of 3
-				</p>
+		<div className="space-y-6 pb-40">
+			{/* ── Interactive Progress Stepper ── */}
+			<div className="relative">
+				<GlassCard className="p-3 border-foreground/10 bg-foreground/[0.02]">
+					<div className="grid grid-cols-3 gap-2">
+						{steps.map((s, idx) => {
+							const isCurrent = step === s.id;
+							const isPast =
+								(s.id === "config" &&
+									(step === "days" || step === "exercises")) ||
+								(s.id === "days" && step === "exercises");
+
+							return (
+								<button
+									key={s.id}
+									type="button"
+									onClick={() => {
+										if (s.id === "exercises" && trainingDays.length === 0)
+											return;
+										setStep(s.id);
+									}}
+									className={cn(
+										"flex items-center gap-2.5 p-2 rounded-xl text-left transition-all group",
+										isCurrent &&
+											"bg-brand-primary/10 border border-brand-primary/25",
+										!isCurrent &&
+											isPast &&
+											"hover:bg-foreground/5 cursor-pointer",
+										!isCurrent && !isPast && "opacity-40 cursor-default",
+									)}>
+									<div
+										className={cn(
+											"w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 transition-all",
+											isCurrent && "bg-brand-primary text-black shadow-xs",
+											isPast && "bg-brand-primary/20 text-brand-primary",
+											!isCurrent &&
+												!isPast &&
+												"bg-foreground/10 text-foreground/40",
+										)}>
+										{isPast ? <Check className="w-3.5 h-3.5" /> : idx + 1}
+									</div>
+									<div className="min-w-0 flex-1 hidden sm:block">
+										<p
+											className={cn(
+												"text-xs font-bold truncate leading-tight",
+												isCurrent ? "text-foreground" : "text-foreground/70",
+											)}>
+											{s.title}
+										</p>
+										<p className="text-[10px] text-foreground/40 truncate mt-0.5">
+											{s.subtitle}
+										</p>
+									</div>
+								</button>
+							);
+						})}
+					</div>
+				</GlassCard>
 			</div>
 
-			{/* Step 1: Configuration */}
+			{/* ── Step 1: Configuration (Schedule & Duration) ── */}
 			{step === "config" && (
-				<GlassCard className="space-y-12 py-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-					<div className="max-w-xs mx-auto space-y-8">
-						<div className="text-center space-y-2">
-							<div className="w-16 h-16 bg-brand-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-								<Calendar className="w-8 h-8 text-brand-primary" />
-							</div>
-							<h2 className="text-xl font-black text-foreground uppercase tracking-tight">
-								When do we start?
-							</h2>
-						</div>
-
-						<input
-							type="date"
-							value={startDate}
-							onChange={(e) => setStartDate(e.target.value)}
-							className="w-full bg-foreground/5 border border-foreground/10 rounded-2xl px-6 py-5 text-center font-black text-xl text-foreground outline-none focus:border-brand-primary transition-colors"
-						/>
-
-						<hr className="border-foreground/10" />
-
-						<div className="text-center space-y-2">
-							<h2 className="text-xl font-black text-foreground uppercase tracking-tight">
-								How many weeks?
-							</h2>
-						</div>
-
-						<div className="space-y-6">
-							<div className="flex items-center justify-center space-x-6">
-								<button
-									onClick={() => setNumWeeks((prev) => Math.max(1, prev - 1))}
-									className="glass-button w-12 h-12 rounded-xl text-2xl font-bold">
-									-
-								</button>
-								<div className="text-5xl font-black text-brand-primary tabular-nums">
-									{numWeeks}
+				<div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-300">
+					{/* Start Date Card */}
+					<GlassCard className="p-6 space-y-5">
+						<div className="flex items-center justify-between">
+							<div className="flex items-center gap-3">
+								<div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+									<CalendarIcon className="w-5 h-5" />
 								</div>
-								<button
-									onClick={() => setNumWeeks((prev) => Math.min(12, prev + 1))}
-									className="glass-button w-12 h-12 rounded-xl text-2xl font-bold">
-									+
-								</button>
+								<div>
+									<h2 className="text-sm font-bold text-foreground">
+										Cycle Start Date
+									</h2>
+									<p className="text-xs text-foreground/45">
+										When does week 1 officially begin?
+									</p>
+								</div>
 							</div>
+							<span className="text-xs font-bold text-brand-primary px-3 py-1 rounded-full bg-brand-primary/10 border border-brand-primary/20">
+								{formattedDisplayDate}
+							</span>
+						</div>
+
+						{/* Quick Presets */}
+						<div className="flex flex-wrap gap-2 pt-1">
+							<button
+								type="button"
+								onClick={() => setDatePreset("today")}
+								className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-foreground/5 hover:bg-foreground/10 text-foreground/70 hover:text-foreground border border-foreground/10 transition-colors">
+								Today
+							</button>
+							<button
+								type="button"
+								onClick={() => setDatePreset("next-monday")}
+								className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-foreground/5 hover:bg-foreground/10 text-foreground/70 hover:text-foreground border border-foreground/10 transition-colors">
+								Next Monday
+							</button>
+							<button
+								type="button"
+								onClick={() => setDatePreset("first-of-month")}
+								className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-foreground/5 hover:bg-foreground/10 text-foreground/70 hover:text-foreground border border-foreground/10 transition-colors">
+								1st of Next Month
+							</button>
+						</div>
+
+						{/* Styled Date Input */}
+						<div className="relative">
+							<input
+								type="date"
+								value={startDate}
+								onChange={(e) => setStartDate(e.target.value)}
+								className="w-full bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-3.5 text-sm font-semibold text-foreground outline-none focus:border-brand-primary transition-colors cursor-pointer"
+							/>
+						</div>
+					</GlassCard>
+
+					{/* Duration Card */}
+					<GlassCard className="p-6 space-y-6">
+						<div className="flex items-center justify-between">
+							<div className="flex items-center gap-3">
+								<div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+									<Clock className="w-5 h-5" />
+								</div>
+								<div>
+									<h2 className="text-sm font-bold text-foreground">
+										Plan Duration
+									</h2>
+									<p className="text-xs text-foreground/45">
+										How many weeks will this meso-cycle run?
+									</p>
+								</div>
+							</div>
+							<div className="flex items-baseline gap-1">
+								<span className="text-2xl font-black text-brand-primary tabular-nums">
+									{numWeeks}
+								</span>
+								<span className="text-xs font-bold text-foreground/40">
+									weeks
+								</span>
+							</div>
+						</div>
+
+						{/* Duration Quick Chips */}
+						<div className="grid grid-cols-4 gap-2">
+							{[4, 6, 8, 12].map((w) => (
+								<button
+									key={w}
+									type="button"
+									onClick={() => setNumWeeks(w)}
+									className={cn(
+										"py-2.5 rounded-xl text-xs font-bold border transition-all text-center",
+										numWeeks === w
+											? "bg-brand-primary/15 border-brand-primary text-brand-primary shadow-xs"
+											: "bg-foreground/5 border-foreground/10 text-foreground/60 hover:text-foreground hover:bg-foreground/10",
+									)}>
+									{w} Weeks
+								</button>
+							))}
+						</div>
+
+						{/* Slider */}
+						<div className="space-y-2 pt-2">
 							<GlassSlider
 								min={1}
 								max={12}
@@ -502,187 +770,265 @@ export function PlanDesigner({
 								value={numWeeks}
 								onChange={setNumWeeks}
 								displayValue={`${numWeeks} Weeks`}
-								label="Plan Duration"
+								label="Duration"
 								unit="Weeks"
 								hideHeader={true}
 							/>
-						</div>
-					</div>
-				</GlassCard>
-			)}
-
-			{/* Step 2: Days */}
-			{step === "days" && (
-				<GlassCard className="space-y-8 py-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-					<div className="text-center space-y-2">
-						<div className="w-16 h-16 bg-brand-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-							<Settings2 className="w-8 h-8 text-brand-primary" />
-						</div>
-						<h2 className="text-2xl font-black text-foreground uppercase tracking-tight">
-							Weekly Split
-						</h2>
-						<p className="text-sm text-foreground/40 font-medium">
-							Select your training days and rest days.
-						</p>
-					</div>
-
-					<div className="grid grid-cols-1 gap-3 max-w-md mx-auto">
-						{DAYS.map((day, idx) => (
-							<div
-								key={day}
-								onClick={() => toggleDay(idx)}
-								className={cn(
-									"p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between group",
-									trainingDays.includes(idx)
-										? "border-brand-primary bg-brand-primary/5"
-										: "border-foreground/5 bg-foreground/5 opacity-50",
-								)}>
-								<div className="flex items-center space-x-4">
-									<div
-										className={cn(
-											"w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs uppercase",
-											trainingDays.includes(idx)
-												? "bg-brand-primary text-black"
-												: "bg-foreground/10 text-foreground/40",
-										)}>
-										{day.substring(0, 3)}
-									</div>
-									<div>
-										<p className="font-bold text-foreground">{day}</p>
-										<p className="text-[10px] uppercase font-black tracking-widest text-brand-primary/60">
-											{trainingDays.includes(idx) ? "Gym Day" : "Rest Day"}
-										</p>
-									</div>
-								</div>
-								<div
-									className={cn(
-										"w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",
-										trainingDays.includes(idx)
-											? "border-brand-primary bg-brand-primary"
-											: "border-foreground/20",
-									)}>
-									{trainingDays.includes(idx) && (
-										<CheckCircle2 className="w-4 h-4 text-black" />
-									)}
-								</div>
+							<div className="flex justify-between text-[10px] font-semibold text-foreground/30 px-1">
+								<span>1 Week (Micro)</span>
+								<span>6 Weeks (Standard)</span>
+								<span>12 Weeks (Full Block)</span>
 							</div>
-						))}
-					</div>
-				</GlassCard>
+						</div>
+					</GlassCard>
+				</div>
 			)}
 
-			{/* Step 3: Exercises */}
-			{step === "exercises" && (
-			<>
-				<div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-					{/* Day Navigator */}
-					<div className="flex overflow-x-auto pb-2 space-x-2.5 no-scrollbar">
-						{DAYS.map((day, idx) => {
-							const isTrainingDay = trainingDays.includes(idx);
-							const isSelected = currentDay === idx;
-							const exerciseCount = masterWeekData[idx]?.exercises?.length || 0;
-							const splitName = masterWeekData[idx]?.splitName;
+			{/* ── Step 2: Weekly Split ── */}
+			{step === "days" && (
+				<div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-300">
+					{/* Split volume summary header */}
+					<GlassCard className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-brand-primary/20 bg-brand-primary/[0.03]">
+						<div className="flex items-center gap-3">
+							<div className="w-10 h-10 rounded-xl bg-brand-primary/15 flex items-center justify-center text-brand-primary shrink-0">
+								<Activity className="w-5 h-5" />
+							</div>
+							<div>
+								<h2 className="text-sm font-bold text-foreground">
+									Weekly Training Architecture
+								</h2>
+								<p className="text-xs text-foreground/50 mt-0.5">
+									{trainingDays.length} training days ·{" "}
+									{7 - trainingDays.length} rest days
+								</p>
+							</div>
+						</div>
+						<div className="flex items-center gap-2">
+							<span className="text-[11px] font-semibold text-brand-primary px-3 py-1 rounded-full bg-brand-primary/10 border border-brand-primary/25">
+								{trainingDays.length >= 5
+									? "High Frequency"
+									: trainingDays.length >= 3
+										? "Balanced Frequency"
+										: "Maintenance Frequency"}
+							</span>
+						</div>
+					</GlassCard>
 
-							return (
+					{/* Split presets */}
+					<div className="space-y-2">
+						<label className="text-[11px] font-bold text-foreground/40 uppercase tracking-wider block ml-1">
+							Quick Split Presets
+						</label>
+						<div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+							{SPLIT_PRESETS.map((p) => (
 								<button
-									key={day}
+									key={p.label}
 									type="button"
-									disabled={!isTrainingDay}
-									onClick={() => setCurrentDay(idx)}
-									className={cn(
-										"px-4 py-3 rounded-2xl text-left transition-all border min-w-[115px] md:min-w-[130px] flex flex-col justify-between shrink-0 relative overflow-hidden group",
-										!isTrainingDay &&
-											"opacity-35 border-dashed border-foreground/10 bg-foreground/[0.01] cursor-not-allowed",
-										isTrainingDay &&
-											!isSelected &&
-											"bg-foreground/[0.03] hover:bg-foreground/[0.06] border-foreground/[0.08] hover:border-foreground/20 text-foreground cursor-pointer",
-										isSelected &&
-											"bg-brand-primary text-white border-brand-primary shadow-lg shadow-brand-primary/25 ring-2 ring-brand-primary/30 cursor-default",
-									)}>
-									{/* Top Row: Short day name + active badge or status indicator */}
-									<div className="flex items-center justify-between w-full">
-										<span
-											className={cn(
-												"text-xs font-bold tracking-tight",
-												isSelected
-													? "text-white"
-													: isTrainingDay
-														? "text-foreground"
-														: "text-foreground/30",
-											)}>
-											{day.substring(0, 3)}
-										</span>
-										{pendingDayCounts[idx] > 0 ? (
-											<span className="relative flex w-2 h-2">
-												<span className="relative inline-flex w-2 h-2 rounded-full bg-rose-500 ring-2 ring-rose-500/30" />
-											</span>
-										) : isSelected ? (
-											<span className="w-2 h-2 rounded-full bg-white shadow-xs animate-pulse" />
-										) : isTrainingDay && exerciseCount > 0 ? (
-											<span className="w-1.5 h-1.5 rounded-full bg-brand-primary/80" />
-										) : null}
-									</div>
-
-									{/* Bottom Info: Full day or Split name or Exercise count */}
-									<div className="mt-2.5 w-full">
-										<p
-											className={cn(
-												"text-[11px] font-semibold truncate leading-tight",
-												isSelected
-													? "text-white/95"
-													: isTrainingDay
-														? "text-foreground/75"
-														: "text-foreground/25",
-											)}>
-											{isTrainingDay ? splitName || day : "Rest Day"}
-										</p>
-										<p
-											className={cn(
-												"text-[10px] mt-0.5 truncate font-medium",
-												isSelected
-													? "text-white/75"
-													: isTrainingDay
-														? "text-foreground/40"
-														: "text-foreground/20",
-											)}>
-											{isTrainingDay
-												? `${exerciseCount} ${exerciseCount === 1 ? "exercise" : "exercises"}`
-												: "Off"}
-										</p>
-									</div>
+									onClick={() => applySplitPreset(p)}
+									className="px-3.5 py-2.5 rounded-xl border border-foreground/10 bg-foreground/[0.03] hover:bg-foreground/[0.07] hover:border-brand-primary/30 text-left transition-all group">
+									<p className="text-xs font-bold text-foreground/80 group-hover:text-brand-primary transition-colors">
+										{p.label}
+									</p>
+									<p className="text-[10px] text-foreground/40 mt-0.5">
+										Auto-names training days
+									</p>
 								</button>
-							);
-						})}
+							))}
+						</div>
+					</div>
+
+					{/* 7-Day Selection Grid */}
+					<div className="space-y-2">
+						<label className="text-[11px] font-bold text-foreground/40 uppercase tracking-wider block ml-1">
+							Days of the Week
+						</label>
+						<div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+							{DAYS.map((day, idx) => {
+								const isTraining = trainingDays.includes(idx);
+								const currentSplit = masterWeekData[idx]?.splitName;
+
+								return (
+									<button
+										key={day}
+										type="button"
+										onClick={() => toggleDay(idx)}
+										className={cn(
+											"p-4 rounded-2xl border transition-all flex items-center justify-between text-left group",
+											isTraining
+												? "border-brand-primary/40 bg-brand-primary/[0.08] hover:bg-brand-primary/[0.12] shadow-xs"
+												: "border-foreground/8 bg-foreground/[0.02] hover:bg-foreground/[0.05] opacity-60 hover:opacity-80",
+										)}>
+										<div className="flex items-center gap-3.5 min-w-0">
+											<div
+												className={cn(
+													"w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs uppercase shrink-0 transition-colors",
+													isTraining
+														? "bg-brand-primary text-black font-extrabold"
+														: "bg-foreground/10 text-foreground/40",
+												)}>
+												{day.substring(0, 3)}
+											</div>
+											<div className="min-w-0">
+												<p className="font-bold text-sm text-foreground truncate">
+													{day}
+												</p>
+												<p
+													className={cn(
+														"text-[11px] truncate mt-0.5",
+														isTraining
+															? "text-brand-primary font-semibold"
+															: "text-foreground/35 font-medium",
+													)}>
+													{isTraining
+														? currentSplit || "Workout Day"
+														: "Scheduled Rest"}
+												</p>
+											</div>
+										</div>
+
+										<div
+											className={cn(
+												"w-6 h-6 rounded-full border flex items-center justify-center transition-all shrink-0 ml-2",
+												isTraining
+													? "border-brand-primary bg-brand-primary text-black"
+													: "border-foreground/20 text-transparent",
+											)}>
+											{isTraining && (
+												<Check className="w-3.5 h-3.5 stroke-[3]" />
+											)}
+										</div>
+									</button>
+								);
+							})}
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* ── Step 3: Exercises & Day Builder ── */}
+			{step === "exercises" && (
+				<div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-300">
+					{/* Day Navigator Horizontal Strip */}
+					<div className="space-y-2">
+						<div className="flex items-center justify-between px-1">
+							<span className="text-[11px] font-bold text-foreground/40 uppercase tracking-wider">
+								Select Day to Edit
+							</span>
+							<span className="text-[11px] font-semibold text-brand-primary">
+								{masterWeekData[currentDay]?.exercises?.length || 0} exercises
+								configured
+							</span>
+						</div>
+
+						<div className="flex overflow-x-auto pb-1.5 gap-2 no-scrollbar">
+							{DAYS.map((day, idx) => {
+								const isTrainingDay = trainingDays.includes(idx);
+								const isSelected = currentDay === idx;
+								const exerciseCount =
+									masterWeekData[idx]?.exercises?.length || 0;
+								const splitName = masterWeekData[idx]?.splitName;
+
+								return (
+									<button
+										key={day}
+										type="button"
+										disabled={!isTrainingDay}
+										onClick={() => setCurrentDay(idx)}
+										className={cn(
+											"px-3.5 py-3 rounded-2xl text-left transition-all border min-w-[110px] flex flex-col justify-between shrink-0 relative",
+											!isTrainingDay &&
+												"opacity-30 border-dashed border-foreground/10 bg-foreground/[0.01] cursor-not-allowed",
+											isTrainingDay &&
+												!isSelected &&
+												"bg-foreground/[0.03] hover:bg-foreground/[0.06] border-foreground/10 text-foreground cursor-pointer",
+											isSelected &&
+												"bg-brand-primary text-black border-brand-primary shadow-md font-bold cursor-default",
+										)}>
+										<div className="flex items-center justify-between w-full">
+											<span
+												className={cn(
+													"text-xs font-bold",
+													isSelected ? "text-black" : "text-foreground",
+												)}>
+												{day.substring(0, 3)}
+											</span>
+											{pendingDayCounts[idx] > 0 ? (
+												<span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+											) : isSelected ? (
+												<span className="w-1.5 h-1.5 rounded-full bg-black/60" />
+											) : isTrainingDay && exerciseCount > 0 ? (
+												<span className="w-1.5 h-1.5 rounded-full bg-brand-primary" />
+											) : null}
+										</div>
+
+										<div className="mt-2 w-full">
+											<p
+												className={cn(
+													"text-[11px] font-semibold truncate leading-tight",
+													isSelected ? "text-black/90" : "text-foreground/75",
+												)}>
+												{isTrainingDay ? splitName || "Workout" : "Rest"}
+											</p>
+											<p
+												className={cn(
+													"text-[10px] mt-0.5 truncate",
+													isSelected
+														? "text-black/60 font-medium"
+														: "text-foreground/40",
+												)}>
+												{isTrainingDay ? `${exerciseCount} exercises` : "Off"}
+											</p>
+										</div>
+									</button>
+								);
+							})}
+						</div>
 					</div>
 
 					{/* Split Name Editor */}
-					<GlassCard className="space-y-1">
-						<label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest ml-1">
-							Split Name for {DAYS[currentDay]}
-						</label>
+					<GlassCard className="p-4 space-y-2 border-foreground/10">
+						<div className="flex items-center justify-between">
+							<label className="text-[11px] font-bold text-foreground/50 uppercase tracking-wider">
+								Day Focus / Title for {DAYS[currentDay]}
+							</label>
+							<div className="flex gap-1">
+								{["Push", "Pull", "Legs", "Upper", "Lower"].map((tag) => (
+									<button
+										key={tag}
+										type="button"
+										onClick={() =>
+											updateDayData(currentDay, { splitName: tag })
+										}
+										className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-foreground/5 hover:bg-brand-primary/20 hover:text-brand-primary text-foreground/50 transition-colors">
+										{tag}
+									</button>
+								))}
+							</div>
+						</div>
 						<input
 							value={currentDayData.splitName}
 							onChange={(e) =>
 								updateDayData(currentDay, { splitName: e.target.value })
 							}
-							placeholder="e.g. Upper Body, Pull, Heavy Squat Day..."
-							className="w-full bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-3 text-foreground font-bold outline-none focus:border-brand-primary transition-colors"
+							placeholder="e.g. Upper Body Hypertrophy, Heavy Deadlifts..."
+							className="w-full bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-3 text-foreground font-semibold text-sm outline-none focus:border-brand-primary transition-colors"
 						/>
 					</GlassCard>
 
-					{/* Rationale Note (AI preview) */}
+					{/* AI Split Rationale Note (if present) */}
 					{dayRationalesState[currentDay] && (
-						<div className="relative glass-card border-brand-primary/20 bg-brand-primary/5 py-3 px-4 pr-10 space-y-1">
-							<div className="flex items-center space-x-2">
-								<Sparkles className="w-3.5 h-3.5 text-brand-primary" />
-								<h4 className="text-[9px] font-black text-brand-primary uppercase tracking-widest">
-									Why this split
-								</h4>
+						<div className="relative rounded-2xl border border-brand-primary/25 bg-brand-primary/[0.04] p-4 pr-10 space-y-1">
+							<div className="flex items-center gap-2 text-brand-primary">
+								<Sparkles className="w-3.5 h-3.5" />
+								<span className="text-[10px] font-bold uppercase tracking-wider">
+									Program Design Rationale
+								</span>
 							</div>
-							<p className="text-xs font-medium text-foreground/70 leading-relaxed">
+							<p className="text-xs text-foreground/75 leading-relaxed">
 								{dayRationalesState[currentDay]}
 							</p>
 							<button
+								type="button"
 								onClick={() =>
 									setDayRationalesState((prev) => {
 										const next = { ...prev };
@@ -690,548 +1036,607 @@ export function PlanDesigner({
 										return next;
 									})
 								}
-								className="absolute top-3 right-3 p-1 text-foreground/30 hover:text-foreground/70 transition-colors"
+								className="absolute top-3 right-3 p-1.5 text-foreground/30 hover:text-foreground transition-colors"
 								aria-label="Dismiss rationale">
 								<X className="w-4 h-4" />
 							</button>
 						</div>
 					)}
 
-					<div className="space-y-4">
-						<div className="flex justify-between items-center px-2">
-							<h3 className="text-xs font-black text-foreground/40 uppercase tracking-[0.2em]">
-								Workout List
-							</h3>
+					{/* Exercises List Section */}
+					<div className="space-y-3">
+						<div className="flex justify-between items-center px-1">
+							<div className="flex items-center gap-2">
+								<Layers className="w-4 h-4 text-brand-primary" />
+								<h3 className="text-xs font-bold text-foreground/60 uppercase tracking-wider">
+									Exercise Routine ({currentDayData.exercises.length})
+								</h3>
+							</div>
 							<button
+								type="button"
 								onClick={() => {
 									setAlternativeForIndex(null);
 									setShowExerciseSelector(true);
 								}}
-								className="text-brand-primary text-[10px] font-black uppercase tracking-widest flex items-center hover:underline bg-brand-primary/10 px-4 py-2 rounded-xl">
-								<Plus className="w-4 h-4 mr-1" /> Add Exercise
+								className="text-black bg-brand-primary hover:opacity-95 text-xs font-bold px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 shadow-xs transition-all active:scale-95">
+								<Plus className="w-4 h-4" /> Add Exercise
 							</button>
 						</div>
 
 						{currentDayData.exercises.length === 0 ? (
-							<div className="glass-card border-dashed border-foreground/10 flex flex-col items-center justify-center py-20 text-center opacity-40">
-								<Dumbbell className="w-12 h-12 mb-4" />
-								<p className="text-xs font-bold uppercase tracking-widest">
-									No exercises added yet
+							<GlassCard className="flex flex-col items-center justify-center py-16 text-center border-dashed border-foreground/15">
+								<div className="w-12 h-12 rounded-2xl bg-foreground/5 flex items-center justify-center mb-3 text-foreground/30">
+									<Dumbbell className="w-6 h-6" />
+								</div>
+								<p className="text-sm font-bold text-foreground/60">
+									No exercises configured for {DAYS[currentDay]}
 								</p>
-							</div>
+								<p className="text-xs text-foreground/30 mt-1 max-w-xs">
+									Tap &quot;Add Exercise&quot; above to select movements from
+									the library.
+								</p>
+							</GlassCard>
 						) : (
-							currentDayData.exercises.map((ex, idx) => {
-								const review = pendingReviews[ex.exerciseId];
-								return (
-								<GlassCard
-									key={ex.exerciseId}
-									className={cn(
-										"space-y-4 relative border-l-4",
-										review
-											? "border-l-rose-500 ring-1 ring-rose-500/25 bg-rose-500/[0.03]"
-											: "border-l-brand-primary",
-									)}>
-									<div className="flex justify-between items-start">
-										<div className="flex items-center space-x-3">
-											<div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center">
-												<Dumbbell className="w-5 h-5 text-brand-primary" />
-											</div>
-											<div className="flex-1 min-w-0">
-												<h4 className="font-black text-foreground uppercase tracking-tight">
-													{ex.name}
-												</h4>
-												{review && (
-													<span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-md bg-rose-500/15 border border-rose-500/30 text-[8px] font-black uppercase tracking-wider text-rose-400">
-														<AlertTriangle className="w-2.5 h-2.5 mr-1" />
-														{review.kind === "new"
-															? "Needs creation"
-															: "Needs matching"}
-													</span>
-												)}
-												<div className="flex items-center space-x-2 text-[8px] font-black uppercase text-foreground/40">
-													<span className="flex items-center">
-														<Info className="w-2 h-2 mr-1" /> Best: {ex.pr || 0}
-														kg
-													</span>
+							<div className="space-y-3">
+								{currentDayData.exercises.map((ex, idx) => {
+									const review = pendingReviews[ex.exerciseId];
+
+									return (
+										<GlassCard
+											key={ex.exerciseId}
+											className={cn(
+												"p-4 space-y-4 relative transition-all border-l-4",
+												review
+													? "border-l-rose-500 ring-1 ring-rose-500/25 bg-rose-500/[0.03]"
+													: "border-l-brand-primary",
+											)}>
+											{/* Header row: title + actions */}
+											<div className="flex items-start justify-between gap-3">
+												<div className="flex items-center gap-3 min-w-0 flex-1">
+													<div className="w-9 h-9 rounded-xl bg-brand-primary/10 flex items-center justify-center text-brand-primary shrink-0">
+														<Dumbbell className="w-4 h-4" />
+													</div>
+													<div className="min-w-0 flex-1">
+														<div className="flex items-center gap-2 flex-wrap">
+															<h4 className="font-bold text-sm text-foreground truncate">
+																{ex.name}
+															</h4>
+															{ex.pr && ex.pr > 0 ? (
+																<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-foreground/5 border border-foreground/10 text-[10px] font-semibold text-foreground/60">
+																	<Flame className="w-2.5 h-2.5 text-brand-primary" />{" "}
+																	PR: {ex.pr}kg
+																</span>
+															) : null}
+														</div>
+														{review && (
+															<span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-md bg-rose-500/15 border border-rose-500/30 text-[9px] font-bold text-rose-400">
+																<AlertTriangle className="w-2.5 h-2.5 mr-1" />
+																{review.kind === "new"
+																	? "New movement"
+																	: "Verify match"}
+															</span>
+														)}
+													</div>
 												</div>
-											</div>
-										</div>
-										<div className="flex items-center space-x-1">
-											<button
-												type="button"
-												onClick={() => {
-													const altMuscleGroup = availableExercises.find(
-														(e) =>
-															e.name.toLowerCase() ===
-															ex.name.toLowerCase(),
-													)?.muscleGroup;
-													setAlternativeForIndex(idx);
-													setExerciseModalStep(
-														altMuscleGroup ? "exercises" : "muscles",
-													);
-													setSelectedMuscles(
-														altMuscleGroup ? [altMuscleGroup] : [],
-													);
-													setDraftSelectedExercises([]);
-													setShowExerciseSelector(true);
-												}}
-												title="Add swap (OR) alternatives"
-												className={cn(
-													"p-1.5 rounded-lg transition-colors",
-													ex.alternatives && ex.alternatives.length > 0
-														? "text-brand-primary"
-														: "text-foreground/20 hover:text-brand-primary",
-												)}>
-												<ArrowLeftRight className="w-4 h-4" />
-											</button>
-											<button
-												onClick={() => handleMoveExercise(idx, "up")}
-												disabled={idx === 0}
-												className="p-1.5 text-foreground/20 hover:text-brand-primary transition-colors disabled:opacity-20 disabled:cursor-not-allowed">
-												<ChevronUp className="w-4 h-4" />
-											</button>
-											<button
-												onClick={() => handleMoveExercise(idx, "down")}
-												disabled={idx === currentDayData.exercises.length - 1}
-												className="p-1.5 text-foreground/20 hover:text-brand-primary transition-colors disabled:opacity-20 disabled:cursor-not-allowed">
-												<ChevronDown className="w-4 h-4" />
-											</button>
-											<button
-												onClick={() => {
-													const removed = currentDayData.exercises[idx];
-													const newExs = currentDayData.exercises.filter(
-														(_, i) => i !== idx,
-													);
-													updateDayData(currentDay, { exercises: newExs });
-													if (
-														removed &&
-														pendingReviews[removed.exerciseId]
-													) {
-														setPendingReviews((prev) => {
-															const next = { ...prev };
-															delete next[removed.exerciseId];
-															return next;
-														});
-													}
-												}}
-												className="p-2 text-foreground/20 hover:text-rose-500">
-												<Trash2 className="w-4 h-4" />
-											</button>
-										</div>
-									</div>
 
-									{review?.kind === "review" && (
-										<div className="space-y-2 bg-foreground/5 border border-brand-primary/20 rounded-xl p-3">
-											<p className="text-[9px] font-black text-brand-primary uppercase tracking-widest">
-												Which exercise did you mean?
-											</p>
-											<div className="flex flex-wrap gap-2">
-												{review.candidates?.map((c) => (
-													<button
-														key={c.id}
-														onClick={() =>
-															resolveExerciseReview(ex.exerciseId, c.id, c.name)
-														}
-														className="px-3 py-2 rounded-lg border border-foreground/10 bg-foreground/5 text-[10px] font-bold text-foreground/80 hover:border-brand-primary hover:text-brand-primary hover:bg-brand-primary/5 transition-all">
-														{c.name}{" "}
-														<span className="text-foreground/40 font-medium">
-															({Math.round(c.similarity * 100)}%)
-														</span>
-													</button>
-												))}
-											</div>
-											<button
-												onClick={() =>
-													setPendingReviews((prev) => ({
-														...prev,
-														[ex.exerciseId]: {
-															kind: "new",
-															aiName: review.aiName,
-															muscleGroup: review.muscleGroup,
-														},
-													}))
-												}
-												className="text-[10px] font-bold text-foreground/40 hover:text-amber-500 underline underline-offset-2 transition-colors">
-												None of these — create as new exercise
-											</button>
-										</div>
-									)}
-
-									{review?.kind === "new" && (
-										<div className="flex items-center justify-between gap-3 bg-amber-500/5 border border-amber-500/20 rounded-xl p-3">
-											<p className="text-[10px] font-bold text-foreground/60">
-												&quot;{review.aiName}&quot; isn&apos;t in your library —
-												create it as a custom exercise under{" "}
-												<span className="text-brand-primary uppercase font-black">
-													{review.muscleGroup}
-												</span>
-												?
-											</p>
-											<button
-												onClick={() =>
-													handleCreateNewExercise(
-														ex.exerciseId,
-														review.aiName,
-														review.muscleGroup,
-													)
-												}
-												className="shrink-0 bg-amber-500/20 border border-amber-500/30 text-amber-500 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-500 hover:text-black transition-all">
-												Create Exercise
-											</button>
-										</div>
-									)}
-
-									<div className="grid grid-cols-3 gap-4">
-										<div className="space-y-1">
-											<label className="text-[8px] font-black text-foreground/40 uppercase text-center block">
-												Sets
-											</label>
-											<input
-												type="number"
-												value={ex.targetSets}
-												onChange={(e) => {
-													const newExs = [...currentDayData.exercises];
-													newExs[idx].targetSets = parseInt(e.target.value);
-													updateDayData(currentDay, { exercises: newExs });
-												}}
-												className="w-full bg-foreground/5 border border-foreground/10 rounded-xl py-3 text-center font-bold text-foreground outline-none focus:border-brand-primary"
-											/>
-										</div>
-										<div className="space-y-1">
-											<label className="text-[8px] font-black text-foreground/40 uppercase text-center block">
-												Reps
-											</label>
-											<input
-												type="number"
-												value={ex.targetReps}
-												onChange={(e) => {
-													const newExs = [...currentDayData.exercises];
-													newExs[idx].targetReps = parseInt(e.target.value);
-													updateDayData(currentDay, { exercises: newExs });
-												}}
-												className="w-full bg-foreground/5 border border-foreground/10 rounded-xl py-3 text-center font-bold text-foreground outline-none focus:border-brand-primary"
-											/>
-										</div>
-										<div className="space-y-1">
-											<label className="text-[8px] font-black text-brand-primary/60 uppercase text-center block">
-												Target Weight
-											</label>
-											<input
-												type="number"
-												value={ex.lastWeight}
-												onChange={(e) => {
-													const newExs = [...currentDayData.exercises];
-													newExs[idx].lastWeight = parseInt(e.target.value);
-													updateDayData(currentDay, { exercises: newExs });
-												}}
-												className="w-full bg-foreground/5 border border-foreground/10 rounded-xl py-3 text-center font-bold text-brand-primary outline-none focus:border-brand-primary"
-											/>
-										</div>
-									</div>
-									{/* Rest Duration Selector */}
-									<div className="pt-2 border-t border-foreground/5">
-										<label className="text-[8px] font-black text-foreground/40 uppercase tracking-widest ml-1 mb-2 block">
-											Rest Duration
-										</label>
-										<div className="flex flex-wrap gap-2">
-											{[60, 90, 120, 180].map((time) => (
-												<button
-													key={time}
-													type="button"
-													onClick={() => {
-														const newExs = [...currentDayData.exercises];
-														newExs[idx].restDuration = time;
-														updateDayData(currentDay, { exercises: newExs });
-													}}
-													className={cn(
-														"px-3 py-1.5 rounded-lg border text-[10px] font-bold transition-all",
-														ex.restDuration === time
-															? "bg-brand-primary border-brand-primary text-black"
-															: "border-foreground/10 text-foreground/40 hover:border-foreground/20",
-													)}>
-													{time < 60
-														? `${time}s`
-														: time % 60 === 0
-															? `${time / 60}m`
-															: `${time}s`}
-												</button>
-											))}
-											<div className="flex items-center bg-foreground/5 border border-foreground/10 rounded-lg px-2 py-1.5 ml-auto">
-												<input
-													type="number"
-													placeholder="Custom..."
-													value={ex.restDuration || ""}
-													onChange={(e) => {
-														const newExs = [...currentDayData.exercises];
-														newExs[idx].restDuration =
-															parseInt(e.target.value) || 0;
-														updateDayData(currentDay, { exercises: newExs });
-													}}
-													className="w-12 bg-transparent text-center font-bold text-[10px] outline-none placeholder:font-normal"
-												/>
-												<span className="text-[8px] font-black text-foreground/20 uppercase ml-1">
-													Secs
-												</span>
-											</div>
-										</div>
-									</div>
-
-									{/* "OR" Alternatives */}
-									{ex.alternatives && ex.alternatives.length > 0 && (
-										<div className="flex flex-wrap gap-1.5 pt-1">
-											{(ex.alternatives as string[]).map((altName) => (
-												<span
-													key={altName}
-													className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md bg-brand-primary/10 border border-brand-primary/25 text-[9px] font-bold text-brand-primary">
-													<span>{altName}</span>
+												{/* Action toolbar */}
+												<div className="flex items-center gap-1 shrink-0">
 													<button
 														type="button"
 														onClick={() => {
-															const newExs = [...currentDayData.exercises];
-															newExs[idx] = {
-																...newExs[idx],
-																alternatives: (
-																	ex.alternatives as string[]
-																).filter((n) => n !== altName),
-															};
-															updateDayData(currentDay, { exercises: newExs });
+															setAlternativeForIndex(idx);
+															setDraftSelectedExercises([]);
+															setShowExerciseSelector(true);
 														}}
-														className="text-brand-primary/50 hover:text-rose-500 transition-colors"
-														aria-label={`Remove ${altName}`}>
-														<X className="w-3 h-3" />
+														title="Add swap alternative"
+														className={cn(
+															"p-1.5 rounded-lg transition-colors",
+															ex.alternatives && ex.alternatives.length > 0
+																? "text-brand-primary bg-brand-primary/10"
+																: "text-foreground/30 hover:text-brand-primary hover:bg-foreground/5",
+														)}>
+														<ArrowLeftRight className="w-4 h-4" />
 													</button>
-												</span>
-											))}
-										</div>
-									)}
-
-									<WarmupSetsPanel
-										workingWeight={ex.lastWeight}
-										repsField={ex.targetReps}
-										mode="PLAN_DESIGNER"
-									/>
-								</GlassCard>
-								);
-								})
-						)}
-					</div>
-				</div>
-
-				{/* Mobility Warmup Selection */}
-				<GlassCard className="space-y-4">
-					<button
-						onClick={() => setWarmupOpen(!warmupOpen)}
-						className="w-full flex items-center justify-between p-4"
-					>
-						<div className="flex items-center space-x-3">
-							<div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center">
-								<Dumbbell className="w-5 h-5 text-brand-primary" />
-							</div>
-							<div className="text-left">
-								<h3 className="text-xs font-black text-foreground uppercase tracking-widest">
-									Mobility Warmup
-								</h3>
-								<p className="text-[10px] font-bold text-foreground/40 uppercase">
-									{warmupIds.length === 0 && customWarmups.length === 0
-										? "Using 6 default movements"
-										: `${warmupIds.length + customWarmups.length} selected`}
-								</p>
-							</div>
-						</div>
-						{warmupOpen ? (
-							<ChevronUp className="w-4 h-4 text-foreground/40" />
-						) : (
-							<ChevronDown className="w-4 h-4 text-foreground/40" />
-						)}
-					</button>
-
-					{warmupOpen && (
-						<div className="px-4 pb-4 space-y-4">
-							<p className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest">
-								Select movements. Leave all empty for defaults.
-							</p>
-
-							{/* Custom warmup input */}
-							<div className="flex items-center space-x-2">
-								<input
-									value={customWarmupInput}
-									onChange={(e) => setCustomWarmupInput(e.target.value)}
-									placeholder="Name (e.g. Ankle Rolls)"
-									className="flex-1 bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-2.5 text-sm text-foreground font-bold outline-none focus:border-brand-primary placeholder:font-medium placeholder:opacity-50"
-								/>
-								<select
-									value={customWarmupDuration}
-									onChange={(e) => setCustomWarmupDuration(Number(e.target.value))}
-									className="bg-foreground/5 border border-foreground/10 rounded-xl px-3 py-2.5 text-sm text-foreground font-bold outline-none focus:border-brand-primary"
-								>
-									<option value={30}>30s</option>
-									<option value={45}>45s</option>
-									<option value={60}>60s</option>
-									<option value={90}>90s</option>
-								</select>
-								<button
-									onClick={handleAddCustomWarmup}
-									disabled={!customWarmupInput.trim()}
-									className="bg-brand-primary text-black px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all disabled:opacity-30 disabled:hover:scale-100"
-								>
-									<Plus className="w-4 h-4" />
-								</button>
-							</div>
-
-							{/* Movement grid — defaults + custom */}
-							{customWarmups.length > 0 && (
-								<div className="space-y-2">
-									<h4 className="text-[8px] font-black text-brand-primary uppercase tracking-widest">Custom</h4>
-									<div className="grid grid-cols-2 gap-2">
-										{customWarmups.map((m, idx) => (
-											<div
-												key={m.id}
-												className="flex items-center justify-between px-3 py-2.5 rounded-xl border border-brand-primary/20 bg-brand-primary/5"
-											>
-												<div className="flex flex-col">
-													<span className="text-[10px] font-bold text-foreground/80">{m.name}</span>
-													<span className="text-[8px] font-medium text-foreground/40">{m.durationSeconds}s</span>
+													<button
+														type="button"
+														onClick={() => handleMoveExercise(idx, "up")}
+														disabled={idx === 0}
+														className="p-1.5 rounded-lg text-foreground/30 hover:text-foreground hover:bg-foreground/5 disabled:opacity-20 disabled:cursor-not-allowed">
+														<ChevronUp className="w-4 h-4" />
+													</button>
+													<button
+														type="button"
+														onClick={() => handleMoveExercise(idx, "down")}
+														disabled={
+															idx === currentDayData.exercises.length - 1
+														}
+														className="p-1.5 rounded-lg text-foreground/30 hover:text-foreground hover:bg-foreground/5 disabled:opacity-20 disabled:cursor-not-allowed">
+														<ChevronDown className="w-4 h-4" />
+													</button>
+													<button
+														type="button"
+														onClick={() => {
+															const removed = currentDayData.exercises[idx];
+															const newExs = currentDayData.exercises.filter(
+																(_, i) => i !== idx,
+															);
+															updateDayData(currentDay, { exercises: newExs });
+															if (
+																removed &&
+																pendingReviews[removed.exerciseId]
+															) {
+																setPendingReviews((prev) => {
+																	const next = { ...prev };
+																	delete next[removed.exerciseId];
+																	return next;
+																});
+															}
+														}}
+														className="p-1.5 rounded-lg text-foreground/30 hover:text-rose-500 hover:bg-rose-500/10 transition-colors">
+														<Trash2 className="w-4 h-4" />
+													</button>
 												</div>
-												<button
-													onClick={() => setCustomWarmups((prev) => prev.filter((_, i) => i !== idx))}
-													className="p-1 text-foreground/20 hover:text-rose-500 transition-colors"
-												>
-													<Trash2 className="w-3.5 h-3.5" />
-												</button>
 											</div>
-										))}
-									</div>
-								</div>
-							)}
 
-							<h4 className="text-[8px] font-black text-foreground/40 uppercase tracking-widest">Defaults</h4>
-							<div className="grid grid-cols-2 gap-2">
-								{MOBILITY_MOVEMENTS.map((m) => {
-									const selected = warmupIds.includes(m.id);
-									return (
-										<button
-											key={m.id}
-											onClick={() => {
-												setWarmupIds((prev) =>
-													prev.includes(m.id)
-														? prev.filter((id) => id !== m.id)
-														: [...prev, m.id]
-												);
-											}}
-											className={cn(
-												"flex items-center space-x-2 px-3 py-2.5 rounded-xl border text-left transition-all",
-												selected
-													? "border-brand-primary/30 bg-brand-primary/10"
-													: "border-foreground/10 bg-foreground/5",
+											{/* AI Review Resolution Card (if needed) */}
+											{review?.kind === "review" && (
+												<div className="space-y-2 bg-foreground/5 border border-brand-primary/25 rounded-xl p-3">
+													<p className="text-[10px] font-bold text-brand-primary uppercase tracking-wider">
+														Match with canonical exercise
+													</p>
+													<div className="flex flex-wrap gap-1.5">
+														{review.candidates?.map((c) => (
+															<button
+																key={c.id}
+																type="button"
+																onClick={() =>
+																	resolveExerciseReview(
+																		ex.exerciseId,
+																		c.id,
+																		c.name,
+																	)
+																}
+																className="px-2.5 py-1.5 rounded-lg border border-foreground/10 bg-foreground/5 text-xs font-semibold text-foreground/80 hover:border-brand-primary hover:text-brand-primary transition-all">
+																{c.name}
+															</button>
+														))}
+													</div>
+													<button
+														type="button"
+														onClick={() =>
+															setPendingReviews((prev) => ({
+																...prev,
+																[ex.exerciseId]: {
+																	kind: "new",
+																	aiName: review.aiName,
+																	muscleGroup: review.muscleGroup,
+																},
+															}))
+														}
+														className="text-[10px] font-semibold text-foreground/40 hover:text-brand-primary transition-colors">
+														Keep as custom movement
+													</button>
+												</div>
 											)}
-										>
-											<div
-												className={cn(
-													"w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0",
-													selected ? "bg-brand-primary" : "bg-foreground/10",
-												)}
-											>
-												{selected && <Check className="w-3 h-3 text-black" />}
+
+											{review?.kind === "new" && (
+												<div className="flex items-center justify-between gap-3 bg-brand-primary/5 border border-brand-primary/20 rounded-xl p-3">
+													<p className="text-xs text-foreground/70">
+														&quot;{review.aiName}&quot; under{" "}
+														<span className="text-brand-primary font-bold">
+															{review.muscleGroup}
+														</span>
+													</p>
+													<button
+														type="button"
+														onClick={() =>
+															handleCreateNewExercise(
+																ex.exerciseId,
+																review.aiName,
+																review.muscleGroup,
+															)
+														}
+														className="px-3 py-1.5 rounded-lg bg-brand-primary text-black font-bold text-xs hover:opacity-95 transition-opacity shrink-0">
+														Create
+													</button>
+												</div>
+											)}
+
+											{/* Parameters: Sets, Reps, Weight Micro-Steppers */}
+											<div className="grid grid-cols-3 gap-2.5 pt-1">
+												{/* Sets */}
+												<div className="bg-foreground/[0.03] border border-foreground/10 rounded-xl p-2.5 text-center">
+													<span className="text-[10px] font-bold text-foreground/40 uppercase tracking-wider block mb-1">
+														Sets
+													</span>
+													<div className="flex items-center justify-between">
+														<button
+															type="button"
+															onClick={() => {
+																const newExs = [...currentDayData.exercises];
+																newExs[idx].targetSets = Math.max(
+																	1,
+																	(newExs[idx].targetSets || 3) - 1,
+																);
+																updateDayData(currentDay, {
+																	exercises: newExs,
+																});
+															}}
+															className="w-7 h-7 rounded-lg bg-foreground/5 hover:bg-foreground/15 text-foreground/60 flex items-center justify-center font-bold text-sm">
+															-
+														</button>
+														<span className="text-base font-black text-foreground tabular-nums">
+															{ex.targetSets || 3}
+														</span>
+														<button
+															type="button"
+															onClick={() => {
+																const newExs = [...currentDayData.exercises];
+																newExs[idx].targetSets =
+																	(newExs[idx].targetSets || 3) + 1;
+																updateDayData(currentDay, {
+																	exercises: newExs,
+																});
+															}}
+															className="w-7 h-7 rounded-lg bg-foreground/5 hover:bg-foreground/15 text-foreground/60 flex items-center justify-center font-bold text-sm">
+															+
+														</button>
+													</div>
+												</div>
+
+												{/* Reps */}
+												<div className="bg-foreground/[0.03] border border-foreground/10 rounded-xl p-2.5 text-center">
+													<span className="text-[10px] font-bold text-foreground/40 uppercase tracking-wider block mb-1">
+														Reps
+													</span>
+													<div className="flex items-center justify-between">
+														<button
+															type="button"
+															onClick={() => {
+																const newExs = [...currentDayData.exercises];
+																newExs[idx].targetReps = Math.max(
+																	1,
+																	(newExs[idx].targetReps || 10) - 1,
+																);
+																updateDayData(currentDay, {
+																	exercises: newExs,
+																});
+															}}
+															className="w-7 h-7 rounded-lg bg-foreground/5 hover:bg-foreground/15 text-foreground/60 flex items-center justify-center font-bold text-sm">
+															-
+														</button>
+														<span className="text-base font-black text-foreground tabular-nums">
+															{ex.targetReps || 10}
+														</span>
+														<button
+															type="button"
+															onClick={() => {
+																const newExs = [...currentDayData.exercises];
+																newExs[idx].targetReps =
+																	(newExs[idx].targetReps || 10) + 1;
+																updateDayData(currentDay, {
+																	exercises: newExs,
+																});
+															}}
+															className="w-7 h-7 rounded-lg bg-foreground/5 hover:bg-foreground/15 text-foreground/60 flex items-center justify-center font-bold text-sm">
+															+
+														</button>
+													</div>
+												</div>
+
+												{/* Target Weight */}
+												<div className="bg-foreground/[0.03] border border-foreground/10 rounded-xl p-2.5 text-center">
+													<span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider block mb-1">
+														Target (kg)
+													</span>
+													<div className="flex items-center justify-between">
+														<button
+															type="button"
+															onClick={() => {
+																const newExs = [...currentDayData.exercises];
+																newExs[idx].lastWeight = Math.max(
+																	0,
+																	(newExs[idx].lastWeight || 0) - 2.5,
+																);
+																updateDayData(currentDay, {
+																	exercises: newExs,
+																});
+															}}
+															className="w-7 h-7 rounded-lg bg-foreground/5 hover:bg-foreground/15 text-foreground/60 flex items-center justify-center font-bold text-sm">
+															-
+														</button>
+														<span className="text-base font-black text-brand-primary tabular-nums">
+															{ex.lastWeight || 0}
+														</span>
+														<button
+															type="button"
+															onClick={() => {
+																const newExs = [...currentDayData.exercises];
+																newExs[idx].lastWeight =
+																	(newExs[idx].lastWeight || 0) + 2.5;
+																updateDayData(currentDay, {
+																	exercises: newExs,
+																});
+															}}
+															className="w-7 h-7 rounded-lg bg-foreground/5 hover:bg-foreground/15 text-foreground/60 flex items-center justify-center font-bold text-sm">
+															+
+														</button>
+													</div>
+												</div>
 											</div>
-											<div className="flex flex-col">
-												<span className="text-[10px] font-bold text-foreground/80">
-													{m.name}
+
+											{/* Rest Timer Segmented Selector */}
+											<div className="pt-2 border-t border-foreground/5 flex flex-wrap items-center justify-between gap-2">
+												<span className="text-[10px] font-bold text-foreground/40 uppercase tracking-wider">
+													Rest
 												</span>
-												<span className="text-[8px] font-medium text-foreground/40">
-													{m.durationSeconds}s
-												</span>
+												<div className="flex items-center gap-1.5">
+													{[60, 90, 120, 180].map((sec) => (
+														<button
+															key={sec}
+															type="button"
+															onClick={() => {
+																const newExs = [...currentDayData.exercises];
+																newExs[idx].restDuration = sec;
+																updateDayData(currentDay, {
+																	exercises: newExs,
+																});
+															}}
+															className={cn(
+																"px-2.5 py-1 rounded-lg text-xs font-semibold transition-all",
+																ex.restDuration === sec
+																	? "bg-brand-primary text-black font-bold"
+																	: "bg-foreground/5 text-foreground/60 hover:bg-foreground/10",
+															)}>
+															{sec < 60
+																? `${sec}s`
+																: sec % 60 === 0
+																	? `${sec / 60}m`
+																	: `${sec}s`}
+														</button>
+													))}
+												</div>
 											</div>
-										</button>
+
+											{/* OR Alternatives Chips */}
+											{ex.alternatives && ex.alternatives.length > 0 && (
+												<div className="flex flex-wrap items-center gap-1.5 pt-1">
+													<span className="text-[10px] font-bold text-foreground/30 uppercase mr-1">
+														Alt:
+													</span>
+													{(ex.alternatives as string[]).map((altName) => (
+														<span
+															key={altName}
+															className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-brand-primary/10 border border-brand-primary/20 text-[10px] font-semibold text-brand-primary">
+															<span>{altName}</span>
+															<button
+																type="button"
+																onClick={() => {
+																	const newExs = [...currentDayData.exercises];
+																	newExs[idx] = {
+																		...newExs[idx],
+																		alternatives: (
+																			ex.alternatives as string[]
+																		).filter((n) => n !== altName),
+																	};
+																	updateDayData(currentDay, {
+																		exercises: newExs,
+																	});
+																}}
+																className="hover:text-rose-400">
+																<X className="w-3 h-3" />
+															</button>
+														</span>
+													))}
+												</div>
+											)}
+
+											{/* Warmup Sets Panel */}
+											<WarmupSetsPanel
+												workingWeight={ex.lastWeight || 0}
+												repsField={ex.targetReps || 10}
+												mode="PLAN_DESIGNER"
+											/>
+										</GlassCard>
 									);
 								})}
 							</div>
-						</div>
-					)}
-				</GlassCard>
-			</>
+						)}
+					</div>
+
+					{/* Mobility Warmup Selection Card */}
+					<GlassCard className="p-4 space-y-3 border-foreground/10">
+						<button
+							type="button"
+							onClick={() => setWarmupOpen(!warmupOpen)}
+							className="w-full flex items-center justify-between text-left">
+							<div className="flex items-center gap-3">
+								<div className="w-9 h-9 rounded-xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+									<Activity className="w-4 h-4" />
+								</div>
+								<div>
+									<h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
+										Mobility & Warmup Routine
+									</h4>
+									<p className="text-[11px] text-foreground/40 mt-0.5">
+										{warmupIds.length === 0 && customWarmups.length === 0
+											? "Standard 6-movement mobility flow active"
+											: `${warmupIds.length + customWarmups.length} custom movements selected`}
+									</p>
+								</div>
+							</div>
+							<div className="p-1 rounded-lg text-foreground/40">
+								{warmupOpen ? (
+									<ChevronUp className="w-4 h-4" />
+								) : (
+									<ChevronDown className="w-4 h-4" />
+								)}
+							</div>
+						</button>
+
+						{warmupOpen && (
+							<div className="pt-3 border-t border-foreground/10 space-y-4">
+								{/* Custom warmup input */}
+								<div className="flex items-center gap-2">
+									<input
+										value={customWarmupInput}
+										onChange={(e) => setCustomWarmupInput(e.target.value)}
+										placeholder="Add custom mobility move (e.g. World's Greatest Stretch)"
+										className="flex-1 bg-foreground/5 border border-foreground/10 rounded-xl px-3.5 py-2 text-xs font-medium text-foreground outline-none focus:border-brand-primary"
+									/>
+									<select
+										value={customWarmupDuration}
+										onChange={(e) =>
+											setCustomWarmupDuration(Number(e.target.value))
+										}
+										className="bg-foreground/5 border border-foreground/10 rounded-xl px-2.5 py-2 text-xs font-semibold text-foreground outline-none">
+										<option value={30}>30s</option>
+										<option value={45}>45s</option>
+										<option value={60}>60s</option>
+									</select>
+									<button
+										type="button"
+										onClick={handleAddCustomWarmup}
+										disabled={!customWarmupInput.trim()}
+										className="px-3 py-2 rounded-xl bg-brand-primary text-black font-bold text-xs disabled:opacity-30">
+										<Plus className="w-4 h-4" />
+									</button>
+								</div>
+
+								{/* Movement list */}
+								<div className="grid grid-cols-2 gap-2">
+									{MOBILITY_MOVEMENTS.map((m) => {
+										const isSelected = warmupIds.includes(m.id);
+										return (
+											<button
+												key={m.id}
+												type="button"
+												onClick={() => {
+													setWarmupIds((prev) =>
+														prev.includes(m.id)
+															? prev.filter((id) => id !== m.id)
+															: [...prev, m.id],
+													);
+												}}
+												className={cn(
+													"p-2.5 rounded-xl border text-left flex items-center justify-between gap-2 transition-all",
+													isSelected
+														? "border-brand-primary/40 bg-brand-primary/10 text-brand-primary"
+														: "border-foreground/10 bg-foreground/[0.02] text-foreground/70 hover:bg-foreground/[0.05]",
+												)}>
+												<div className="min-w-0">
+													<p className="text-xs font-semibold truncate leading-tight">
+														{m.name}
+													</p>
+													<p className="text-[10px] opacity-60 mt-0.5">
+														{m.durationSeconds}s
+													</p>
+												</div>
+												{isSelected && (
+													<Check className="w-3.5 h-3.5 shrink-0" />
+												)}
+											</button>
+										);
+									})}
+								</div>
+							</div>
+						)}
+					</GlassCard>
+				</div>
 			)}
 
-			{/* Sticky Footer */}
-			<div className="fixed bottom-0 left-0 md:left-20 right-0 z-50 pointer-events-none">
+			{/* ── Sticky Action Bar ── */}
+			<div className="fixed bottom-0 left-0 md:left-20 right-0 z-40 pointer-events-none">
 				<div
-					className="absolute inset-0 bg-background/80 backdrop-blur-xl"
+					className="absolute inset-0 bg-background/85 backdrop-blur-xl"
 					style={{
-						maskImage: "linear-gradient(to top, black 40%, transparent 100%)",
+						maskImage: "linear-gradient(to top, black 60%, transparent 100%)",
 						WebkitMaskImage:
-							"linear-gradient(to top, black 40%, transparent 100%)",
+							"linear-gradient(to top, black 60%, transparent 100%)",
 					}}
 				/>
-				<div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
 
-				<div className="max-w-4xl mx-auto p-6 relative pointer-events-auto">
+				<div className="max-w-3xl mx-auto p-4 md:p-6 relative pointer-events-auto">
+					{/* Review alert banner if reviews remain */}
 					{step === "exercises" && pendingReviewTotal > 0 && (
-						<div className="mb-3 flex items-center gap-3 bg-rose-500/10 border border-rose-500/30 rounded-xl px-4 py-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-							<AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-							<p className="text-[10px] font-black text-rose-300 uppercase tracking-widest">
-								{pendingReviewTotal} exercise match
-								{pendingReviewTotal === 1 ? "" : "es"} still need
-								attention — highlighted in red on{" "}
-								{pendingDays.map((d) => DAYS[d].substring(0, 3)).join(", ")}
-							</p>
+						<div className="mb-3 flex items-center gap-2.5 bg-rose-500/10 border border-rose-500/25 rounded-xl px-4 py-2.5 text-rose-300 text-xs font-semibold">
+							<AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
+							<span>
+								{pendingReviewTotal} movement
+								{pendingReviewTotal === 1 ? "" : "s"} will auto-match on save.
+							</span>
 						</div>
 					)}
-					<div className="flex gap-4">
+
+					<div className="flex items-center gap-3">
 						{step === "config" ? (
 							<button
+								type="button"
 								onClick={() => {
 									if (!startDate) return alert("Please select a date.");
 									setStep("days");
 								}}
-								className="w-full bg-brand-primary text-black py-5 rounded-2xl font-black text-sm uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(249,115,22,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all">
-								Continue to Days
+								className="w-full bg-brand-primary text-black py-4 rounded-2xl font-bold text-sm tracking-wide shadow-md hover:opacity-95 active:scale-[0.99] transition-all">
+								Continue to Split ({numWeeks} Weeks)
 							</button>
 						) : step === "days" ? (
 							<>
 								<button
+									type="button"
 									onClick={() => setStep("config")}
-									className="flex-1 glass-button py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] border-foreground/10">
+									className="flex-1 glass-button py-4 rounded-2xl font-bold text-xs uppercase tracking-wider border-foreground/10">
 									Back
 								</button>
 								<button
+									type="button"
 									onClick={() => {
 										if (trainingDays.length === 0)
 											return alert("Please select at least one training day.");
 										setStep("exercises");
 										setCurrentDay(trainingDays[0]);
 									}}
-									className="flex-[2] bg-brand-primary text-black py-5 rounded-2xl font-black text-sm uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(249,115,22,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all">
-									Set Exercises
+									className="flex-[2] bg-brand-primary text-black py-4 rounded-2xl font-bold text-sm tracking-wide shadow-md hover:opacity-95 active:scale-[0.99] transition-all">
+									Configure Exercises ({trainingDays.length} Days)
 								</button>
 							</>
 						) : (
 							<>
 								<button
+									type="button"
 									onClick={() => setStep("days")}
-									className="flex-1 glass-button py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] border-foreground/10">
+									className="flex-1 glass-button py-4 rounded-2xl font-bold text-xs uppercase tracking-wider border-foreground/10">
 									Back
 								</button>
 								{showDraftOption && (
 									<button
-										onClick={() => handleSave('draft')}
+										type="button"
+										onClick={() => handleSave("draft")}
 										disabled={isSaving}
-										className="flex-1 glass-button py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] border-foreground/10 hover:border-brand-primary/40">
+										className="flex-1 glass-button py-4 rounded-2xl font-bold text-xs uppercase tracking-wider border-foreground/10 hover:border-brand-primary/40">
 										{isSaving ? (
-											<Loader2 className="w-5 h-5 animate-spin" />
+											<Loader2 className="w-4 h-4 animate-spin mx-auto" />
 										) : (
-											"Save as Draft"
+											"Save Draft"
 										)}
 									</button>
 								)}
 								<button
-									onClick={() => handleSave(showDraftOption ? 'active' : undefined)}
+									type="button"
+									onClick={() =>
+										handleSave(showDraftOption ? "active" : undefined)
+									}
 									disabled={isSaving}
-									className="flex-[2] bg-brand-primary text-black py-5 rounded-2xl font-black text-sm uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(249,115,22,0.3)] flex items-center justify-center hover:scale-[1.02] active:scale-[0.98] transition-all">
+									className="flex-[2] bg-brand-primary text-black py-4 rounded-2xl font-bold text-sm tracking-wide shadow-md hover:opacity-95 active:scale-[0.99] transition-all flex items-center justify-center gap-2">
 									{isSaving ? (
-										<Loader2 className="w-5 h-5 animate-spin" />
+										<Loader2 className="w-4 h-4 animate-spin" />
 									) : showSuccess ? (
-										<CheckCircle2 className="w-5 h-5" />
+										<>
+											<CheckCircle2 className="w-4 h-4" /> Saved!
+										</>
+									) : showDraftOption ? (
+										"Save as Plan"
 									) : (
-										showDraftOption ? "Save as Plan" : "Finalize Plan"
+										"Finalize Plan"
 									)}
 								</button>
 							</>
@@ -1240,257 +1645,187 @@ export function PlanDesigner({
 				</div>
 			</div>
 
-			{/* Exercise Selector Modal */}
+			{/* ── Search-First Exercise Selector Modal ── */}
 			{showExerciseSelector && (
-				<div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+				<div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
 					<div
-						className="absolute inset-0 bg-black/90 backdrop-blur-md"
+						className="absolute inset-0 bg-black/80 backdrop-blur-md"
 						onClick={closeExerciseSelector}
 					/>
-					<GlassCard className="w-full max-w-xl max-h-[85vh] overflow-hidden flex flex-col relative z-[101] border-brand-primary/20 p-0">
-						{/* Header */}
-						<div className="p-6 border-b border-foreground/10 flex justify-between items-center bg-background/50 backdrop-blur-md z-10 sticky top-0">
-							<div className="flex items-center space-x-3">
-								{exerciseModalStep === "exercises" && alternativeForIndex === null && (
-									<button
-										onClick={() => setExerciseModalStep("muscles")}
-										className="p-2 hover:bg-foreground/5 rounded-full -ml-2">
-										<ChevronLeft className="w-5 h-5 text-foreground/60 hover:text-foreground" />
-									</button>
-								)}
-								<h2 className="text-xl font-black text-foreground uppercase tracking-tight">
-									{exerciseModalStep === "muscles"
-										? "Target Muscles"
-										: "Select Exercises"}
-								</h2>
+					<GlassCard className="w-full max-w-xl max-h-[88vh] overflow-hidden flex flex-col relative z-50 border-foreground/15 p-0 shadow-2xl">
+						{/* Modal Header */}
+						<div className="p-4 sm:p-5 border-b border-foreground/10 flex items-center justify-between bg-background/60 backdrop-blur-md">
+							<div>
+								<h3 className="text-base font-bold text-foreground">
+									{alternativeForIndex !== null
+										? "Select Swap Alternatives"
+										: "Exercise Library"}
+								</h3>
+								<p className="text-xs text-foreground/45 mt-0.5">
+									{availableExercises.length} verified exercises available
+								</p>
 							</div>
 							<button
+								type="button"
 								onClick={closeExerciseSelector}
-								className="p-2 hover:bg-foreground/5 rounded-full -mr-2">
+								className="p-2 rounded-xl text-foreground/40 hover:text-foreground hover:bg-foreground/5 transition-colors">
 								<X className="w-5 h-5" />
 							</button>
 						</div>
 
-						{/* Step 1: Muscle Selection */}
-						{exerciseModalStep === "muscles" && (
-							<div className="flex-1 overflow-y-auto p-6 flex flex-col custom-scrollbar">
-								<p className="text-sm font-bold text-foreground/40 text-center mb-8 uppercase tracking-widest">
-									{alternativeForIndex !== null
-										? "Which muscle groups for the alternative?"
-										: "Which muscle groups are you training today?"}
-								</p>
-								<div className="grid grid-cols-2 gap-3 mb-8">
-									{availableMuscleGroups.map((muscle) => {
-										const isSelected = selectedMuscles.includes(muscle);
-										return (
-											<button
-												key={muscle}
-												onClick={() => toggleMuscle(muscle)}
-												className={cn(
-													"py-5 px-4 rounded-2xl font-black text-sm uppercase tracking-wide border-2 transition-all group flex items-center justify-between",
-													isSelected
-														? "bg-brand-primary/10 border-brand-primary text-brand-primary"
-														: "bg-foreground/5 border-foreground/5 text-foreground/60 hover:border-foreground/20 hover:text-foreground hover:bg-foreground/10",
-												)}>
-												{muscle}
-												<div
-													className={cn(
-														"w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
-														isSelected
-															? "border-brand-primary bg-brand-primary"
-															: "border-foreground/20 group-hover:border-foreground/40",
-													)}>
-													{isSelected && (
-														<Check className="w-3 h-3 text-black" />
+						{/* Search Bar & Muscle Filter Pills */}
+						<div className="p-4 space-y-3 border-b border-foreground/10 bg-foreground/[0.01]">
+							<div className="relative">
+								<Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/40" />
+								<input
+									placeholder="Search exercises by name..."
+									value={searchQuery}
+									onChange={(e) => setSearchQuery(e.target.value)}
+									autoFocus
+									className="w-full bg-foreground/5 border border-foreground/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-foreground outline-none focus:border-brand-primary placeholder:text-foreground/35"
+								/>
+							</div>
+
+							{/* Muscle Category Filter Chips */}
+							<div className="flex overflow-x-auto gap-1.5 no-scrollbar pb-0.5">
+								{availableMuscleGroups.map((group) => {
+									const isSelected = selectedMuscleFilter === group;
+									return (
+										<button
+											key={group}
+											type="button"
+											onClick={() => setSelectedMuscleFilter(group)}
+											className={cn(
+												"px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors",
+												isSelected
+													? "bg-brand-primary text-black font-bold"
+													: "bg-foreground/5 text-foreground/60 hover:bg-foreground/10 hover:text-foreground",
+											)}>
+											{group}
+										</button>
+									);
+								})}
+							</div>
+						</div>
+
+						{/* Exercise List */}
+						<div className="flex-1 overflow-y-auto p-4 space-y-1.5 custom-scrollbar min-h-[260px] max-h-[400px]">
+							{filteredExercises.length === 0 ? (
+								<div className="py-12 text-center space-y-3">
+									<p className="text-sm font-semibold text-foreground/50">
+										No exercises found for &quot;{searchQuery}&quot;
+									</p>
+									<p className="text-xs text-foreground/30">
+										Add it as a custom exercise below:
+									</p>
+								</div>
+							) : (
+								filteredExercises.map((ex) => {
+									const isSelected = draftSelectedExercises.includes(ex.name);
+
+									return (
+										<button
+											key={ex.name}
+											type="button"
+											onClick={() => toggleExerciseSelection(ex.name)}
+											className={cn(
+												"w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between group",
+												isSelected
+													? "bg-brand-primary/10 border-brand-primary/50 text-foreground"
+													: "bg-foreground/[0.02] border-foreground/5 hover:border-foreground/20 hover:bg-foreground/[0.05] text-foreground/80",
+											)}>
+											<div className="min-w-0 flex-1">
+												<div className="flex items-center gap-2">
+													<span className="font-semibold text-sm truncate">
+														{ex.name}
+													</span>
+													{ex.isCustom && (
+														<span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-brand-primary/15 text-brand-primary">
+															Custom
+														</span>
 													)}
 												</div>
-											</button>
-										);
-									})}
-								</div>
+												<p className="text-[11px] text-foreground/40 mt-0.5">
+													{ex.muscleGroup}
+												</p>
+											</div>
 
-								<div className="mt-auto pt-6 border-t border-foreground/10">
+											<div
+												className={cn(
+													"w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ml-3 transition-all",
+													isSelected
+														? "border-brand-primary bg-brand-primary text-black"
+														: "border-foreground/20 text-transparent group-hover:border-foreground/40",
+												)}>
+												<Check className="w-3 h-3 stroke-[3]" />
+											</div>
+										</button>
+									);
+								})
+							)}
+
+							{/* Custom Exercise Quick Inline Add */}
+							<div className="pt-3 border-t border-foreground/10 space-y-2">
+								<p className="text-[11px] font-bold text-foreground/40 uppercase tracking-wider">
+									Create Custom Movement
+								</p>
+								<div className="flex items-center gap-2">
+									<input
+										placeholder="Exercise name..."
+										value={customExerciseInput}
+										onChange={(e) => setCustomExerciseInput(e.target.value)}
+										onKeyDown={(e) =>
+											e.key === "Enter" && handleAddCustomExercise()
+										}
+										className="flex-1 bg-foreground/5 border border-foreground/10 rounded-xl px-3 py-2 text-xs font-semibold text-foreground outline-none focus:border-brand-primary"
+									/>
+									<select
+										value={customExerciseMuscle}
+										onChange={(e) => setCustomExerciseMuscle(e.target.value)}
+										className="bg-foreground/5 border border-foreground/10 rounded-xl px-2.5 py-2 text-xs font-semibold text-foreground outline-none">
+										<option value="Chest">Chest</option>
+										<option value="Back">Back</option>
+										<option value="Legs">Legs</option>
+										<option value="Shoulders">Shoulders</option>
+										<option value="Arms">Arms</option>
+										<option value="Core">Core</option>
+										<option value="Cardio">Cardio</option>
+										<option value="Other">Other</option>
+									</select>
 									<button
-										onClick={() => {
-											if (selectedMuscles.length === 0)
-												return alert(
-													"Select at least one muscle group to continue!",
-												);
-											setExerciseModalStep("exercises");
-										}}
-										disabled={selectedMuscles.length === 0}
-										className={cn(
-											"w-full py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all",
-											selectedMuscles.length > 0
-												? "bg-brand-primary text-black shadow-[0_0_30px_rgba(249,115,22,0.3)] hover:scale-105 active:scale-95"
-												: "bg-foreground/10 text-foreground/40 cursor-not-allowed",
-										)}>
-										Next: Choose Exercises
+										type="button"
+										onClick={handleAddCustomExercise}
+										disabled={
+											!customExerciseInput.trim() || loadingHistory === "custom"
+										}
+										className="px-3 py-2 rounded-xl bg-foreground/10 hover:bg-brand-primary hover:text-black text-xs font-bold transition-colors disabled:opacity-30">
+										{loadingHistory === "custom" ? (
+											<Loader2 className="w-3.5 h-3.5 animate-spin" />
+										) : (
+											"Add"
+										)}
 									</button>
 								</div>
 							</div>
-						)}
+						</div>
 
-						{/* Step 2: Exercise Selection */}
-						{exerciseModalStep === "exercises" && (
-							<>
-								<div className="p-6 pb-2 space-y-4">
-									{/* Custom Exercise Input */}
-									<div className="flex items-center space-x-2">
-										<input
-											placeholder="Add a custom exercise..."
-											value={customExerciseInput}
-											onChange={(e) => setCustomExerciseInput(e.target.value)}
-											onKeyDown={(e) =>
-												e.key === "Enter" && handleAddCustomExercise()
-											}
-											className="flex-1 bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-3 text-foreground font-bold outline-none focus:border-brand-primary placeholder:font-medium placeholder:opacity-50"
-										/>
-										<button
-											onClick={handleAddCustomExercise}
-											disabled={
-												!customExerciseInput.trim() ||
-												loadingHistory === "custom"
-											}
-											className="bg-foreground/10 text-foreground py-3 px-4 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-brand-primary hover:text-black hover:shadow-[0_0_15px_rgba(249,115,22,0.3)] transition-all disabled:opacity-30 disabled:hover:bg-foreground/10 disabled:hover:text-foreground disabled:hover:shadow-none min-w-[100px] flex justify-center items-center">
-											{loadingHistory === "custom" ? (
-												<Loader2 className="w-4 h-4 animate-spin" />
-											) : (
-												"Add Custom"
-											)}
-										</button>
-									</div>
-
-									{/* Search Bar */}
-									<div className="relative">
-										<Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/40" />
-										<input
-											placeholder="Search for exercises..."
-											value={searchQuery}
-											onChange={(e) => setSearchQuery(e.target.value)}
-											className="w-full bg-foreground/5 border border-foreground/10 rounded-xl pl-11 pr-4 py-3 text-sm text-foreground outline-none focus:border-brand-primary"
-										/>
-									</div>
-								</div>
-
-								<div className="flex-1 overflow-y-auto p-6 pt-2 space-y-6 custom-scrollbar">
-									{availableMuscleGroups.map((group) => {
-										if (!selectedMuscles.includes(group)) return null;
-
-										const groupExercises = availableExercises.filter(
-											(e) => e.muscleGroup === group,
-										);
-										const filtered = groupExercises.filter((ex) =>
-											ex.name.toLowerCase().includes(searchQuery.toLowerCase()),
-										);
-										if (filtered.length === 0) return null;
-
-										return (
-											<div key={group} className="space-y-3">
-												<h3 className="text-[10px] font-black text-brand-primary uppercase tracking-[0.2em] ml-1">
-													{group}
-												</h3>
-												<div className="grid grid-cols-1 gap-2">
-													{filtered.map((ex) => {
-														const isSelected = draftSelectedExercises.includes(
-															ex.name,
-														);
-														return (
-															<button
-																key={ex.name}
-																onClick={() => toggleExerciseSelection(ex.name)}
-																className={cn(
-																	"w-full text-left px-5 py-4 rounded-2xl border transition-all flex justify-between items-center group",
-																	isSelected
-																		? "bg-brand-primary/10 border-brand-primary"
-																		: "bg-foreground/5 border-foreground/10 hover:border-brand-primary hover:bg-brand-primary/5 text-foreground/80",
-																)}>
-																<span
-																	className={cn(
-																		"font-bold",
-																		isSelected
-																			? "text-brand-primary"
-																			: "group-hover:text-foreground",
-																	)}>
-																	{ex.name}
-																	{ex.isCustom && (
-																		<span className="ml-2 px-2 py-0.5 rounded-md bg-brand-primary/10 text-[8px] uppercase tracking-wider text-brand-primary border border-brand-primary/20">
-																			Custom
-																		</span>
-																	)}
-																</span>
-																<div
-																	className={cn(
-																		"w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all",
-																		isSelected
-																			? "border-brand-primary bg-brand-primary text-black shadow-[0_0_10px_rgba(249,115,22,0.5)]"
-																			: "border-foreground/20 text-transparent group-hover:border-brand-primary",
-																	)}>
-																	<Check
-																		className={cn(
-																			"w-3 h-3 transition-opacity",
-																			isSelected ? "opacity-100" : "opacity-0",
-																		)}
-																	/>
-																</div>
-															</button>
-														);
-													})}
-												</div>
-											</div>
-										);
-									})}
-
-									{/* Empty state when rendering exclusively selected muscles that don't match query */}
-									{selectedMuscles.length > 0 &&
-										selectedMuscles.every(
-											(muscle) =>
-												availableExercises.filter(
-													(ex) =>
-														ex.muscleGroup === muscle &&
-														ex.name
-															.toLowerCase()
-															.includes(searchQuery.toLowerCase()),
-												).length === 0,
-										) && (
-											<div className="py-12 text-center text-foreground/40">
-												<p className="text-sm font-bold">
-													No exercises found for your search.
-												</p>
-												<p className="text-[10px] uppercase tracking-wider mt-2">
-													Try using the Custom Exercise input above.
-												</p>
-											</div>
-										)}
-								</div>
-
-								{/* Add Action Footer */}
-								<div
-									className={cn(
-										"p-6 border-t border-foreground/10 bg-background/95 backdrop-blur-md transition-all duration-300",
-										draftSelectedExercises.length > 0
-											? "translate-y-0 opacity-100"
-											: "translate-y-8 opacity-0 hidden",
-									)}>
-									<button
-										onClick={handleAddSelected}
-										disabled={loadingHistory === "multiple"}
-										className="w-full bg-brand-primary text-black py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(249,115,22,0.3)] hover:scale-105 active:scale-95 transition-all flex items-center justify-center">
-										{loadingHistory === "multiple" ? (
-											<Loader2 className="w-5 h-5 animate-spin" />
-										) : alternativeForIndex !== null ? (
-											<>Set {draftSelectedExercises.length} Alternative
-											{draftSelectedExercises.length !== 1 ? "s" : ""}
-											</>
-										) : (
-											<>
-												Add {draftSelectedExercises.length} Exercise
-												{draftSelectedExercises.length !== 1 ? "s" : ""}
-											</>
-										)}
-									</button>
-								</div>
-							</>
+						{/* Modal Footer with Multi-Select Action */}
+						{draftSelectedExercises.length > 0 && (
+							<div className="p-4 border-t border-foreground/10 bg-background/80 backdrop-blur-md">
+								<button
+									type="button"
+									onClick={handleAddSelected}
+									disabled={loadingHistory === "multiple"}
+									className="w-full bg-brand-primary text-black py-3.5 rounded-xl font-bold text-sm shadow-md hover:opacity-95 active:scale-[0.99] transition-all flex items-center justify-center gap-2">
+									{loadingHistory === "multiple" ? (
+										<Loader2 className="w-4 h-4 animate-spin" />
+									) : alternativeForIndex !== null ? (
+										`Attach ${draftSelectedExercises.length} Swap Alternative${draftSelectedExercises.length === 1 ? "" : "s"}`
+									) : (
+										`Add ${draftSelectedExercises.length} Selected Exercise${draftSelectedExercises.length === 1 ? "" : "s"}`
+									)}
+								</button>
+							</div>
 						)}
 					</GlassCard>
 				</div>

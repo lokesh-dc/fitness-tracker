@@ -31,11 +31,16 @@ export { LogWeightModal, AppleWeightWheelPicker } from "@/components/LogWeightMo
 interface WeightTimelineWidgetProps {
 	data: ThisWeekWeightSummary;
 	profile?: UserProfile | null;
+	logWeightBeforeWorkout?: boolean;
 }
 
 type ViewRange = "7d" | "all";
 
-export function WeightTimelineWidget({ data, profile }: WeightTimelineWidgetProps) {
+export function WeightTimelineWidget({
+	data,
+	profile,
+	logWeightBeforeWorkout = true,
+}: WeightTimelineWidgetProps) {
 	const [mounted, setMounted] = useState(false);
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [selectedDateStr, setSelectedDateStr] = useState<string>(() => {
@@ -159,6 +164,9 @@ export function WeightTimelineWidget({ data, profile }: WeightTimelineWidgetProp
 	const yMin = Math.max(0, Math.floor(minVal - 1));
 	const yMax = Math.ceil(maxVal + 1);
 
+	const isTodayLogged = data.days.some((d) => d.isToday && d.weight !== null);
+	const promoteWeightLog = !logWeightBeforeWorkout && !isTodayLogged;
+
 	return (
 		<section className="space-y-2.5">
 			{/* Widget Header */}
@@ -186,9 +194,17 @@ export function WeightTimelineWidget({ data, profile }: WeightTimelineWidgetProp
 					<button
 						type="button"
 						onClick={() => openModalForDate()}
-						className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-foreground/[0.03] hover:bg-foreground/[0.07] border border-foreground/[0.06] text-foreground/35 hover:text-foreground text-xs font-medium transition-all cursor-pointer">
-						<Plus className="w-3 h-3 text-foreground/30" />
+						className={cn(
+							"inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-medium transition-all cursor-pointer",
+							promoteWeightLog
+								? "bg-brand-primary/15 hover:bg-brand-primary/25 border border-brand-primary/30 text-brand-primary font-semibold shadow-xs"
+								: "bg-foreground/[0.03] hover:bg-foreground/[0.07] border border-foreground/[0.06] text-foreground/35 hover:text-foreground",
+						)}>
+						<Plus className={cn("w-3 h-3", promoteWeightLog ? "text-brand-primary" : "text-foreground/30")} />
 						<span>Log weight</span>
+						{promoteWeightLog && (
+							<span className="w-1.5 h-1.5 rounded-full bg-brand-primary animate-pulse" />
+						)}
 					</button>
 				</div>
 			</div>
